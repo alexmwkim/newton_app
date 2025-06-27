@@ -9,7 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
+  Alert,
+  Keyboard
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
@@ -21,7 +22,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
   const [title, setTitle] = useState(initialNote?.title || '');
   const [content, setContent] = useState(initialNote?.content || '');
   const [visibility, setVisibility] = useState(initialNote?.isPublic ? 'public' : 'private');
-  const [showFormatting, setShowFormatting] = useState(false);
+  const [showKeyboardToolbar, setShowKeyboardToolbar] = useState(false);
+  const [activeInput, setActiveInput] = useState(null);
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -48,11 +50,30 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
     const timer = setTimeout(() => {
       if (!title) {
         titleInputRef.current?.focus();
+        setActiveInput('title');
       } else {
         contentInputRef.current?.focus();
+        setActiveInput('content');
       }
     }, 100);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Handle keyboard events
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setShowKeyboardToolbar(true);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setShowKeyboardToolbar(false);
+      setActiveInput(null);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
   }, []);
 
   const visibilityOptions = [
@@ -60,28 +81,22 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
     { icon: 'globe', label: 'Public', value: 'public' },
   ];
 
-  const formatActions = [
-    { label: 'H1', action: () => insertFormat('# ') },
-    { label: 'H2', action: () => insertFormat('## ') },
-    { label: 'H3', action: () => insertFormat('### ') },
-    { label: 'B', action: () => insertFormat('**', '**') },
-    { label: 'I', action: () => insertFormat('*', '*') },
-    { label: '[]', action: () => insertFormat('- ') },
-    { label: '1.', action: () => insertFormat('1. ') },
-    { label: '""', action: () => insertFormat('> ') },
-    { label: 'Code', action: () => insertFormat('`', '`') },
-    { label: 'Link', action: () => insertFormat('[', '](url)') },
-  ];
-
   const insertFormat = (prefix, suffix = '') => {
-    const currentText = content;
-    const newText = currentText + prefix + suffix;
-    setContent(newText);
-    
-    // Focus the content input after inserting format
-    setTimeout(() => {
-      contentInputRef.current?.focus();
-    }, 50);
+    if (activeInput === 'title') {
+      const newText = title + prefix + suffix;
+      setTitle(newText);
+      setTimeout(() => titleInputRef.current?.focus(), 50);
+    } else {
+      const newText = content + prefix + suffix;
+      setContent(newText);
+      setTimeout(() => contentInputRef.current?.focus(), 50);
+    }
+  };
+
+  const hideKeyboard = () => {
+    Keyboard.dismiss();
+    setShowKeyboardToolbar(false);
+    setActiveInput(null);
   };
 
   const addImage = () => {
@@ -134,8 +149,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
             onToggle={setVisibility}
           />
           
-          <TouchableOpacity onPress={() => setShowFormatting(!showFormatting)} style={styles.formatButton}>
-            <Icon name="more-horizontal" size={24} color={Colors.primaryText} />
+          <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+            <Icon name="check" size={20} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -151,54 +166,18 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
             onChangeText={setTitle}
             multiline={false}
             returnKeyType="next"
-            onSubmitEditing={() => contentInputRef.current?.focus()}
+            onFocus={() => setActiveInput('title')}
+            onSubmitEditing={() => {
+              contentInputRef.current?.focus();
+              setActiveInput('content');
+            }}
           />
 
-          {/* Formatting Toolbar */}
-          {showFormatting && (
-            <View style={styles.formattingToolbar}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.formattingSection}>
-                  <Text style={styles.sectionLabel}>Text</Text>
-                  <View style={styles.formattingButtons}>
-                    {formatActions.slice(0, 5).map((action, index) => (
-                      <TouchableOpacity key={index} style={styles.formatButton} onPress={action.action}>
-                        <Text style={styles.formatButtonText}>{action.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                
-                <View style={styles.formattingSection}>
-                  <Text style={styles.sectionLabel}>Lists</Text>
-                  <View style={styles.formattingButtons}>
-                    {formatActions.slice(5, 7).map((action, index) => (
-                      <TouchableOpacity key={index} style={styles.formatButton} onPress={action.action}>
-                        <Text style={styles.formatButtonText}>{action.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                
-                <View style={styles.formattingSection}>
-                  <Text style={styles.sectionLabel}>Blocks</Text>
-                  <View style={styles.formattingButtons}>
-                    {formatActions.slice(7).map((action, index) => (
-                      <TouchableOpacity key={index} style={styles.formatButton} onPress={action.action}>
-                        <Text style={styles.formatButtonText}>{action.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                    <TouchableOpacity style={styles.formatButton} onPress={addImage}>
-                      <Text style={styles.formatButtonText}>📷</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </ScrollView>
-            </View>
-          )}
-
           {/* Content Input */}
-          <TouchableOpacity style={styles.contentArea} onPress={() => contentInputRef.current?.focus()}>
+          <TouchableOpacity style={styles.contentArea} onPress={() => {
+            contentInputRef.current?.focus();
+            setActiveInput('content');
+          }}>
             <TextInput
               ref={contentInputRef}
               style={styles.contentInput}
@@ -208,37 +187,54 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
               onChangeText={setContent}
               multiline={true}
               textAlignVertical="top"
+              onFocus={() => setActiveInput('content')}
             />
           </TouchableOpacity>
-          
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('quote')}>
-              <View style={styles.quickActionContent}>
-                <Icon name="message-square" size={16} color={Colors.primaryText} />
-                <Text style={styles.quickActionText}>Quote</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('code')}>
-              <View style={styles.quickActionContent}>
-                <Icon name="code" size={16} color={Colors.primaryText} />
-                <Text style={styles.quickActionText}>Code Block</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('divider')}>
-              <View style={styles.quickActionContent}>
-                <Icon name="minus" size={16} color={Colors.primaryText} />
-                <Text style={styles.quickActionText}>Divider</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('table')}>
-              <View style={styles.quickActionContent}>
-                <Icon name="grid" size={16} color={Colors.primaryText} />
-                <Text style={styles.quickActionText}>Table</Text>
-              </View>
+        </ScrollView>
+
+        {/* Seamless Keyboard Toolbar */}
+        {showKeyboardToolbar && (
+          <View style={styles.keyboardToolbar}>
+            <View style={styles.toolbarLeft}>
+              <TouchableOpacity 
+                style={styles.toolbarButton} 
+                onPress={() => insertFormat('# ')}
+              >
+                <Icon name="hash" size={18} color={Colors.primaryText} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.toolbarButton}
+                onPress={() => insertFormat('**', '**')}
+              >
+                <Icon name="bold" size={18} color={Colors.primaryText} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.toolbarButton}
+                onPress={() => insertFormat('*', '*')}
+              >
+                <Icon name="italic" size={18} color={Colors.primaryText} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.toolbarButton}
+                onPress={() => insertFormat('\n- ')}
+              >
+                <Icon name="list" size={18} color={Colors.primaryText} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.toolbarButton}
+                onPress={() => insertFormat('> ')}
+              >
+                <Icon name="message-square" size={18} color={Colors.primaryText} />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity 
+              style={styles.doneButton}
+              onPress={hideKeyboard}
+            >
+              <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -343,6 +339,51 @@ const styles = StyleSheet.create({
   quickActionContent: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: Colors.floatingButton,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: Layout.borderRadius,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.noteCard,
+    paddingHorizontal: Layout.screen.padding,
+    paddingVertical: Layout.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  toolbarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.md,
+  },
+  toolbarButton: {
+    padding: Layout.spacing.xs,
+    borderRadius: 6,
+    backgroundColor: Colors.white,
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneButton: {
+    backgroundColor: Colors.floatingButton,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: Layout.borderRadius,
+  },
+  doneButtonText: {
+    color: Colors.white,
+    fontSize: Typography.fontSize.body,
+    fontWeight: Typography.fontWeight.semibold,
   },
 });
 
