@@ -1,0 +1,220 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\froman\fcharset0 Times-Bold;\f1\fnil\fcharset0 .SFNS-Regular;\f2\fnil\fcharset0 .SFNS-Bold;
+\f3\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red14\green14\blue14;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c6700\c6700\c6700;}
+\margl1440\margr1440\vieww19220\viewh13000\viewkind0
+\deftab720
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f0\b\fs24 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 # API \uc0\u49444 \u44228  \u47928 \u49436  (Newton App)\
+\
+## \uc0\u44060 \u50836 \
+\uc0\u51060  \u47928 \u49436 \u45716  Newton \u50545 \u51032  \u51452 \u50836  \u44592 \u45733 \u50640  \u54596 \u50836 \u54620  RESTful API\u47484  \u51221 \u51032 \u54633 \u45768 \u45796 . Supabase\u51032  PostgREST \u44592 \u45733 \u44284  \u52964 \u49828 \u53568  Function\u51012  \u54876 \u50857 \u54633 \u45768 \u45796 .\
+\
+---\
+\
+## \uc0\u51064 \u51613  (Auth)\
+\
+### POST /auth/signup  \
+- \uc0\u49444 \u47749 : \u49324 \u50857 \u51088  \u54924 \u50896 \u44032 \u51077   \
+- \uc0\u50836 \u52397  \u48376 \u47928 :  \
+```json\
+\{\
+  "email": "user@example.com",\
+  "password": "securepassword"\
+\}\
+\
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+
+\f1\b0\fs28 \cf3 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 	\'95	\uc0\u51025 \u45813 : 201 Created / \u50640 \u47084  \u47700 \u49884 \u51648 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 POST /auth/login
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u49324 \u50857 \u51088  \u47196 \u44536 \u51064 \
+	\'95	\uc0\u50836 \u52397  \u48376 \u47928 :\
+\{\
+  "email": "user@example.com",\
+  "password": "securepassword"\
+\}\
+\
+	\'95	\uc0\u51025 \u45813 : \u49464 \u49496  \u53664 \u53360  / \u50640 \u47084  \u47700 \u49884 \u51648 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f3\fs24 \cf0 \
+\uc0\u11835 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf3 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs34 \cf3 \uc0\u45432 \u53944  (Notes)
+\f1\b0\fs28 \cf3 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 GET /notes?visibility=private|public
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u51088 \u49888 \u51032  \u45432 \u53944 \u47484  \u51312 \u54924  (\u54532 \u46972 \u51060 \u48727 /\u54140 \u48660 \u47533 )\
+	\'95	\uc0\u51025 \u45813 :\
+[\
+  \{\
+    "id": "note_id",\
+    "title": "\uc0\u51228 \u47785 ",\
+    "content": "\uc0\u45236 \u50857 ",\
+    "created_at": "...",\
+    "visibility": "public",\
+    "author": \{\
+      "id": "user_id",\
+      "username": "\uc0\u50976 \u51200 \u47749 "\
+    \}\
+  \}\
+]\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 POST /notes
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u49352  \u45432 \u53944  \u51089 \u49457 \
+	\'95	\uc0\u50836 \u52397  \u48376 \u47928 :\
+\{\
+  "title": "\uc0\u51228 \u47785 ",\
+  "content": "\uc0\u45432 \u53944  \u45236 \u50857 ",\
+  "visibility": "private"\
+\}\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 POST /notes/:id/fork
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u54644 \u45817  \u45432 \u53944 \u47484  \u54252 \u53356 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f3\fs24 \cf0 \
+\uc0\u11835 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf3 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs34 \cf3 \uc0\u49324 \u50857 \u51088  (Users)
+\f1\b0\fs28 \cf3 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 GET /users/:id
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u53945 \u51221  \u50976 \u51200  \u54532 \u47196 \u54596  \u51221 \u48372  \u51312 \u54924 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 PATCH /users/:id
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u51088 \u44592 \u49548 \u44060 (readme) \u49688 \u51221 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs34 \cf3 \uc0\u44160 \u49353  (Search)
+\f1\b0\fs28 \cf3 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 GET /search?q=\uc0\u44160 \u49353 \u50612 
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u45432 \u53944  \u46608 \u45716  \u49324 \u50857 \u51088  \u44160 \u49353 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f3\fs24 \cf0 \
+\uc0\u11835 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf3 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs34 \cf3 \uc0\u50508 \u47548  (Notifications)
+\f1\b0\fs28 \cf3 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+
+\f2\b\fs30 \cf3 GET /notifications
+\f1\b0\fs28 \
+\pard\tqr\tx100\tx260\li260\fi-260\sl324\slmult1\sb240\partightenfactor0
+\cf3 	\'95	\uc0\u49444 \u47749 : \u50508 \u47548  \u47785 \u47197  \u48520 \u47084 \u50724 \u44592 \
+\
+---\
+\
+### \uc0\u55357 \u56516  `architecture-state.md`\
+\
+\
+# \uc0\u50500 \u53412 \u53581 \u52376  \u48143  \u49345 \u53468  \u44288 \u47532  \u51204 \u47029  (Newton App)\
+\
+## \uc0\u49440 \u53469 \u54620  \u54532 \u47112 \u51076 \u50892 \u53356 \
+- **React Native + Expo**\
+- **Supabase**: \uc0\u48177 \u50644 \u46300  \u48143  \u51064 \u51613 , \u45936 \u51060 \u53552 \u48288 \u51060 \u49828 \
+- **React Navigation**: \uc0\u54868 \u47732  \u51204 \u54872 \
+- **Redux Toolkit** (\uc0\u46608 \u45716  Zustand): \u44544 \u47196 \u48268  \u49345 \u53468  \u44288 \u47532 \
+\
+---\
+\
+## \uc0\u50500 \u53412 \u53581 \u52376  \u44396 \u51312 \
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\sl324\slmult1\pardirnatural\partightenfactor0
+\cf3 /src\
+/components     - \uc0\u51116 \u49324 \u50857  \u44032 \u45733 \u54620  UI \u52980 \u54252 \u45324 \u53944 \
+/screens        - \uc0\u54168 \u51060 \u51648  \u45800 \u50948  \u54868 \u47732 \
+/navigation     - React Navigation \uc0\u44396 \u51312 \
+/redux (\uc0\u46608 \u45716  /store)\
+/slices       - \uc0\u47784 \u46280 \u48324  \u49345 \u53468  \u48516 \u47532 \
+/api            - Supabase API \uc0\u54648 \u46308 \u47084 \
+/utils          - \uc0\u54764 \u54140  \u54632 \u49688 \
+\
+---\
+\
+## \uc0\u49345 \u53468  \u44288 \u47532  \u51204 \u47029 \
+\
+### \uc0\u44544 \u47196 \u48268  \u49345 \u53468  (Redux Toolkit \u52628 \u52380 )\
+- \uc0\u51064 \u51613  \u49345 \u53468  (user, token)\
+- \uc0\u50508 \u47548  \u49345 \u53468 \
+- \uc0\u53456 \u49353 \u54620  \u45432 \u53944 \u51032  \u52880 \u49884  \u49345 \u53468 \
+- \uc0\u54252 \u53356 \u46108  \u45432 \u53944  \u47532 \u49828 \u53944 \
+\
+### \uc0\u47196 \u52972  \u49345 \u53468 \
+- \uc0\u45432 \u53944  \u51089 \u49457  \u51473  \u51076 \u49884  \u51077 \u47141 \u44050 \
+- \uc0\u44160 \u49353 \u50612 \
+\
+---\
+\
+## \uc0\u45936 \u51060 \u53552  \u55120 \u47492 \
+\
+1. \uc0\u49324 \u50857 \u51088 \u44032  \u45432 \u53944 \u47484  \u51089 \u49457  \u8594  \u47196 \u52972  \u49345 \u53468  \u51200 \u51109 \
+2. \uc0\u51200 \u51109  \u48260 \u53948  \u53364 \u47533  \u8594  Supabase API \u54840 \u52636  \u8594  \u44544 \u47196 \u48268  \u49345 \u53468  \u50629 \u45936 \u51060 \u53944 \
+3. \uc0\u54140 \u48660 \u47533  \u45432 \u53944  \u8594  Explore \u54168 \u51060 \u51648 \u50640 \u49436  \u52880 \u49884 \u47196  \u47196 \u46377 \
+4. \uc0\u54252 \u53356  \u49884  \u8594  Supabase \u54632 \u49688  \u54840 \u52636  \u8594  \u45432 \u53944  \u48373 \u49324 \
+\
+---\
+\
+## \uc0\u50640 \u47084  \u54648 \u46308 \u47553 \
+- API \uc0\u54840 \u52636  \u49892 \u54056  \u49884  \u53664 \u49828 \u53944  \u47700 \u49884 \u51648 \u47196  \u50504 \u45236 \
+- \uc0\u51064 \u51613  \u47564 \u47308  \u49884  \u51088 \u46041  \u47196 \u44536 \u50500 \u50883 \
+\
+---\
+\
+## \uc0\u47196 \u46377  UX \u51204 \u47029 \
+- \uc0\u51204 \u50669  \u47196 \u46377  Spinner (\u44544 \u47196 \u48268  \u50836 \u52397  \u49884 )\
+- Skeleton UI (\uc0\u45432 \u53944  \u47785 \u47197 , \u54532 \u47196 \u54596  \u46321 )\
+\
+---\
+\
+## \uc0\u54693 \u54980  \u54869 \u51109  \u44256 \u47140 \
+- SSE(\uc0\u49436 \u48260  \u51204 \u49569  \u51060 \u48292 \u53944 ) or Supabase \u47532 \u50620 \u53440 \u51076  \u44592 \u45733 \u51004 \u47196  \u45432 \u53944  \u49892 \u49884 \u44036  \u50629 \u45936 \u51060 \u53944  \u44032 \u45733 \
+- \uc0\u50724 \u54532 \u46972 \u51064  \u51200 \u51109  \u8594  \u51116 \u51217 \u49549  \u49884  \u46041 \u44592 \u54868 }
