@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
@@ -53,17 +54,17 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <Icon name="arrow-left" size={24} color={Colors.primaryText} />
         </TouchableOpacity>
         
         <View style={styles.headerActions}>
           {displayNote.isPublic && (
             <TouchableOpacity onPress={handleFork} style={styles.actionButton}>
-              <Text style={styles.actionIcon}>🍴</Text>
+              <Icon name="git-branch" size={20} color={Colors.primaryText} />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={handleEdit} style={styles.actionButton}>
-            <Text style={styles.actionIcon}>✏️</Text>
+            <Icon name="edit-3" size={20} color={Colors.primaryText} />
           </TouchableOpacity>
         </View>
       </View>

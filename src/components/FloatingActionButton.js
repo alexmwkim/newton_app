@@ -1,12 +1,16 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Layout from '../constants/Layout';
 
 const FloatingActionButton = ({ onPress, style }) => {
   return (
     <TouchableOpacity style={[styles.fab, style]} onPress={onPress}>
-      <Text style={styles.fabText}>+ Create new</Text>
+      <View style={styles.fabContent}>
+        <Icon name="plus" size={18} color={Colors.white} />
+        <Text style={styles.fabText}>Create new</Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -35,6 +39,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.white,
     fontWeight: '600',
+    marginLeft: 6,
+  },
+  fabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
@@ -57,8 +58,8 @@ const HomeScreen = ({ navigation }) => {
   const [selectedTab, setSelectedTab] = useState('private');
 
   const toggleOptions = [
-    { icon: '🔒', label: 'Private', value: 'private' },
-    { icon: '🌍', label: 'Public', value: 'public' },
+    { icon: 'lock', label: 'Private', value: 'private' },
+    { icon: 'globe', label: 'Public', value: 'public' },
   ];
 
   const currentNotes = selectedTab === 'private' ? mockPrivateNotes : mockPublicNotes;
@@ -76,8 +77,8 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.logo}>Newton</Text>
         <View style={styles.headerIcons}>
-          <Text style={styles.iconText}>🔔</Text>
-          <Text style={styles.iconText}>⚙️</Text>
+          <Icon name="bell" size={24} color={Colors.primaryText} />
+          <Icon name="settings" size={24} color={Colors.primaryText} />
         </View>
       </View>
 

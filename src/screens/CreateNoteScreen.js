@@ -11,6 +11,7 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
@@ -55,8 +56,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
   }, []);
 
   const visibilityOptions = [
-    { icon: '🔒', label: 'Private', value: 'private' },
-    { icon: '🌍', label: 'Public', value: 'public' },
+    { icon: 'lock', label: 'Private', value: 'private' },
+    { icon: 'globe', label: 'Public', value: 'public' },
   ];
 
   const formatActions = [
@@ -124,7 +125,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backIcon}>✕</Text>
+            <Icon name="x" size={24} color={Colors.primaryText} />
           </TouchableOpacity>
           
           <ToggleButton
@@ -134,7 +135,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
           />
           
           <TouchableOpacity onPress={() => setShowFormatting(!showFormatting)} style={styles.formatButton}>
-            <Text style={styles.formatIcon}>⋯</Text>
+            <Icon name="more-horizontal" size={24} color={Colors.primaryText} />
           </TouchableOpacity>
         </View>
 
@@ -213,16 +214,28 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
           {/* Quick Actions */}
           <View style={styles.quickActions}>
             <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('quote')}>
-              <Text style={styles.quickActionText}>💬 Quote</Text>
+              <View style={styles.quickActionContent}>
+                <Icon name="message-square" size={16} color={Colors.primaryText} />
+                <Text style={styles.quickActionText}>Quote</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('code')}>
-              <Text style={styles.quickActionText}>💻 Code Block</Text>
+              <View style={styles.quickActionContent}>
+                <Icon name="code" size={16} color={Colors.primaryText} />
+                <Text style={styles.quickActionText}>Code Block</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('divider')}>
-              <Text style={styles.quickActionText}>➖ Divider</Text>
+              <View style={styles.quickActionContent}>
+                <Icon name="minus" size={16} color={Colors.primaryText} />
+                <Text style={styles.quickActionText}>Divider</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickAction} onPress={() => addBlock('table')}>
-              <Text style={styles.quickActionText}>📊 Table</Text>
+              <View style={styles.quickActionContent}>
+                <Icon name="grid" size={16} color={Colors.primaryText} />
+                <Text style={styles.quickActionText}>Table</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -325,6 +338,11 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: Typography.fontSize.small,
     color: Colors.primaryText,
+    marginLeft: 6,
+  },
+  quickActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

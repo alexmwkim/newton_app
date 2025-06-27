@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
@@ -18,14 +19,21 @@ const ToggleButton = ({ options, selectedOption, onToggle }) => {
           ]}
           onPress={() => onToggle(option.value)}
         >
-          <Text
-            style={[
-              styles.buttonText,
-              selectedOption === option.value && styles.activeButtonText,
-            ]}
-          >
-            {option.icon} {option.label}
-          </Text>
+          <View style={styles.buttonContent}>
+            <Icon 
+              name={option.icon} 
+              size={16} 
+              color={selectedOption === option.value ? Colors.primaryText : Colors.secondaryText} 
+            />
+            <Text
+              style={[
+                styles.buttonText,
+                selectedOption === option.value && styles.activeButtonText,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </View>
         </TouchableOpacity>
       ))}
     </View>
@@ -66,6 +74,11 @@ const styles = StyleSheet.create({
   activeButtonText: {
     color: Colors.primaryText,
     fontWeight: Typography.fontWeight.semibold,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

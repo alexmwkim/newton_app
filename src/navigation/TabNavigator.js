@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
@@ -17,10 +18,10 @@ const TabNavigator = () => {
   const [screenProps, setScreenProps] = useState({}); 
 
   const tabs = [
-    { key: 'home', label: '', icon: '📄' }, // Using document emoji, will replace with proper icon
-    { key: 'search', label: '', icon: '🔍' },
-    { key: 'explore', label: '', icon: '⚡' }, // Using lightning emoji for explore
-    { key: 'profile', label: '', icon: '👤' },
+    { key: 'home', label: '', icon: 'home' },
+    { key: 'search', label: '', icon: 'search' },
+    { key: 'explore', label: '', icon: 'compass' },
+    { key: 'profile', label: '', icon: 'user' },
   ];
 
   const navigate = (screen, props = {}) => {
@@ -73,14 +74,11 @@ const TabNavigator = () => {
               style={styles.tabItem}
               onPress={() => navigate(tab.key)}
             >
-              <Text
-                style={[
-                  styles.tabIcon,
-                  activeTab === tab.key && styles.activeTabIcon,
-                ]}
-              >
-                {tab.icon}
-              </Text>
+              <Icon
+                name={tab.icon}
+                size={24}
+                color={activeTab === tab.key ? Colors.iconActive : Colors.iconInactive}
+              />
               <Text
                 style={[
                   styles.tabLabel,
