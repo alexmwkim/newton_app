@@ -7,95 +7,86 @@ import Layout from '../constants/Layout';
 import NoteItemComponent from '../components/NoteItemComponent';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 
-// Mock data for explore screen
-const mockTrendingNotes = [
+// Mock search results
+const mockSearchResults = [
   {
     id: 1,
-    title: 'Building a Mobile-First Design System',
-    content: 'Complete guide to creating design systems that work across platforms...',
+    title: 'React Native Best Practices',
+    content: 'Complete guide to React Native development patterns and performance optimization...',
     createdAt: '2 hours ago',
-    author: '@uxmaster',
+    author: '@reactdev',
     isPublic: true,
-    forkCount: 45,
+    forkCount: 34,
   },
   {
     id: 2,
     title: 'JavaScript Performance Tips',
     content: 'Essential techniques to optimize your JavaScript code for better performance...',
-    createdAt: '4 hours ago',
-    author: '@jsdev',
+    createdAt: '1 day ago',
+    author: '@jsexpert',
     isPublic: true,
     forkCount: 23,
   },
   {
     id: 3,
-    title: 'Remote Work Best Practices',
-    content: 'Lessons learned from 3 years of remote work and team management...',
-    createdAt: '6 hours ago',
-    author: '@remote_leader',
-    isPublic: true,
-    forkCount: 67,
+    title: 'My project ideas',
+    content: 'Collection of project ideas for mobile app development...',
+    createdAt: '3 days ago',
+    author: '@yourname',
+    isPublic: false,
+    forkCount: 0,
   },
 ];
 
-const mockRecentNotes = [
-  {
-    id: 4,
-    title: 'Getting Started with React Native',
-    content: 'A beginner-friendly guide to React Native development...',
-    createdAt: '1 hour ago',
-    author: '@rn_beginner',
-    isPublic: true,
-    forkCount: 5,
-  },
-  {
-    id: 5,
-    title: 'CSS Grid Layout Patterns',
-    content: 'Common layout patterns using CSS Grid with examples...',
-    createdAt: '3 hours ago',
-    author: '@css_expert',
-    isPublic: true,
-    forkCount: 12,
-  },
+const mockRecentSearches = [
+  'React hooks',
+  'JavaScript',
+  'Mobile design',
+  'API integration',
 ];
 
-const ExploreScreen = ({ navigation }) => {
+const mockSuggestions = [
+  'React Native',
+  'Node.js',
+  'Design systems',
+  'Performance optimization',
+  'TypeScript',
+];
+
+const SearchScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeNavTab, setActiveNavTab] = useState(2); // Explore is index 2 (zap)
-  const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [activeNavTab, setActiveNavTab] = useState(1); // Search is index 1
 
   const handleSearch = (query) => {
     setSearchQuery(query);
     if (query.trim().length > 0) {
       setIsSearching(true);
-      // Filter notes based on search query
-      const filteredTrending = mockTrendingNotes.filter(note => 
-        note.title.toLowerCase().includes(query.toLowerCase()) ||
-        note.content.toLowerCase().includes(query.toLowerCase()) ||
-        note.author.toLowerCase().includes(query.toLowerCase())
-      );
-      const filteredRecent = mockRecentNotes.filter(note => 
-        note.title.toLowerCase().includes(query.toLowerCase()) ||
-        note.content.toLowerCase().includes(query.toLowerCase()) ||
-        note.author.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults([...filteredTrending, ...filteredRecent]);
-      setIsSearching(false);
+      // Simulate search API call
+      setTimeout(() => {
+        setIsSearching(false);
+      }, 500);
     } else {
-      setSearchResults([]);
       setIsSearching(false);
     }
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setIsSearching(false);
-  };
-
   const handleNotePress = (note) => {
     console.log('Note pressed:', note.title);
+    // Navigate to note detail
+  };
+
+  const handleRecentSearchPress = (searchTerm) => {
+    handleSearch(searchTerm);
+  };
+
+  const handleSuggestionPress = (suggestion) => {
+    handleSearch(suggestion);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
   };
 
   const handleNavChange = (tabIndex) => {
@@ -105,10 +96,10 @@ const ExploreScreen = ({ navigation }) => {
         navigation.navigate('home');
         break;
       case 1:
-        navigation.navigate('search');
+        // Current screen (Search)
         break;
       case 2:
-        // Current screen (Explore)
+        navigation.navigate('explore');
         break;
       case 3:
         navigation.navigate('profile');
@@ -116,10 +107,13 @@ const ExploreScreen = ({ navigation }) => {
     }
   };
 
+  const showResults = searchQuery.trim().length > 0;
+  const showRecentAndSuggestions = !showResults;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Explore</Text>
+        <Text style={styles.title}>Search</Text>
       </View>
 
       <View style={styles.content}>
@@ -129,7 +123,7 @@ const ExploreScreen = ({ navigation }) => {
             <Icon name="search" size={20} color={Colors.secondaryText} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search notes and users..."
+              placeholder="Search notes, users, topics..."
               placeholderTextColor={Colors.secondaryText}
               value={searchQuery}
               onChangeText={handleSearch}
@@ -150,54 +144,72 @@ const ExploreScreen = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
         >
           {/* Search Results */}
-          {searchQuery.trim().length > 0 ? (
+          {showResults && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
                 {isSearching ? 'Searching...' : `Results for "${searchQuery}"`}
               </Text>
-              {!isSearching && searchResults.length > 0 ? (
-                searchResults.map((note) => (
+              {!isSearching && mockSearchResults
+                .filter(note => 
+                  note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  note.content.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((note) => (
                   <NoteItemComponent
                     key={note.id}
                     title={note.title}
                     timeAgo={note.createdAt}
                     onPress={() => handleNotePress(note)}
                   />
-                ))
-              ) : !isSearching ? (
+                ))}
+              {!isSearching && mockSearchResults.filter(note => 
+                note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                note.content.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
                 <View style={styles.emptyState}>
                   <Icon name="search" size={48} color={Colors.secondaryText} />
                   <Text style={styles.emptyStateText}>No results found</Text>
                   <Text style={styles.emptyStateSubtext}>Try searching with different keywords</Text>
                 </View>
-              ) : null}
+              )}
             </View>
-          ) : (
+          )}
+
+          {/* Recent Searches & Suggestions */}
+          {showRecentAndSuggestions && (
             <>
-              {/* Trending Section */}
+              {/* Recent Searches */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Trending</Text>
-                {mockTrendingNotes.map((note) => (
-                  <NoteItemComponent
-                    key={note.id}
-                    title={note.title}
-                    timeAgo={note.createdAt}
-                    onPress={() => handleNotePress(note)}
-                  />
-                ))}
+                <Text style={styles.sectionTitle}>Recent Searches</Text>
+                <View style={styles.chipContainer}>
+                  {mockRecentSearches.map((search, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.chip}
+                      onPress={() => handleRecentSearchPress(search)}
+                    >
+                      <Icon name="clock" size={16} color={Colors.secondaryText} />
+                      <Text style={styles.chipText}>{search}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
-              {/* Recent Section */}
+              {/* Suggestions */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recent</Text>
-                {mockRecentNotes.map((note) => (
-                  <NoteItemComponent
-                    key={note.id}
-                    title={note.title}
-                    timeAgo={note.createdAt}
-                    onPress={() => handleNotePress(note)}
-                  />
-                ))}
+                <Text style={styles.sectionTitle}>Suggestions</Text>
+                <View style={styles.chipContainer}>
+                  {mockSuggestions.map((suggestion, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.chip}
+                      onPress={() => handleSuggestionPress(suggestion)}
+                    >
+                      <Icon name="trending-up" size={16} color={Colors.secondaryText} />
+                      <Text style={styles.chipText}>{suggestion}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </>
           )}
@@ -235,9 +247,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Layout.screen.padding,
   },
-  scrollView: {
-    flex: 1,
-  },
   searchContainer: {
     marginVertical: Layout.spacing.md,
   },
@@ -261,8 +270,41 @@ const styles = StyleSheet.create({
   clearButton: {
     padding: Layout.spacing.xs,
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingBottom: 100, // Space for tab bar
+    paddingBottom: 20,
+  },
+  section: {
+    marginBottom: Layout.spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: Typography.fontSize.heading,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    marginBottom: Layout.spacing.md,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Layout.spacing.sm,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.noteCard,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: Layout.borderRadius,
+    marginBottom: Layout.spacing.sm,
+  },
+  chipText: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    marginLeft: Layout.spacing.xs,
   },
   emptyState: {
     alignItems: 'center',
@@ -283,16 +325,6 @@ const styles = StyleSheet.create({
     marginTop: Layout.spacing.sm,
     textAlign: 'center',
   },
-  section: {
-    marginBottom: Layout.spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.heading,
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    marginBottom: Layout.spacing.md,
-  },
   bottomSection: {
     marginTop: 32,
     width: '100%',
@@ -301,4 +333,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ExploreScreen;
+export default SearchScreen;

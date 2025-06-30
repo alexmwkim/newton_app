@@ -6,7 +6,8 @@ import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 
 // Import screens
-import HomeScreen from '../screens/HomeScreen';
+import HomeScreenNew from '../screens/HomeScreenNew';
+import SearchScreen from '../screens/SearchScreen';
 import ExploreScreen from '../screens/ExploreScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import NoteDetailScreen from '../screens/NoteDetailScreen';
@@ -19,8 +20,7 @@ const TabNavigator = () => {
 
   const tabs = [
     { key: 'home', label: '', icon: 'home' },
-    { key: 'search', label: '', icon: 'search' },
-    { key: 'explore', label: '', icon: 'compass' },
+    { key: 'explore', label: '', icon: 'search' },
     { key: 'profile', label: '', icon: 'user' },
   ];
 
@@ -42,9 +42,9 @@ const TabNavigator = () => {
     
     switch (currentScreen) {
       case 'home':
-        return <HomeScreen navigation={navigationProps} />;
+        return <HomeScreenNew navigation={navigationProps} />;
       case 'search':
-        return <ExploreScreen navigation={navigationProps} />;
+        return <SearchScreen navigation={navigationProps} />;
       case 'explore':
         return <ExploreScreen navigation={navigationProps} />;
       case 'profile':
@@ -54,7 +54,7 @@ const TabNavigator = () => {
       case 'createNote':
         return <CreateNoteScreen {...screenProps} onBack={goBack} navigation={navigationProps} />;
       default:
-        return <HomeScreen navigation={navigationProps} />;
+        return <HomeScreenNew navigation={navigationProps} />;
     }
   };
 
@@ -65,32 +65,7 @@ const TabNavigator = () => {
         {renderScreen()}
       </View>
 
-      {/* Bottom Tab Bar - Only show on main screens */}
-      {['home', 'search', 'explore', 'profile'].includes(currentScreen) && (
-        <View style={styles.tabBar}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={styles.tabItem}
-              onPress={() => navigate(tab.key)}
-            >
-              <Icon
-                name={tab.icon}
-                size={24}
-                color={activeTab === tab.key ? Colors.iconActive : Colors.iconInactive}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === tab.key && styles.activeTabLabel,
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      {/* Bottom Tab Bar - Hidden since new design has its own navigation */}
     </View>
   );
 };
@@ -126,11 +101,13 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.iconInactive,
   },
   activeTabLabel: {
     color: Colors.iconActive,
     fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
   },
 });
 

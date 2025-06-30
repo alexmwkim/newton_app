@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import ToggleButton from '../components/ToggleButton';
+import ToggleButtonsComponent from '../components/ToggleButtonsComponent';
 
 const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
   const [title, setTitle] = useState(initialNote?.title || '');
@@ -143,10 +143,9 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
             <Icon name="x" size={24} color={Colors.primaryText} />
           </TouchableOpacity>
           
-          <ToggleButton
-            options={visibilityOptions}
-            selectedOption={visibility}
-            onToggle={setVisibility}
+          <ToggleButtonsComponent
+            activeTab={visibility}
+            onTabChange={setVisibility}
           />
           
           <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
@@ -276,6 +275,7 @@ const styles = StyleSheet.create({
   titleInput: {
     fontSize: Typography.fontSize.large,
     fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     paddingVertical: Layout.spacing.lg,
     marginBottom: Layout.spacing.md,
@@ -314,6 +314,7 @@ const styles = StyleSheet.create({
   },
   contentInput: {
     fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     lineHeight: 24,
     paddingVertical: Layout.spacing.md,
@@ -384,6 +385,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.fontSize.body,
     fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.primary,
   },
 });
 

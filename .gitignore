@@ -35,3 +35,20 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Builder.io generated files with potential secrets
+*.tsx
+
+# Sensitive files
+**/apiKey*
+**/*secret*
+**/*private*
+
+# iOS build files
+ios/build/
+ios/Pods/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Environment variables
+.env

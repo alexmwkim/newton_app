@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, Image } from 'react-native';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import NoteCard from '../components/NoteCard';
+import NoteItemComponent from '../components/NoteItemComponent';
+import BottomNavigationComponent from '../components/BottomNavigationComponent';
 
 // Mock user data
 const mockUser = {
@@ -47,8 +48,28 @@ const mockUserNotes = [
 ];
 
 const ProfileScreen = ({ navigation }) => {
+  const [activeNavTab, setActiveNavTab] = useState(3); // Profile is index 3
+
   const handleNotePress = (note) => {
     console.log('Note pressed:', note.title);
+  };
+
+  const handleNavChange = (tabIndex) => {
+    setActiveNavTab(tabIndex);
+    switch (tabIndex) {
+      case 0:
+        navigation.navigate('home');
+        break;
+      case 1:
+        navigation.navigate('search');
+        break;
+      case 2:
+        navigation.navigate('explore');
+        break;
+      case 3:
+        // Current screen (Profile)
+        break;
+    }
   };
 
   return (
@@ -98,19 +119,22 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.notesSection}>
           <Text style={styles.sectionTitle}>Public Notes</Text>
           {mockUserNotes.map((note) => (
-            <NoteCard
+            <NoteItemComponent
               key={note.id}
               title={note.title}
-              content={note.content}
-              createdAt={note.createdAt}
-              author={note.author}
-              isPublic={note.isPublic}
-              forkCount={note.forkCount}
+              timeAgo={note.createdAt}
               onPress={() => handleNotePress(note)}
             />
           ))}
         </View>
       </ScrollView>
+
+      <View style={styles.bottomSection}>
+        <BottomNavigationComponent
+          activeTab={activeNavTab}
+          onTabChange={handleNavChange}
+        />
+      </View>
     </SafeAreaView>
   );
 };
@@ -129,6 +153,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.fontSize.large,
     fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
   scrollView: {
@@ -157,16 +182,19 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: Typography.fontSize.heading,
     fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
   username: {
     fontSize: Typography.fontSize.heading,
     fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     marginBottom: Layout.spacing.sm,
   },
   bio: {
     fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,
     textAlign: 'center',
     lineHeight: 20,
@@ -183,10 +211,12 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: Typography.fontSize.title,
     fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
   statLabel: {
     fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,
     marginTop: Layout.spacing.xs,
   },
@@ -196,8 +226,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: Typography.fontSize.heading,
     fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     marginBottom: Layout.spacing.md,
+  },
+  bottomSection: {
+    marginTop: 32,
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
 });
 

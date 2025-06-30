@@ -126,6 +126,33 @@ npm run clear
 npx expo start --clear
 ```
 
+**🔧 Development Server Connection Issues - SOLUTION:**
+
+**Problem:** "Could not connect to development server" error
+**Root Causes:** 
+- Multiple Expo processes running simultaneously
+- Port conflicts (8081/8082)
+- Metro bundler cache corruption
+- Network connectivity issues
+
+**SOLUTION STEPS (memorized for future use):**
+1. **Stop all processes:** `pkill -f "expo start" && pkill -f "metro"`
+2. **Clear caches:** `npm cache clean --force`
+3. **Remove Metro cache:** `rm -rf node_modules/.cache`
+4. **Restart with clear cache:** `npx expo start --clear --ios`
+
+**Quick Fix Script:**
+```bash
+# Run the automated fix script
+./scripts/dev-server-fix.sh
+```
+
+**Prevention (metro.config.js configured):**
+- Fixed port: 8081
+- Enhanced stability settings
+- Disabled problematic symlinks
+- Proper cache management
+
 **Troubleshooting Commands:**
 ```bash
 # If Metro bundler timeout occurs
@@ -138,6 +165,10 @@ export NPM_CONFIG_CACHE=/tmp/npm-cache && npm install
 
 # Check for running processes
 ps aux | grep -E "(expo|metro|node)" | grep -v grep
+
+# Manual process cleanup
+pkill -f "expo start"
+pkill -f "metro"
 ```
 
 ## Development Approach (When Started)
@@ -185,6 +216,15 @@ Since this is a mobile-first React Native + Expo project:
 - Use `npx expo start --clear` periodically to clear cache
 - Run `npm cache clean --force` if persistent issues
 - Check iOS Simulator is running before starting Expo
+
+### Build and Configuration Timeout Issues
+- **Observed Issue:** Command timeout during npm/Expo build processes
+- **Specific Problem:** Hermes engine configuration scripts repeatedly running
+- **Recommended Mitigation:**
+  - Configure script phases to have specific output dependencies
+  - Uncheck "Based on dependency analysis" for repetitive script phases
+  - Use `--force` flag with caution, as it disables recommended protections
+  - Monitor build logs for repeated configuration steps
 
 ## Current Status
 
