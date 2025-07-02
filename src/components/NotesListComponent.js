@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import NoteItemComponent from './NoteItemComponent';
+import SwipeableNoteItem from './SwipeableNoteItem';
 import AuthorPublicNoteCard from './AuthorPublicNoteCard';
 
 const NotesListComponent = ({ 
@@ -11,27 +11,27 @@ const NotesListComponent = ({
     { id: "4", title: "Workout session", timeAgo: "09/12/24" },
   ], 
   onNoteClick,
+  onDeleteNote,
   isPublic = false
 }) => {
   return (
     <View style={styles.container}>
       {notes.map((note) => (
         isPublic ? (
-          <AuthorPublicNoteCard
+          <SwipeableNoteItem
             key={note.id}
-            title={note.title}
-            timeAgo={note.timeAgo}
-            username={note.username}
-            avatarUrl={note.avatarUrl}
-            forksCount={note.forksCount}
+            note={note}
             onPress={() => onNoteClick?.(note.id)}
+            onDelete={onDeleteNote}
+            isPublic={true}
           />
         ) : (
-          <NoteItemComponent
+          <SwipeableNoteItem
             key={note.id}
-            title={note.title}
-            timeAgo={note.timeAgo}
+            note={note}
             onPress={() => onNoteClick?.(note.id)}
+            onDelete={onDeleteNote}
+            isPublic={false}
           />
         )
       ))}

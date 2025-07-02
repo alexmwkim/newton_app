@@ -15,12 +15,15 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { useNotesStore } from '../store/NotesStore';
 
-const NoteDetailScreen = ({ note, onBack, onEdit, onFork, navigation }) => {
+const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [showToolbar, setShowToolbar] = useState(false);
+  
+  const { getNoteById, updateNote } = useNotesStore();
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -34,8 +37,20 @@ const NoteDetailScreen = ({ note, onBack, onEdit, onFork, navigation }) => {
   };
 
   const handleSave = () => {
-    // Save note logic here
-    console.log('Saving note:', { title, content });
+    console.log('💾 NoteDetailScreen saving changes:', { noteId, title, content });
+    
+    // Update the note in the store
+    const updatedNote = updateNote(noteId, {
+      title: title.trim(),
+      content: content.trim()
+    });
+    
+    if (updatedNote) {
+      console.log('✅ Note updated successfully');
+    } else {
+      console.log('❌ Failed to update note');
+    }
+    
     setIsEditing(false);
     setShowToolbar(false);
     Keyboard.dismiss();
@@ -71,31 +86,19 @@ const NoteDetailScreen = ({ note, onBack, onEdit, onFork, navigation }) => {
     Keyboard.dismiss();
   };
 
-  // Mock note data if none provided
+  // Get the actual note from store
+  const note = getNoteById(noteId);
+  
+  // Fallback note data if none found
   const displayNote = note || {
-    id: 1,
-    title: 'Sample Note Title',
-    content: `# This is a sample note
-
-This note demonstrates how the note detail view works in the Newton app.
-
-## Features
-- Clean, readable typography
-- Markdown-like formatting
-- Easy navigation back to the list
-- Fork functionality for public notes
-
-## Lorem Ipsum
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation.
-
-### Sub-section
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`,
-    createdAt: '2 hours ago',
-    updatedAt: '1 hour ago',
-    author: '@sampleuser',
-    isPublic: true,
-    forkCount: 12,
+    id: noteId || 1,
+    title: 'Note Not Found',
+    content: 'This note could not be found in the store.',
+    timeAgo: 'Unknown',
+    isPublic: false,
   };
+  
+  console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note);
 
   // Initialize note data
   useEffect(() => {
@@ -182,20 +185,15 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
           {/* Note Meta */}
           <View style={styles.meta}>
             <Text style={styles.metaText}>
-              Created {displayNote.createdAt}
+              Created {displayNote.timeAgo || 'Unknown'}
             </Text>
-            {displayNote.updatedAt && displayNote.updatedAt !== displayNote.createdAt && (
-              <Text style={styles.metaText}>
-                • Updated {displayNote.updatedAt}
-              </Text>
-            )}
           </View>
 
           {displayNote.isPublic && (
             <View style={styles.publicInfo}>
-              <Text style={styles.author}>by {displayNote.author}</Text>
+              <Text style={styles.author}>by {displayNote.username || 'Unknown'}</Text>
               <Text style={styles.forkCount}>
-                <Icon name="git-branch" size={16} color={Colors.secondaryText} /> {displayNote.forkCount} forks
+                <Icon name="git-branch" size={16} color={Colors.secondaryText} /> {displayNote.forksCount || 0} forks
               </Text>
             </View>
           )}

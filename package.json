@@ -9,7 +9,11 @@
     "web": "expo start --web",
     "ios-simulator": "expo start --ios --dev-client",
     "clear": "expo start --clear",
-    "tunnel": "expo start --tunnel"
+    "tunnel": "expo start --tunnel",
+    "reset": "./scripts/reset-dev.sh",
+    "clean": "rm -rf .expo && rm -rf node_modules/.cache && npm cache clean --force",
+    "start-safe": "npx expo start --port 8082 --clear",
+    "dev": "npm run reset && npm run start-safe"
   },
   "dependencies": {
     "expo": "~53.0.13",
@@ -17,7 +21,10 @@
     "react": "19.0.0",
     "react-native": "0.79.4",
     "react-native-vector-icons": "^10.2.0",
-    "expo-dev-client": "~5.2.2"
+    "expo-dev-client": "~5.2.2",
+    "react-dom": "19.0.0",
+    "react-native-web": "^0.20.0",
+    "@expo/metro-runtime": "~5.0.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

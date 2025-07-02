@@ -74,66 +74,71 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Profile Info */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>YN</Text>
-            </View>
+      <View style={styles.content}>
+        <View style={styles.mainContent}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Profile</Text>
           </View>
-          
-          <Text style={styles.username}>{mockUser.username}</Text>
-          <Text style={styles.bio}>{mockUser.bio}</Text>
-          
-          {/* Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.publicNotesCount}</Text>
-              <Text style={styles.statLabel}>Public Notes</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.forksReceived}</Text>
-              <Text style={styles.statLabel}>Forks Received</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.followers}</Text>
-              <Text style={styles.statLabel}>Followers</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.following}</Text>
-              <Text style={styles.statLabel}>Following</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Public Notes */}
-        <View style={styles.notesSection}>
-          <Text style={styles.sectionTitle}>Public Notes</Text>
-          {mockUserNotes.map((note) => (
-            <NoteItemComponent
-              key={note.id}
-              title={note.title}
-              timeAgo={note.createdAt}
-              onPress={() => handleNotePress(note)}
-            />
-          ))}
-        </View>
-      </ScrollView>
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Profile Info */}
+            <View style={styles.profileSection}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>YN</Text>
+                </View>
+              </View>
+              
+              <Text style={styles.username}>{mockUser.username}</Text>
+              <Text style={styles.bio}>{mockUser.bio}</Text>
+              
+              {/* Stats */}
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{mockUser.publicNotesCount}</Text>
+                  <Text style={styles.statLabel}>Public Notes</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{mockUser.forksReceived}</Text>
+                  <Text style={styles.statLabel}>Forks Received</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{mockUser.followers}</Text>
+                  <Text style={styles.statLabel}>Followers</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{mockUser.following}</Text>
+                  <Text style={styles.statLabel}>Following</Text>
+                </View>
+              </View>
+            </View>
 
-      <View style={styles.bottomSection}>
-        <BottomNavigationComponent
-          activeTab={activeNavTab}
-          onTabChange={handleNavChange}
-        />
+            {/* Public Notes */}
+            <View style={styles.notesSection}>
+              <Text style={styles.sectionTitle}>Public Notes</Text>
+              {mockUserNotes.map((note) => (
+                <NoteItemComponent
+                  key={note.id}
+                  title={note.title}
+                  timeAgo={note.createdAt}
+                  onPress={() => handleNotePress(note)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+        
+        {/* Floating Elements - Bottom Navigation */}
+        <View style={styles.floatingElements}>
+          <BottomNavigationComponent
+            activeTab={activeNavTab}
+            onTabChange={handleNavChange}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -142,7 +147,18 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.mainBackground,
+  },
+  content: {
+    flex: 1,
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
+    position: 'relative',
+  },
+  mainContent: {
+    flex: 1,
+    marginTop: 0,
   },
   header: {
     paddingHorizontal: Layout.screen.padding,
@@ -160,7 +176,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for tab bar
+    paddingBottom: 100, // Space for floating navigation
   },
   profileSection: {
     padding: Layout.screen.padding,
@@ -230,11 +246,14 @@ const styles = StyleSheet.create({
     color: Colors.primaryText,
     marginBottom: Layout.spacing.md,
   },
-  bottomSection: {
-    marginTop: 32,
-    width: '100%',
+  floatingElements: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    alignItems: 'center',
+    pointerEvents: 'box-none',
   },
 });
 

@@ -16,12 +16,13 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import ToggleButtonsComponent from '../components/ToggleButtonsComponent';
+import SingleToggleComponent from '../components/SingleToggleComponent';
+import NotesStore from '../store/NotesStore';
 
-const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
+const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
   const [title, setTitle] = useState(initialNote?.title || '');
   const [content, setContent] = useState(initialNote?.content || '');
-  const [visibility, setVisibility] = useState(initialNote?.isPublic ? 'public' : 'private');
+  const [isPublic, setIsPublic] = useState(initialNote?.isPublic || false);
   const [showKeyboardToolbar, setShowKeyboardToolbar] = useState(false);
   const [activeInput, setActiveInput] = useState(null);
   
@@ -37,12 +38,18 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
     const noteData = {
       title: title.trim(),
       content: content.trim(),
-      isPublic: visibility === 'public',
+      isPublic: isPublic,
       createdAt: new Date().toISOString(),
     };
     
-    console.log('Save note:', noteData);
-    if (onSave) onSave(noteData);
+    console.log('💾 CreateNoteScreen saving note:', noteData);
+    
+    // Save to store directly
+    NotesStore.addNote(noteData);
+    
+    console.log('🔙 Navigating back to home');
+    // Navigate back
+    handleBack();
   };
 
   // Auto-focus when screen loads, like Notion
@@ -129,7 +136,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
     setTimeout(() => contentInputRef.current?.focus(), 50);
   };
 
-  const canSave = title.trim().length > 0 && content.trim().length > 0;
+  const hasContent = title.trim().length > 0 || content.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -139,17 +146,15 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Icon name="x" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          
-          <ToggleButtonsComponent
-            activeTab={visibility}
-            onTabChange={setVisibility}
+          <SingleToggleComponent
+            isPublic={isPublic}
+            onToggle={setIsPublic}
           />
           
-          <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-            <Icon name="check" size={20} color={Colors.white} />
+          <TouchableOpacity onPress={hasContent ? handleSave : handleBack} style={styles.actionButton}>
+            <Text style={styles.actionButtonText}>
+              {hasContent ? 'Done' : 'X'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -163,8 +168,11 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote }) => {
             placeholderTextColor={Colors.secondaryText}
             value={title}
             onChangeText={setTitle}
-            multiline={false}
+            multiline={true}
+            numberOfLines={1}
+            maxLength={100}
             returnKeyType="next"
+            scrollEnabled={false}
             onFocus={() => setActiveInput('title')}
             onSubmitEditing={() => {
               contentInputRef.current?.focus();
@@ -252,10 +260,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Layout.screen.padding,
-    paddingVertical: Layout.spacing.md,
+    paddingTop: Layout.spacing.md,
+    paddingBottom: Layout.spacing.lg,
   },
-  backButton: {
+  actionButton: {
     padding: Layout.spacing.sm,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backIcon: {
     fontSize: 18,
@@ -271,6 +284,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: Layout.screen.padding,
+    paddingTop: Layout.spacing.sm, // Add some top padding
   },
   titleInput: {
     fontSize: Typography.fontSize.large,
@@ -278,7 +292,11 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     paddingVertical: Layout.spacing.lg,
+    paddingHorizontal: 0, // Ensure no horizontal padding to prevent cutting
     marginBottom: Layout.spacing.md,
+    lineHeight: 40, // Add proper line height for 32px font size
+    minHeight: 56, // Ensure sufficient height for large text
+    textAlignVertical: 'center', // Center text vertically
   },
   formattingToolbar: {
     backgroundColor: Colors.noteCard,
@@ -341,15 +359,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  saveButton: {
-    backgroundColor: Colors.floatingButton,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
-    borderRadius: Layout.borderRadius,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+  actionButtonText: {
+    fontSize: 18,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
   },
   keyboardToolbar: {
     flexDirection: 'row',

@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     marginTop: 24,
-    marginBottom: 22,
+    marginBottom: 24,
     gap: 8,
   },
   button: {

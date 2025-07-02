@@ -118,97 +118,102 @@ const ExploreScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Explore</Text>
-      </View>
-
       <View style={styles.content}>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <Icon name="search" size={20} color={Colors.secondaryText} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search notes and users..."
-              placeholderTextColor={Colors.secondaryText}
-              value={searchQuery}
-              onChangeText={handleSearch}
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <Icon name="x" size={20} color={Colors.secondaryText} />
-              </TouchableOpacity>
-            )}
+        <View style={styles.mainContent}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Explore</Text>
+          </View>
+
+          <View style={styles.contentWithPadding}>
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputContainer}>
+                <Icon name="search" size={20} color={Colors.secondaryText} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search notes and users..."
+                  placeholderTextColor={Colors.secondaryText}
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                    <Icon name="x" size={20} color={Colors.secondaryText} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            <ScrollView
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              {/* Search Results */}
+              {searchQuery.trim().length > 0 ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>
+                    {isSearching ? 'Searching...' : `Results for "${searchQuery}"`}
+                  </Text>
+                  {!isSearching && searchResults.length > 0 ? (
+                    searchResults.map((note) => (
+                      <NoteItemComponent
+                        key={note.id}
+                        title={note.title}
+                        timeAgo={note.createdAt}
+                        onPress={() => handleNotePress(note)}
+                      />
+                    ))
+                  ) : !isSearching ? (
+                    <View style={styles.emptyState}>
+                      <Icon name="search" size={48} color={Colors.secondaryText} />
+                      <Text style={styles.emptyStateText}>No results found</Text>
+                      <Text style={styles.emptyStateSubtext}>Try searching with different keywords</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : (
+                <>
+                  {/* Trending Section */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Trending</Text>
+                    {mockTrendingNotes.map((note) => (
+                      <NoteItemComponent
+                        key={note.id}
+                        title={note.title}
+                        timeAgo={note.createdAt}
+                        onPress={() => handleNotePress(note)}
+                      />
+                    ))}
+                  </View>
+
+                  {/* Recent Section */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Recent</Text>
+                    {mockRecentNotes.map((note) => (
+                      <NoteItemComponent
+                        key={note.id}
+                        title={note.title}
+                        timeAgo={note.createdAt}
+                        onPress={() => handleNotePress(note)}
+                      />
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
           </View>
         </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Search Results */}
-          {searchQuery.trim().length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {isSearching ? 'Searching...' : `Results for "${searchQuery}"`}
-              </Text>
-              {!isSearching && searchResults.length > 0 ? (
-                searchResults.map((note) => (
-                  <NoteItemComponent
-                    key={note.id}
-                    title={note.title}
-                    timeAgo={note.createdAt}
-                    onPress={() => handleNotePress(note)}
-                  />
-                ))
-              ) : !isSearching ? (
-                <View style={styles.emptyState}>
-                  <Icon name="search" size={48} color={Colors.secondaryText} />
-                  <Text style={styles.emptyStateText}>No results found</Text>
-                  <Text style={styles.emptyStateSubtext}>Try searching with different keywords</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : (
-            <>
-              {/* Trending Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Trending</Text>
-                {mockTrendingNotes.map((note) => (
-                  <NoteItemComponent
-                    key={note.id}
-                    title={note.title}
-                    timeAgo={note.createdAt}
-                    onPress={() => handleNotePress(note)}
-                  />
-                ))}
-              </View>
-
-              {/* Recent Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recent</Text>
-                {mockRecentNotes.map((note) => (
-                  <NoteItemComponent
-                    key={note.id}
-                    title={note.title}
-                    timeAgo={note.createdAt}
-                    onPress={() => handleNotePress(note)}
-                  />
-                ))}
-              </View>
-            </>
-          )}
-        </ScrollView>
-      </View>
-
-      <View style={styles.bottomSection}>
-        <BottomNavigationComponent
-          activeTab={activeNavTab}
-          onTabChange={handleNavChange}
-        />
+        
+        {/* Floating Elements - Bottom Navigation */}
+        <View style={styles.floatingElements}>
+          <BottomNavigationComponent
+            activeTab={activeNavTab}
+            onTabChange={handleNavChange}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -217,7 +222,18 @@ const ExploreScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.mainBackground,
+  },
+  content: {
+    flex: 1,
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
+    position: 'relative',
+  },
+  mainContent: {
+    flex: 1,
+    marginTop: 0,
   },
   header: {
     paddingHorizontal: Layout.screen.padding,
@@ -231,9 +247,9 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
-  content: {
+  contentWithPadding: {
     flex: 1,
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 16,
   },
   scrollView: {
     flex: 1,
@@ -262,7 +278,8 @@ const styles = StyleSheet.create({
     padding: Layout.spacing.xs,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for tab bar
+    paddingTop: 0,
+    paddingBottom: 100, // Space for floating navigation
   },
   emptyState: {
     alignItems: 'center',
@@ -293,11 +310,14 @@ const styles = StyleSheet.create({
     color: Colors.primaryText,
     marginBottom: Layout.spacing.md,
   },
-  bottomSection: {
-    marginTop: 32,
-    width: '100%',
+  floatingElements: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    alignItems: 'center',
+    pointerEvents: 'box-none',
   },
 });
 

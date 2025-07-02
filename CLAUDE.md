@@ -226,6 +226,11 @@ Since this is a mobile-first React Native + Expo project:
   - Use `--force` flag with caution, as it disables recommended protections
   - Monitor build logs for repeated configuration steps
 
+## Dev Environment Tips
+
+- **Simulator Management Tips:**
+  - Do not reset the simulator when you've any work done. Use two different terminals to manage the metro server and simulator.
+
 ## Current Status
 
 **✅ COMPLETED:** Newton iOS mobile app has been fully implemented with React Native + Expo.

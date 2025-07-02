@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import Colors from '../constants/Colors';
+import { useNotesStore } from '../store/NotesStore';
 
 // Builder.io converted components
 import HeaderComponent from '../components/HeaderComponent';
@@ -13,7 +14,7 @@ import BottomNavigationComponent from '../components/BottomNavigationComponent';
 const mockPrivateNotes = [
   {
     id: 1,
-    title: '📏 Scroll gap fixed - Notes have proper margin',
+    title: '📏 Scroll gap fixed - Notes have proper margin ✅ LIVE RELOAD TEST',
     timeAgo: '5 hrs ago',
   },
   {
@@ -156,11 +157,21 @@ const mockPublicNotes = [
   },
 ];
 
-const HomeScreenNew = ({ navigation }) => {
-  const [activeTab, setActiveTab] = useState('private');
+const HomeScreenNew = ({ navigation, initialTab }) => {
+  const [activeTab, setActiveTab] = useState(initialTab || 'private');
   const [activeNavTab, setActiveNavTab] = useState(0);
+  const { privateNotes, publicNotes, deleteNote } = useNotesStore();
 
-  const currentNotes = activeTab === 'private' ? mockPrivateNotes : mockPublicNotes;
+  // Update activeTab when initialTab prop changes (coming back from note detail)
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+
+  console.log('🏠 HomeScreen render - Private notes:', privateNotes.length, 'Public notes:', publicNotes.length);
+  const currentNotes = activeTab === 'private' ? privateNotes : publicNotes;
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -186,11 +197,21 @@ const HomeScreenNew = ({ navigation }) => {
   };
 
   const handleNoteClick = (noteId) => {
-    navigation.navigate('noteDetail', { noteId });
+    navigation.navigate('noteDetail', { 
+      noteId, 
+      returnToTab: activeTab // Pass current tab state
+    });
   };
 
   const handleCreateNote = () => {
-    navigation.navigate('createNote');
+    console.log('🚀 Creating note');
+    navigation.navigate('createNote', { 
+      returnToTab: activeTab
+    });
+  };
+
+  const handleDeleteNote = (noteId) => {
+    deleteNote(noteId, activeTab === 'public');
   };
 
   const handleBackPress = () => {
@@ -240,6 +261,7 @@ const HomeScreenNew = ({ navigation }) => {
               <NotesListComponent
                 notes={currentNotes}
                 onNoteClick={handleNoteClick}
+                onDeleteNote={handleDeleteNote}
                 isPublic={activeTab === 'public'}
               />
             </ScrollView>

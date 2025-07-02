@@ -25,6 +25,7 @@ const TabNavigator = () => {
   ];
 
   const navigate = (screen, props = {}) => {
+    console.log('📍 TabNavigator navigate to:', screen, 'with props:', props);
     setCurrentScreen(screen);
     setScreenProps(props);
     if (['home', 'search', 'explore', 'profile'].includes(screen)) {
@@ -33,8 +34,28 @@ const TabNavigator = () => {
   };
 
   const goBack = () => {
-    setCurrentScreen(activeTab);
-    setScreenProps({});
+    // Check if we're going back from noteDetail or createNote and need to preserve tab state
+    if (currentScreen === 'noteDetail' || currentScreen === 'createNote') {
+      if (screenProps.returnToTab) {
+        // Going back to home with specific tab state
+        setCurrentScreen('home');
+        setActiveTab('home');
+        setScreenProps({ returnToTab: screenProps.returnToTab });
+      } else {
+        // Regular back to home
+        setCurrentScreen('home');
+        setActiveTab('home');
+        setScreenProps({});
+      }
+    } else if (['home', 'search', 'explore', 'profile'].includes(activeTab)) {
+      setCurrentScreen(activeTab);
+      setScreenProps({});
+    } else {
+      // If activeTab is not a main screen, default to home
+      setCurrentScreen('home');
+      setActiveTab('home');
+      setScreenProps({});
+    }
   };
 
   const renderScreen = () => {
@@ -42,19 +63,21 @@ const TabNavigator = () => {
     
     switch (currentScreen) {
       case 'home':
-        return <HomeScreenNew navigation={navigationProps} />;
+        return <HomeScreenNew key="home-screen" navigation={navigationProps} initialTab={screenProps.returnToTab} />;
       case 'search':
-        return <SearchScreen navigation={navigationProps} />;
+        return <SearchScreen key="search-screen" navigation={navigationProps} />;
       case 'explore':
-        return <ExploreScreen navigation={navigationProps} />;
+        return <ExploreScreen key="explore-screen" navigation={navigationProps} />;
       case 'profile':
-        return <ProfileScreen navigation={navigationProps} />;
+        return <ProfileScreen key="profile-screen" navigation={navigationProps} />;
       case 'noteDetail':
-        return <NoteDetailScreen {...screenProps} onBack={goBack} navigation={navigationProps} />;
+        console.log('📄 Rendering NoteDetailScreen with screenProps:', screenProps);
+        return <NoteDetailScreen key="note-detail" {...screenProps} onBack={goBack} navigation={navigationProps} />;
       case 'createNote':
-        return <CreateNoteScreen {...screenProps} onBack={goBack} navigation={navigationProps} />;
+        console.log('🎭 Rendering CreateNoteScreen with screenProps:', screenProps);
+        return <CreateNoteScreen key="create-note" {...screenProps} onBack={goBack} navigation={navigationProps} />;
       default:
-        return <HomeScreenNew navigation={navigationProps} />;
+        return <HomeScreenNew key="home-screen-default" navigation={navigationProps} />;
     }
   };
 
