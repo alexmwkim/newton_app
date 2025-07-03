@@ -52,27 +52,15 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
     handleBack();
   };
 
-  // Auto-focus when screen loads, like Notion
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!title) {
-        titleInputRef.current?.focus();
-        setActiveInput('title');
-      } else {
-        contentInputRef.current?.focus();
-        setActiveInput('content');
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Handle keyboard events
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      console.log('🎹 Keyboard shown - showing toolbar');
       setShowKeyboardToolbar(true);
     });
 
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      console.log('🎹 Keyboard hidden - hiding toolbar');
       setShowKeyboardToolbar(false);
       setActiveInput(null);
     });
@@ -81,6 +69,19 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
+  }, []);
+
+  // Auto-focus when screen loads
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      console.log('🎯 Auto-focusing title input on load');
+      setActiveInput('title');
+      if (titleInputRef.current) {
+        titleInputRef.current.focus();
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const visibilityOptions = [
@@ -136,6 +137,117 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
     setTimeout(() => contentInputRef.current?.focus(), 50);
   };
 
+  const insertLayout = (layoutType) => {
+    let template = '';
+    switch (layoutType) {
+      case 'meeting':
+        template = '\n📅 Meeting Notes\n---\n**Date:** \n**Attendees:** \n**Agenda:** \n- \n\n**Action Items:** \n- \n\n';
+        break;
+      case 'database':
+        template = '\n📊 Database\n---\n| Column 1 | Column 2 | Column 3 |\n|----------|----------|----------|\n| Data 1   | Data 2   | Data 3   |\n\n';
+        break;
+      case 'tasklist':
+        template = '\n✅ Task List\n---\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n';
+        break;
+      case 'code':
+        template = '\n```\n// Your code here\n```\n\n';
+        break;
+      case 'quote':
+        template = '\n> Your quote here\n\n';
+        break;
+    }
+    
+    if (activeInput === 'content') {
+      setContent(prev => prev + template);
+      setTimeout(() => contentInputRef.current?.focus(), 50);
+    }
+  };
+
+  const showMoreOptions = () => {
+    Alert.alert(
+      'More Layout Options',
+      'Choose a layout type',
+      [
+        { text: 'Task List', onPress: () => insertLayout('tasklist') },
+        { text: 'Code Block', onPress: () => insertLayout('code') },
+        { text: 'Quote', onPress: () => insertLayout('quote') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const createFolder = () => {
+    Alert.prompt(
+      'Create Folder',
+      'Enter folder name',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Create',
+          onPress: (folderName) => {
+            if (folderName && folderName.trim()) {
+              console.log('🆕 Creating folder with name:', folderName.trim());
+              console.log('📝 Current content before folder creation:', content);
+              
+              // Create the folder and insert it into the note content
+              const folder = NotesStore.createFolder({
+                name: folderName.trim(),
+                parentNoteId: null, // This is for notes inside the main note content
+              });
+              
+              if (folder) {
+                console.log('✅ Created folder:', folder);
+                
+                // Insert folder graphic into note content with proper line breaks
+                const folderGraphic = `\n📁 [${folderName.trim()}](#folder-${folder.id})\n`;
+                
+                // Calculate the new content first
+                const newContent = content + folderGraphic;
+                
+                // Update the current content to show the folder graphic
+                setContent(newContent);
+                
+                console.log('📝 Previous content:', content);
+                console.log('📝 New content after adding folder:', newContent);
+                console.log('📝 Added folder graphic:', folderGraphic);
+                console.log('👆 User can now click the folder graphic to navigate');
+                
+                // Debug all folders
+                NotesStore.debugFolders();
+                
+                // Ensure cursor moves to end after folder creation
+                setTimeout(() => {
+                  if (contentInputRef.current) {
+                    contentInputRef.current.focus();
+                    setActiveInput('content');
+                    
+                    // Move cursor to the end of the content
+                    setTimeout(() => {
+                      if (contentInputRef.current) {
+                        const cursorPosition = newContent.length;
+                        contentInputRef.current.setNativeProps({
+                          selection: { start: cursorPosition, end: cursorPosition }
+                        });
+                        console.log('📍 Moved cursor to position:', cursorPosition);
+                      }
+                    }, 50);
+                  }
+                }, 100);
+              } else {
+                console.log('❌ Failed to create folder');
+                Alert.alert('Error', 'Failed to create folder');
+              }
+            }
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
   const hasContent = title.trim().length > 0 || content.trim().length > 0;
 
   return (
@@ -150,6 +262,19 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
             isPublic={isPublic}
             onToggle={setIsPublic}
           />
+          
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('Focus button pressed');
+              Keyboard.dismiss();
+              setTimeout(() => {
+                contentInputRef.current?.focus();
+              }, 100);
+            }} 
+            style={styles.actionButton}
+          >
+            <Text style={styles.actionButtonText}>Focus</Text>
+          </TouchableOpacity>
           
           <TouchableOpacity onPress={hasContent ? handleSave : handleBack} style={styles.actionButton}>
             <Text style={styles.actionButtonText}>
@@ -173,7 +298,16 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
             maxLength={100}
             returnKeyType="next"
             scrollEnabled={false}
-            onFocus={() => setActiveInput('title')}
+            autoFocus={true}
+            autoCorrect={false}
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
+            onFocus={() => {
+              console.log('📱 Title input focused');
+              setActiveInput('title');
+              setShowKeyboardToolbar(true);
+            }}
             onSubmitEditing={() => {
               contentInputRef.current?.focus();
               setActiveInput('content');
@@ -181,64 +315,70 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
           />
 
           {/* Content Input */}
-          <TouchableOpacity style={styles.contentArea} onPress={() => {
-            contentInputRef.current?.focus();
-            setActiveInput('content');
-          }}>
-            <TextInput
-              ref={contentInputRef}
-              style={styles.contentInput}
-              placeholder="Write something..."
-              placeholderTextColor={Colors.secondaryText}
-              value={content}
-              onChangeText={setContent}
-              multiline={true}
-              textAlignVertical="top"
-              onFocus={() => setActiveInput('content')}
-            />
-          </TouchableOpacity>
+          <TextInput
+            ref={contentInputRef}
+            style={styles.contentInput}
+            placeholder="Write something..."
+            placeholderTextColor={Colors.secondaryText}
+            value={content}
+            onChangeText={setContent}
+            multiline={true}
+            textAlignVertical="top"
+            blurOnSubmit={false}
+            editable={true}
+            autoFocus={false}
+            autoCorrect={false}
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
+            onFocus={() => {
+              console.log('📱 Content input focused');
+              setActiveInput('content');
+              setShowKeyboardToolbar(true);
+            }}
+            onBlur={() => {
+              console.log('Content input blurred');
+            }}
+          />
         </ScrollView>
 
-        {/* Seamless Keyboard Toolbar */}
-        {showKeyboardToolbar && (
+        {/* Keyboard Toolbar with Layout Options - Show when focused or keyboard visible */}
+        {(showKeyboardToolbar || activeInput) && (
           <View style={styles.keyboardToolbar}>
             <View style={styles.toolbarLeft}>
               <TouchableOpacity 
-                style={styles.toolbarButton} 
-                onPress={() => insertFormat('# ')}
+                style={styles.layoutButton} 
+                onPress={() => insertLayout('meeting')}
               >
-                <Icon name="hash" size={18} color={Colors.primaryText} />
+                <Icon name="users" size={16} color={Colors.primaryText} />
+                <Text style={styles.layoutButtonText}>Meeting</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => insertFormat('**', '**')}
+                style={styles.layoutButton}
+                onPress={() => insertLayout('database')}
               >
-                <Icon name="bold" size={18} color={Colors.primaryText} />
+                <Icon name="database" size={16} color={Colors.primaryText} />
+                <Text style={styles.layoutButtonText}>Database</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => insertFormat('*', '*')}
+                style={styles.layoutButton}
+                onPress={() => showMoreOptions()}
               >
-                <Icon name="italic" size={18} color={Colors.primaryText} />
+                <Icon name="more-horizontal" size={16} color={Colors.primaryText} />
+                <Text style={styles.layoutButtonText}>More</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => insertFormat('\n- ')}
+                style={styles.addButton}
+                onPress={() => createFolder()}
               >
-                <Icon name="list" size={18} color={Colors.primaryText} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => insertFormat('> ')}
-              >
-                <Icon name="message-square" size={18} color={Colors.primaryText} />
+                <Icon name="plus" size={20} color={Colors.primaryText} />
               </TouchableOpacity>
             </View>
             <TouchableOpacity 
               style={styles.doneButton}
               onPress={hideKeyboard}
             >
-              <Text style={styles.doneButtonText}>Done</Text>
+              <Text style={styles.doneButtonText}>return</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -331,12 +471,14 @@ const styles = StyleSheet.create({
     minHeight: 400,
   },
   contentInput: {
-    fontSize: Typography.fontSize.body,
-    fontFamily: Typography.fontFamily.primary,
+    fontSize: 16,
+    fontFamily: 'System',
     color: Colors.primaryText,
     lineHeight: 24,
-    paddingVertical: Layout.spacing.md,
+    padding: 16,
     minHeight: 300,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   quickActions: {
     flexDirection: 'row',
@@ -400,6 +542,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.body,
     fontWeight: Typography.fontWeight.semibold,
     fontFamily: Typography.fontFamily.primary,
+  },
+  layoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.sm,
+    paddingVertical: Layout.spacing.xs,
+    borderRadius: 6,
+    backgroundColor: Colors.white,
+    minHeight: 32,
+    gap: 4,
+  },
+  layoutButtonText: {
+    fontSize: Typography.fontSize.small,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+  },
+  addButton: {
+    padding: Layout.spacing.xs,
+    borderRadius: 6,
+    backgroundColor: Colors.white,
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

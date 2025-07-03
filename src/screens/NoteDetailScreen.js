@@ -16,10 +16,13 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import { useNotesStore } from '../store/NotesStore';
+import RichTextRenderer from '../components/RichTextRenderer';
+import FolderNoteScreen from './FolderNoteScreen';
 
 const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
+  const [currentFolderId, setCurrentFolderId] = useState(null);
   const [content, setContent] = useState('');
   const [showToolbar, setShowToolbar] = useState(false);
   
@@ -86,6 +89,114 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
     Keyboard.dismiss();
   };
 
+  const insertLayout = (layoutType) => {
+    let template = '';
+    switch (layoutType) {
+      case 'meeting':
+        template = '\n📅 Meeting Notes\n---\n**Date:** \n**Attendees:** \n**Agenda:** \n- \n\n**Action Items:** \n- \n\n';
+        break;
+      case 'database':
+        template = '\n📊 Database\n---\n| Column 1 | Column 2 | Column 3 |\n|----------|----------|----------|\n| Data 1   | Data 2   | Data 3   |\n\n';
+        break;
+      case 'tasklist':
+        template = '\n✅ Task List\n---\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n';
+        break;
+      case 'code':
+        template = '\n```\n// Your code here\n```\n\n';
+        break;
+      case 'quote':
+        template = '\n> Your quote here\n\n';
+        break;
+    }
+    
+    setContent(prev => prev + template);
+    setTimeout(() => contentInputRef.current?.focus(), 50);
+  };
+
+  const showMoreOptions = () => {
+    Alert.alert(
+      'More Layout Options',
+      'Choose a layout type',
+      [
+        { text: 'Task List', onPress: () => insertLayout('tasklist') },
+        { text: 'Code Block', onPress: () => insertLayout('code') },
+        { text: 'Quote', onPress: () => insertLayout('quote') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const createFolder = () => {
+    Alert.prompt(
+      'Create Folder',
+      'Enter folder name',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Create',
+          onPress: (folderName) => {
+            if (folderName && folderName.trim()) {
+              console.log('🆕 Creating folder with name:', folderName.trim());
+              console.log('📝 Current content before folder creation:', content);
+              
+              // Create the folder and insert it into the note content
+              const folder = NotesStore.createFolder({
+                name: folderName.trim(),
+                parentNoteId: noteId,
+              });
+              
+              if (folder) {
+                console.log('✅ Created folder:', folder);
+                
+                // Insert folder graphic into note content with proper line breaks
+                const folderGraphic = `\n📁 [${folderName.trim()}](#folder-${folder.id})\n`;
+                
+                // Calculate the new content first
+                const newContent = content + folderGraphic;
+                
+                // Update the current content to show the folder graphic
+                setContent(newContent);
+                
+                console.log('📝 Previous content:', content);
+                console.log('📝 New content after adding folder:', newContent);
+                console.log('📝 Added folder graphic:', folderGraphic);
+                console.log('👆 User can now click the folder graphic to navigate');
+                
+                // Debug all folders
+                NotesStore.debugFolders();
+                
+                // Ensure cursor moves to end after folder creation
+                setTimeout(() => {
+                  if (contentInputRef.current) {
+                    contentInputRef.current.focus();
+                    
+                    // Move cursor to the end of the content
+                    setTimeout(() => {
+                      if (contentInputRef.current) {
+                        const cursorPosition = newContent.length;
+                        contentInputRef.current.setNativeProps({
+                          selection: { start: cursorPosition, end: cursorPosition }
+                        });
+                        console.log('📍 Moved cursor to position:', cursorPosition);
+                      }
+                    }, 50);
+                  }
+                }, 100);
+              } else {
+                console.log('❌ Failed to create folder');
+                Alert.alert('Error', 'Failed to create folder');
+              }
+            }
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
   // Get the actual note from store
   const note = getNoteById(noteId);
   
@@ -100,19 +211,50 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   
   console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note);
 
+  const handleFolderPress = (folderId, folderName) => {
+    console.log('📁 Opening folder:', folderId, folderName);
+    setCurrentFolderId(folderId);
+  };
+
+  const handleFolderBack = () => {
+    console.log('📁 Closing folder');
+    setCurrentFolderId(null);
+  };
+
   // Initialize note data
   useEffect(() => {
     setTitle(displayNote.title);
     setContent(displayNote.content);
   }, [displayNote]);
 
+  // Auto-save for existing notes (debounced)
+  useEffect(() => {
+    if (!isEditing) return;
+    
+    const timer = setTimeout(() => {
+      if (title.trim() || content.trim()) {
+        const noteData = {
+          title: title || displayNote.title,
+          content: content,
+        };
+        
+        console.log('💾 Auto-saving note changes:', noteData);
+        updateNote(noteId, noteData);
+      }
+    }, 1000); // Auto-save after 1 second of no changes
+
+    return () => clearTimeout(timer);
+  }, [title, content, isEditing, noteId, updateNote, displayNote.title]);
+
   // Handle keyboard events
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      console.log('🎹 Keyboard shown in note detail - showing toolbar');
       setShowToolbar(true);
     });
 
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      console.log('🎹 Keyboard hidden in note detail - hiding toolbar');
       if (!isEditing) {
         setShowToolbar(false);
       }
@@ -124,21 +266,42 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
     };
   }, [isEditing]);
 
+  // If we're in a folder, show the folder screen
+  if (currentFolderId) {
+    return (
+      <FolderNoteScreen 
+        folderId={currentFolderId}
+        onBack={handleFolderBack}
+        navigation={navigation}
+      />
+    );
+  }
+
   return (
     <TouchableWithoutFeedback onPress={() => !isEditing && startEditing()}>
       <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <TouchableOpacity onPress={() => {
+            // Auto-save before going back
+            if (isEditing && (title.trim() || content.trim())) {
+              const noteData = {
+                title: title || displayNote.title,
+                content: content,
+              };
+              
+              console.log('💾 Auto-saving before back navigation:', noteData);
+              updateNote(noteId, noteData);
+            }
+            
+            if (onBack) onBack();
+          }} style={styles.backButton}>
             <Icon name="arrow-left" size={24} color={Colors.primaryText} />
           </TouchableOpacity>
           
           <View style={styles.headerActions}>
-            {isEditing ? (
-              <TouchableOpacity onPress={handleSave} style={styles.actionButton}>
-                <Icon name="check" size={20} color={Colors.primaryText} />
-              </TouchableOpacity>
-            ) : (
+            {/* Auto-save enabled - no manual save button needed */}
+            {!isEditing && (
               <>
                 {displayNote.isPublic && (
                   <TouchableOpacity onPress={handleFork} style={styles.actionButton}>
@@ -174,6 +337,10 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
                   placeholderTextColor={Colors.secondaryText}
                   multiline={false}
                   returnKeyType="next"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
                   onSubmitEditing={() => contentInputRef.current?.focus()}
                 />
               ) : (
@@ -211,60 +378,59 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
                   placeholderTextColor={Colors.secondaryText}
                   multiline={true}
                   textAlignVertical="top"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
                 />
               ) : (
-                <Text style={styles.contentText}>{content}</Text>
+                <RichTextRenderer 
+                  content={content} 
+                  onFolderPress={handleFolderPress}
+                  style={styles.contentText}
+                />
               )}
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
 
-        {/* Seamless Keyboard Toolbar */}
-        {showToolbar && (
+        {/* Keyboard Toolbar with Layout Options - Show when editing or toolbar needed */}
+        {(showToolbar || isEditing) && (
           <View style={styles.keyboardToolbar}>
             <View style={styles.toolbarLeft}>
               <TouchableOpacity 
-                style={styles.toolbarButton} 
-                onPress={() => {
-                  const newContent = content + '\n# ';
-                  setContent(newContent);
-                }}
+                style={styles.layoutButton} 
+                onPress={() => insertLayout('meeting')}
               >
-                <Icon name="hash" size={18} color={Colors.primaryText} />
+                <Icon name="users" size={16} color={Colors.primaryText} />
+                <Text style={styles.layoutButtonText}>Meeting</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => {
-                  const newContent = content + '**bold**';
-                  setContent(newContent);
-                }}
+                style={styles.layoutButton}
+                onPress={() => insertLayout('database')}
               >
-                <Icon name="bold" size={18} color={Colors.primaryText} />
+                <Icon name="database" size={16} color={Colors.primaryText} />
+                <Text style={styles.layoutButtonText}>Database</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => {
-                  const newContent = content + '*italic*';
-                  setContent(newContent);
-                }}
+                style={styles.layoutButton}
+                onPress={() => showMoreOptions()}
               >
-                <Icon name="italic" size={18} color={Colors.primaryText} />
+                <Icon name="more-horizontal" size={16} color={Colors.primaryText} />
+                <Text style={styles.layoutButtonText}>More</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.toolbarButton}
-                onPress={() => {
-                  const newContent = content + '\n- ';
-                  setContent(newContent);
-                }}
+                style={styles.addButton}
+                onPress={() => createFolder()}
               >
-                <Icon name="list" size={18} color={Colors.primaryText} />
+                <Icon name="plus" size={20} color={Colors.primaryText} />
               </TouchableOpacity>
             </View>
             <TouchableOpacity 
               style={styles.doneButton}
               onPress={stopEditing}
             >
-              <Text style={styles.doneButtonText}>Done</Text>
+              <Text style={styles.doneButtonText}>return</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -398,6 +564,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.spacing.md,
     paddingVertical: Layout.spacing.sm,
     borderRadius: Layout.borderRadius,
+  },
+  layoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.sm,
+    paddingVertical: Layout.spacing.xs,
+    borderRadius: 6,
+    backgroundColor: Colors.white,
+    minHeight: 32,
+    gap: 4,
+  },
+  layoutButtonText: {
+    fontSize: Typography.fontSize.small,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+  },
+  addButton: {
+    padding: Layout.spacing.xs,
+    borderRadius: 6,
+    backgroundColor: Colors.white,
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   doneButtonText: {
     color: Colors.white,

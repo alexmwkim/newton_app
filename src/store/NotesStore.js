@@ -147,7 +147,10 @@ let publicNotes = [
   },
 ];
 
+let folders = [];
 let listeners = [];
+let folderIdCounter = 1000; // Start from 1000 to avoid conflicts
+let noteIdCounter = 2000; // Start from 2000 for notes in folders
 
 // Simple store implementation
 const NotesStore = {
@@ -241,6 +244,106 @@ const NotesStore = {
     listeners.forEach(listener => listener());
   },
   
+  // Folder functions
+  createFolder: (folderData) => {
+    console.log('📁 NotesStore.createFolder called with:', folderData);
+    
+    // Generate unique ID
+    folderIdCounter++;
+    const folderId = folderIdCounter;
+    
+    const newFolder = {
+      id: folderId,
+      name: folderData.name,
+      parentNoteId: folderData.parentNoteId,
+      createdAt: new Date().toISOString(),
+      notes: [], // Notes inside this folder
+    };
+    
+    folders = [newFolder, ...folders];
+    console.log('✅ Created folder:', newFolder);
+    console.log('📊 Total folders now:', folders.length);
+    console.log('📊 All folders:', folders.map(f => ({ id: f.id, name: f.name, parentNoteId: f.parentNoteId })));
+    
+    // Notify all listeners
+    listeners.forEach(listener => listener());
+    
+    return newFolder;
+  },
+  
+  getFolders: () => folders,
+  
+  getFolderById: (folderId) => {
+    return folders.find(folder => folder.id === folderId);
+  },
+  
+  getFoldersByParentNote: (noteId) => {
+    return folders.filter(folder => folder.parentNoteId === noteId);
+  },
+  
+  // Debug function
+  debugFolders: () => {
+    console.log('🔍 DEBUG - All folders:', folders.map(f => ({
+      id: f.id,
+      name: f.name,
+      parentNoteId: f.parentNoteId,
+      notesCount: f.notes.length
+    })));
+    return folders;
+  },
+  
+  addNoteToFolder: (folderId, noteData) => {
+    console.log('📝 Adding/updating note to folder:', folderId, noteData);
+    
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) {
+      console.log('❌ Folder not found:', folderId);
+      console.log('📊 Available folders:', folders.map(f => ({ id: f.id, name: f.name })));
+      return null;
+    }
+    
+    // Check if a note with the same title already exists in this folder
+    const existingNoteIndex = folder.notes.findIndex(note => note.title === noteData.title);
+    
+    if (existingNoteIndex !== -1) {
+      // Update existing note
+      folder.notes[existingNoteIndex] = {
+        ...folder.notes[existingNoteIndex],
+        content: noteData.content,
+        timeAgo: 'Just now',
+      };
+      
+      console.log('✅ Updated existing note in folder:', folder.notes[existingNoteIndex]);
+      
+      // Notify all listeners
+      listeners.forEach(listener => listener());
+      
+      return folder.notes[existingNoteIndex];
+    } else {
+      // Create new note
+      noteIdCounter++;
+      const noteId = noteIdCounter;
+      
+      const newNote = {
+        id: noteId,
+        title: noteData.title,
+        content: noteData.content,
+        timeAgo: 'Just now',
+        folderId: folderId,
+      };
+      
+      folder.notes = [newNote, ...folder.notes];
+      console.log('✅ Added new note to folder:', newNote);
+    }
+    
+    console.log('📊 Folder now has:', folder.notes.length, 'notes');
+    
+    // Notify all listeners
+    listeners.forEach(listener => listener());
+    
+    return folder.notes[0];
+  },
+  
   // Subscribe to changes
   subscribe: (listener) => {
     listeners.push(listener);
@@ -269,6 +372,12 @@ export const useNotesStore = () => {
     addNote: NotesStore.addNote,
     updateNote: NotesStore.updateNote,
     deleteNote: NotesStore.deleteNote,
+    createFolder: NotesStore.createFolder,
+    getFolders: NotesStore.getFolders,
+    getFolderById: NotesStore.getFolderById,
+    getFoldersByParentNote: NotesStore.getFoldersByParentNote,
+    addNoteToFolder: NotesStore.addNoteToFolder,
+    debugFolders: NotesStore.debugFolders,
   };
 };
 
