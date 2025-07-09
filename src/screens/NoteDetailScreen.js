@@ -25,8 +25,9 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [content, setContent] = useState('');
   const [showToolbar, setShowToolbar] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
-  const { getNoteById, updateNote } = useNotesStore();
+  const { getNoteById, updateNote, deleteNote } = useNotesStore();
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -66,6 +67,76 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
       isPublic: false,
     };
     navigation.navigate('createNote', { initialNote: forkedNote });
+  };
+
+  const handleSettingsPress = () => {
+    setShowSettingsMenu(!showSettingsMenu);
+  };
+
+  const handleDeleteNote = () => {
+    Alert.alert(
+      'Delete Note',
+      'Are you sure you want to delete this note? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteNote(noteId, displayNote.isPublic);
+            setShowSettingsMenu(false);
+            if (onBack) onBack();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleMoveToFolder = () => {
+    setShowSettingsMenu(false);
+    Alert.alert(
+      'Move to Folder',
+      'This feature will be implemented soon.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handlePageInfo = () => {
+    setShowSettingsMenu(false);
+    const createdDate = displayNote.createdAt 
+      ? new Date(displayNote.createdAt).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      : 'Unknown';
+    
+    const lastModified = displayNote.lastModified || displayNote.updatedAt
+      ? new Date(displayNote.lastModified || displayNote.updatedAt).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      : 'Unknown';
+
+    Alert.alert(
+      'Page Info',
+      `Created: ${createdDate}\nLast Modified: ${lastModified}\nCharacters: ${(displayNote.content || '').length}\nWords: ${(displayNote.content || '').split(/\s+/).filter(word => word.length > 0).length}`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleAddToFavorites = () => {
+    setShowSettingsMenu(false);
+    Alert.alert(
+      'Add to Favorites',
+      'This feature will be implemented soon.',
+      [{ text: 'OK' }]
+    );
   };
 
   const startEditing = (field = 'content') => {
@@ -278,7 +349,13 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   }
 
   return (
-    <TouchableWithoutFeedback onPress={() => !isEditing && startEditing()}>
+    <TouchableWithoutFeedback onPress={() => {
+      if (showSettingsMenu) {
+        setShowSettingsMenu(false);
+      } else if (!isEditing) {
+        startEditing();
+      }
+    }}>
       <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -300,19 +377,43 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
           </TouchableOpacity>
           
           <View style={styles.headerActions}>
-            {/* Auto-save enabled - no manual save button needed */}
-            {!isEditing && (
-              <>
-                {displayNote.isPublic && (
-                  <TouchableOpacity onPress={handleFork} style={styles.actionButton}>
-                    <Icon name="git-branch" size={20} color={Colors.primaryText} />
+            {/* Status icon - always visible */}
+            <View style={styles.statusIcon}>
+              <Icon 
+                name={displayNote.isPublic ? "globe" : "lock"} 
+                size={16} 
+                color={displayNote.isPublic ? Colors.floatingButton : Colors.secondaryText} 
+              />
+            </View>
+            
+            {/* Settings menu - always visible */}
+            <View style={styles.settingsContainer}>
+              <TouchableOpacity onPress={handleSettingsPress} style={styles.actionButton}>
+                <Icon name="more-horizontal" size={20} color={Colors.primaryText} />
+              </TouchableOpacity>
+              
+              {showSettingsMenu && (
+                <View style={styles.settingsMenu}>
+                  <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
+                    <Icon name="trash-2" size={16} color={Colors.primaryText} />
+                    <Text style={styles.menuItemText}>Delete</Text>
                   </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => startEditing()} style={styles.actionButton}>
-                  <Icon name="edit-3" size={20} color={Colors.primaryText} />
-                </TouchableOpacity>
-              </>
-            )}
+                  <TouchableOpacity onPress={handleMoveToFolder} style={styles.menuItem}>
+                    <Icon name="folder" size={16} color={Colors.primaryText} />
+                    <Text style={styles.menuItemText}>Move to</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handlePageInfo} style={styles.menuItem}>
+                    <Icon name="info" size={16} color={Colors.primaryText} />
+                    <Text style={styles.menuItemText}>Page Info</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleAddToFavorites} style={styles.menuItem}>
+                    <Icon name="heart" size={16} color={Colors.primaryText} />
+                    <Text style={styles.menuItemText}>Add to Favorites</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+            
           </View>
         </View>
 
@@ -594,6 +695,50 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.fontSize.body,
     fontWeight: Typography.fontWeight.semibold,
+  },
+  statusIcon: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Layout.spacing.sm,
+  },
+  settingsContainer: {
+    position: 'relative',
+  },
+  settingsMenu: {
+    position: 'absolute',
+    top: 44,
+    right: 0,
+    backgroundColor: Colors.white,
+    borderRadius: Layout.borderRadius,
+    paddingVertical: Layout.spacing.sm,
+    minWidth: 140,
+    shadowColor: Colors.primaryText,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    zIndex: 1000,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    gap: Layout.spacing.sm,
+  },
+  menuItemText: {
+    fontSize: Typography.fontSize.body,
+    color: Colors.primaryText,
+    fontFamily: Typography.fontFamily.primary,
   },
 });
 

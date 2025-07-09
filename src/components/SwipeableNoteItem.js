@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder, Alert
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
+import Layout from '../constants/Layout';
 
 const SwipeableNoteItem = ({ 
   note,
@@ -101,21 +102,35 @@ const SwipeableNoteItem = ({
           accessibilityRole="button"
           accessibilityLabel={`Note: ${note.title}, created ${note.timeAgo}`}
         >
-          <View style={styles.content}>
-            <Text style={styles.title} numberOfLines={1}>
-              {note.title}
-            </Text>
-            <View style={styles.metaRow}>
-              <Text style={styles.timeAgo}>
-                {note.timeAgo}
-              </Text>
-              {isPublic && note.username && (
-                <Text style={styles.username}>
-                  by {note.username}
-                </Text>
-              )}
+          {note.isPublic ? (
+            // Public note format (same as explore page)
+            <View style={styles.publicContent}>
+              <View style={styles.noteHeader}>
+                <View style={styles.userInfo}>
+                  <View style={styles.avatar}>
+                    <Icon name="user" size={16} color={Colors.textGray} />
+                  </View>
+                  <Text style={styles.userName}>{note.username || 'username'}</Text>
+                </View>
+              </View>
+              <Text style={styles.publicTitle}>{note.title}</Text>
+              <View style={styles.noteFooter}>
+                <Text style={styles.forkCount}>{note.forksCount || 0} Forks</Text>
+              </View>
             </View>
-          </View>
+          ) : (
+            // Private note format (original)
+            <View style={styles.content}>
+              <Text style={styles.title} numberOfLines={1}>
+                {note.title}
+              </Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.timeAgo}>
+                  {note.timeAgo}
+                </Text>
+              </View>
+            </View>
+          )}
         </TouchableOpacity>
       </Animated.View>
       
@@ -185,6 +200,49 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Public note styles (same as explore page)
+  publicContent: {
+    flex: 1,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Layout.spacing.sm,
+  },
+  userName: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textGray,
+  },
+  publicTitle: {
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textBlack,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Layout.spacing.sm,
+  },
+  noteFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  forkCount: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textGray,
   },
 });
 

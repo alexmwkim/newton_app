@@ -14,56 +14,50 @@ const mockTrendingNotes = [
     title: 'Building a Mobile-First Design System',
     content: 'Complete guide to creating design systems that work across platforms...',
     createdAt: '2 hours ago',
-    author: '@uxmaster',
+    author: 'userid001',
     isPublic: true,
-    forkCount: 45,
+    forkCount: 6,
   },
   {
     id: 2,
     title: 'JavaScript Performance Tips',
     content: 'Essential techniques to optimize your JavaScript code for better performance...',
     createdAt: '4 hours ago',
-    author: '@jsdev',
+    author: 'userid002',
     isPublic: true,
-    forkCount: 23,
+    forkCount: 5,
   },
+];
+
+const mockPopularNotes = [
   {
     id: 3,
     title: 'Remote Work Best Practices',
     content: 'Lessons learned from 3 years of remote work and team management...',
     createdAt: '6 hours ago',
-    author: '@remote_leader',
+    author: 'userid003',
     isPublic: true,
-    forkCount: 67,
+    forkCount: 5,
   },
-];
-
-const mockRecentNotes = [
   {
     id: 4,
     title: 'Getting Started with React Native',
     content: 'A beginner-friendly guide to React Native development...',
     createdAt: '1 hour ago',
-    author: '@rn_beginner',
+    author: 'userid004',
     isPublic: true,
     forkCount: 5,
   },
-  {
-    id: 5,
-    title: 'CSS Grid Layout Patterns',
-    content: 'Common layout patterns using CSS Grid with examples...',
-    createdAt: '3 hours ago',
-    author: '@css_expert',
-    isPublic: true,
-    forkCount: 12,
-  },
 ];
+
+const categories = ['Trending', 'Following', 'Idea', 'Routine', 'Journal'];
 
 const ExploreScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNavTab, setActiveNavTab] = useState(2); // Explore is index 2 (zap)
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('Trending');
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -75,12 +69,12 @@ const ExploreScreen = ({ navigation }) => {
         note.content.toLowerCase().includes(query.toLowerCase()) ||
         note.author.toLowerCase().includes(query.toLowerCase())
       );
-      const filteredRecent = mockRecentNotes.filter(note => 
+      const filteredPopular = mockPopularNotes.filter(note => 
         note.title.toLowerCase().includes(query.toLowerCase()) ||
         note.content.toLowerCase().includes(query.toLowerCase()) ||
         note.author.toLowerCase().includes(query.toLowerCase())
       );
-      setSearchResults([...filteredTrending, ...filteredRecent]);
+      setSearchResults([...filteredTrending, ...filteredPopular]);
       setIsSearching(false);
     } else {
       setSearchResults([]);
@@ -131,7 +125,7 @@ const ExploreScreen = ({ navigation }) => {
                 <Icon name="search" size={20} color={Colors.secondaryText} style={styles.searchIcon} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search notes and users..."
+                  placeholder="Notes"
                   placeholderTextColor={Colors.secondaryText}
                   value={searchQuery}
                   onChangeText={handleSearch}
@@ -144,6 +138,34 @@ const ExploreScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 )}
               </View>
+            </View>
+
+            {/* Category Filter Tabs */}
+            <View style={styles.categoryContainer}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryScrollContent}
+              >
+                {categories.map((category, index) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryTab,
+                      activeCategory === category && styles.activeCategoryTab,
+                      index === 0 && styles.firstCategoryTab
+                    ]}
+                    onPress={() => setActiveCategory(category)}
+                  >
+                    <Text style={[
+                      styles.categoryText,
+                      activeCategory === category && styles.activeCategoryText
+                    ]}>
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
 
             <ScrollView
@@ -159,12 +181,22 @@ const ExploreScreen = ({ navigation }) => {
                   </Text>
                   {!isSearching && searchResults.length > 0 ? (
                     searchResults.map((note) => (
-                      <NoteItemComponent
-                        key={note.id}
-                        title={note.title}
-                        timeAgo={note.createdAt}
-                        onPress={() => handleNotePress(note)}
-                      />
+                      <View key={note.id} style={styles.noteCard}>
+                        <TouchableOpacity onPress={() => handleNotePress(note)} style={styles.noteCardContent}>
+                          <View style={styles.noteHeader}>
+                            <View style={styles.userInfo}>
+                              <View style={styles.avatar}>
+                                <Icon name="user" size={16} color={Colors.secondaryText} />
+                              </View>
+                              <Text style={styles.userName}>{note.author}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.noteTitle}>{note.title}</Text>
+                          <View style={styles.noteFooter}>
+                            <Text style={styles.forkCount}>{note.forkCount} Forks</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
                     ))
                   ) : !isSearching ? (
                     <View style={styles.emptyState}>
@@ -176,30 +208,51 @@ const ExploreScreen = ({ navigation }) => {
                 </View>
               ) : (
                 <>
-                  {/* Trending Section */}
+                  {/* Trending Notes */}
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Trending</Text>
                     {mockTrendingNotes.map((note) => (
-                      <NoteItemComponent
-                        key={note.id}
-                        title={note.title}
-                        timeAgo={note.createdAt}
-                        onPress={() => handleNotePress(note)}
-                      />
+                      <View key={note.id} style={styles.noteCard}>
+                        <TouchableOpacity onPress={() => handleNotePress(note)} style={styles.noteCardContent}>
+                          <View style={styles.noteHeader}>
+                            <View style={styles.userInfo}>
+                              <View style={styles.avatar}>
+                                <Icon name="user" size={16} color={Colors.secondaryText} />
+                              </View>
+                              <Text style={styles.userName}>{note.author}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.noteTitle}>{note.title}</Text>
+                          <View style={styles.noteFooter}>
+                            <Text style={styles.forkCount}>{note.forkCount} Forks</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
 
-                  {/* Recent Section */}
+                  {/* Popular Notes Section */}
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Recent</Text>
-                    {mockRecentNotes.map((note) => (
-                      <NoteItemComponent
-                        key={note.id}
-                        title={note.title}
-                        timeAgo={note.createdAt}
-                        onPress={() => handleNotePress(note)}
-                      />
-                    ))}
+                    <Text style={styles.sectionTitle}>Popular notes</Text>
+                    <View style={styles.gridContainer}>
+                      {mockPopularNotes.map((note) => (
+                        <View key={note.id} style={styles.gridNoteCard}>
+                          <TouchableOpacity onPress={() => handleNotePress(note)} style={styles.gridNoteContent}>
+                            <View style={styles.gridNoteHeader}>
+                              <View style={styles.userInfo}>
+                                <View style={styles.avatar}>
+                                  <Icon name="user" size={16} color={Colors.secondaryText} />
+                                </View>
+                                <Text style={styles.userName}>{note.author}</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.gridNoteTitle}>{note.title}</Text>
+                            <View style={styles.gridNoteFooter}>
+                              <Text style={styles.forkCount}>{note.forkCount} Forks</Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 </>
               )}
@@ -260,16 +313,18 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.noteCard,
-    borderRadius: Layout.borderRadius,
+    backgroundColor: Colors.mainBackground,
+    borderRadius: 8,
     paddingHorizontal: Layout.spacing.md,
+    borderWidth: 1,
+    borderColor: '#D4CCC2',
   },
   searchIcon: {
     marginRight: Layout.spacing.sm,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: Layout.spacing.md,
+    paddingVertical: 10,
     fontSize: Typography.fontSize.body,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
@@ -318,6 +373,115 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
     pointerEvents: 'box-none',
+  },
+  categoryContainer: {
+    marginBottom: Layout.spacing.md,
+  },
+  categoryScrollContent: {
+    paddingLeft: 0,
+    paddingRight: 16,
+    alignItems: 'flex-start',
+  },
+  categoryTab: {
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    marginRight: Layout.spacing.md,
+    borderRadius: 20,
+    backgroundColor: '#F8F6F3',
+  },
+  activeCategoryTab: {
+    backgroundColor: '#000000',
+  },
+  firstCategoryTab: {
+    marginLeft: 0,
+  },
+  categoryText: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  activeCategoryText: {
+    color: Colors.mainBackground,
+  },
+  noteCard: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: 12,
+    marginBottom: Layout.spacing.sm,
+    padding: Layout.spacing.md,
+  },
+  noteCardContent: {
+    flex: 1,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Layout.spacing.sm,
+  },
+  userName: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+  },
+  noteTitle: {
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Layout.spacing.sm,
+  },
+  noteFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  forkCount: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridNoteCard: {
+    width: '48%',
+    backgroundColor: Colors.noteCard,
+    borderRadius: 12,
+    marginBottom: Layout.spacing.sm,
+    padding: Layout.spacing.md,
+  },
+  gridNoteContent: {
+    flex: 1,
+  },
+  gridNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+  },
+  gridNoteTitle: {
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Layout.spacing.sm,
+  },
+  gridNoteFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

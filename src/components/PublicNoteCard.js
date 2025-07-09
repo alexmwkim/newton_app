@@ -1,109 +1,84 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
+import Layout from '../constants/Layout';
 
 const PublicNoteCard = ({ 
-  avatarUrl = "https://via.placeholder.com/24",
   username = "username", 
   title = "Note title",
   forksCount = 0,
-  timeAgo = "5 hrs ago",
   onPress 
 }) => {
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Public note by ${username}: ${title}, ${forksCount} forks, created ${timeAgo}`}
-    >
-      <View style={styles.header}>
-        <Image 
-          source={{ uri: avatarUrl }} 
-          style={styles.avatar}
-          defaultSource={require('../../assets/favicon.png')}
-        />
-        <Text style={styles.username}>
-          {username}
-        </Text>
-      </View>
-      
-      <Text style={styles.title} numberOfLines={2}>
-        {title}
-      </Text>
-      
-      <View style={styles.footer}>
-        <View style={styles.forksContainer}>
-          <Icon name="git-branch" size={12} color={Colors.textGray} />
-          <Text style={styles.forksCount}>
-            {forksCount} Forks
-          </Text>
+    <View style={styles.noteCard}>
+      <TouchableOpacity onPress={onPress} style={styles.noteCardContent}>
+        <View style={styles.noteHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatar}>
+              <Icon name="user" size={16} color={Colors.secondaryText} />
+            </View>
+            <Text style={styles.userName}>{username}</Text>
+          </View>
         </View>
-        <Text style={styles.timeAgo}>
-          {timeAgo}
-        </Text>
-      </View>
-    </TouchableOpacity>
+        <Text style={styles.noteTitle}>{title}</Text>
+        <View style={styles.noteFooter}>
+          <Text style={styles.forkCount}>{forksCount} Forks</Text>
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  noteCard: {
     backgroundColor: Colors.noteCard,
     borderRadius: 12,
-    padding: 16,
-    width: 361,
-    height: 110,
-    marginVertical: 4,
-    justifyContent: 'space-between',
+    marginBottom: Layout.spacing.sm,
+    padding: Layout.spacing.md,
   },
-  header: {
+  noteCardContent: {
+    flex: 1,
+  },
+  noteHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Layout.spacing.sm,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   avatar: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    marginRight: 8,
+    backgroundColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Layout.spacing.sm,
   },
-  username: {
+  userName: {
+    fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
-    fontSize: 14,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.textBlack,
+    color: Colors.secondaryText,
   },
-  title: {
-    fontFamily: Typography.fontFamily.primary,
+  noteTitle: {
     fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
     fontWeight: Typography.fontWeight.medium,
-    color: Colors.textBlack,
-    flex: 1,
-    lineHeight: 20,
+    marginBottom: Layout.spacing.sm,
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  forksContainer: {
+  noteFooter: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  forksCount: {
+  forkCount: {
+    fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
-    fontSize: 12,
-    color: Colors.textGray,
-    marginLeft: 4,
-  },
-  timeAgo: {
-    fontFamily: Typography.fontFamily.primary,
-    fontSize: 12,
-    color: Colors.textGray,
+    color: Colors.secondaryText,
   },
 });
 

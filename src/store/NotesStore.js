@@ -6,61 +6,73 @@ let privateNotes = [
     id: 1,
     title: '📏 Scroll gap fixed - Notes have proper margin ✅ LIVE RELOAD TEST',
     timeAgo: '5 hrs ago',
+    isPublic: false,
   },
   {
     id: 2,
     title: 'Idea notes',
     timeAgo: '05/08/25',
+    isPublic: false,
   },
   {
     id: 3,
     title: 'Oio project',
     timeAgo: '10/04/24',
+    isPublic: false,
   },
   {
     id: 4,
     title: 'Workout session',
     timeAgo: '09/12/24',
+    isPublic: false,
   },
   {
     id: 5,
     title: 'Morning thoughts',
     timeAgo: '1 day ago',
+    isPublic: false,
   },
   {
     id: 6,
     title: 'Book reading notes',
     timeAgo: '2 days ago',
+    isPublic: false,
   },
   {
     id: 7,
     title: 'Meeting minutes',
     timeAgo: '3 days ago',
+    isPublic: false,
   },
   {
     id: 8,
     title: 'Travel plans',
     timeAgo: '1 week ago',
+    isPublic: false,
   },
   {
     id: 9,
     title: 'Recipe collection',
     timeAgo: '1 week ago',
+    isPublic: false,
   },
   {
     id: 10,
     title: 'Daily reflections',
     timeAgo: '2 weeks ago',
+    isPublic: false,
   },
   {
     id: 11,
     title: 'Goal setting 2024',
     timeAgo: '3 weeks ago',
+    isPublic: false,
   },
   {
     id: 12,
     title: 'Learning notes',
     timeAgo: '1 month ago',
+    isPublic: false,
   },
 ];
 
@@ -72,6 +84,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 5,
+    isPublic: true,
   },
   {
     id: 14,
@@ -80,6 +93,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 12,
+    isPublic: true,
   },
   {
     id: 15,
@@ -88,6 +102,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 8,
+    isPublic: true,
   },
   {
     id: 16,
@@ -96,6 +111,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 15,
+    isPublic: true,
   },
   {
     id: 17,
@@ -104,6 +120,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 3,
+    isPublic: true,
   },
   {
     id: 18,
@@ -112,6 +129,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 7,
+    isPublic: true,
   },
   {
     id: 19,
@@ -120,6 +138,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 22,
+    isPublic: true,
   },
   {
     id: 20,
@@ -128,6 +147,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 11,
+    isPublic: true,
   },
   {
     id: 21,
@@ -136,6 +156,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 6,
+    isPublic: true,
   },
   {
     id: 22,
@@ -144,6 +165,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 18,
+    isPublic: true,
   },
 ];
 
@@ -175,6 +197,7 @@ const NotesStore = {
       title: noteData.title,
       content: noteData.content,
       timeAgo: 'Just now',
+      isPublic: noteData.isPublic,
       ...(noteData.isPublic && {
         username: 'alexnwkim',
         avatarUrl: 'https://via.placeholder.com/24',
@@ -203,29 +226,39 @@ const NotesStore = {
     // Find note in private notes
     const privateIndex = privateNotes.findIndex(note => note.id === noteId);
     if (privateIndex !== -1) {
-      privateNotes[privateIndex] = {
+      const updatedNote = {
         ...privateNotes[privateIndex],
         title: updatedData.title,
         content: updatedData.content,
         timeAgo: 'Just now', // Update time
       };
-      console.log('✅ Updated private note:', privateNotes[privateIndex]);
+      
+      // Remove from current position and add to top
+      privateNotes.splice(privateIndex, 1);
+      privateNotes.unshift(updatedNote);
+      
+      console.log('✅ Updated private note and moved to top:', updatedNote);
       listeners.forEach(listener => listener());
-      return privateNotes[privateIndex];
+      return updatedNote;
     }
     
     // Find note in public notes
     const publicIndex = publicNotes.findIndex(note => note.id === noteId);
     if (publicIndex !== -1) {
-      publicNotes[publicIndex] = {
+      const updatedNote = {
         ...publicNotes[publicIndex],
         title: updatedData.title,
         content: updatedData.content,
         timeAgo: 'Just now', // Update time
       };
-      console.log('✅ Updated public note:', publicNotes[publicIndex]);
+      
+      // Remove from current position and add to top
+      publicNotes.splice(publicIndex, 1);
+      publicNotes.unshift(updatedNote);
+      
+      console.log('✅ Updated public note and moved to top:', updatedNote);
       listeners.forEach(listener => listener());
-      return publicNotes[publicIndex];
+      return updatedNote;
     }
     
     console.log('❌ Note not found for update:', noteId);
@@ -307,18 +340,22 @@ const NotesStore = {
     
     if (existingNoteIndex !== -1) {
       // Update existing note
-      folder.notes[existingNoteIndex] = {
+      const updatedNote = {
         ...folder.notes[existingNoteIndex],
         content: noteData.content,
         timeAgo: 'Just now',
       };
       
-      console.log('✅ Updated existing note in folder:', folder.notes[existingNoteIndex]);
+      // Remove from current position and add to top
+      folder.notes.splice(existingNoteIndex, 1);
+      folder.notes.unshift(updatedNote);
+      
+      console.log('✅ Updated existing note in folder and moved to top:', updatedNote);
       
       // Notify all listeners
       listeners.forEach(listener => listener());
       
-      return folder.notes[existingNoteIndex];
+      return updatedNote;
     } else {
       // Create new note
       noteIdCounter++;

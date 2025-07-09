@@ -263,19 +263,6 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
             onToggle={setIsPublic}
           />
           
-          <TouchableOpacity 
-            onPress={() => {
-              console.log('Focus button pressed');
-              Keyboard.dismiss();
-              setTimeout(() => {
-                contentInputRef.current?.focus();
-              }, 100);
-            }} 
-            style={styles.actionButton}
-          >
-            <Text style={styles.actionButtonText}>Focus</Text>
-          </TouchableOpacity>
-          
           <TouchableOpacity onPress={hasContent ? handleSave : handleBack} style={styles.actionButton}>
             <Text style={styles.actionButtonText}>
               {hasContent ? 'Done' : 'X'}

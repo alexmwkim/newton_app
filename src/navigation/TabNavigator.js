@@ -36,7 +36,12 @@ const TabNavigator = () => {
   const goBack = () => {
     // Check if we're going back from noteDetail or createNote and need to preserve tab state
     if (currentScreen === 'noteDetail' || currentScreen === 'createNote') {
-      if (screenProps.returnToTab) {
+      if (screenProps.returnToScreen) {
+        // Going back to specific screen (like search)
+        setCurrentScreen(screenProps.returnToScreen);
+        setActiveTab(screenProps.returnToScreen);
+        setScreenProps({});
+      } else if (screenProps.returnToTab) {
         // Going back to home with specific tab state
         setCurrentScreen('home');
         setActiveTab('home');
