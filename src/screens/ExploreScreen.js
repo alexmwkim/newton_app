@@ -10,7 +10,7 @@ import BottomNavigationComponent from '../components/BottomNavigationComponent';
 // Mock data for explore screen
 const mockTrendingNotes = [
   {
-    id: 1,
+    id: 101,
     title: 'Building a Mobile-First Design System',
     content: 'Complete guide to creating design systems that work across platforms...',
     createdAt: '2 hours ago',
@@ -19,7 +19,7 @@ const mockTrendingNotes = [
     forkCount: 6,
   },
   {
-    id: 2,
+    id: 102,
     title: 'JavaScript Performance Tips',
     content: 'Essential techniques to optimize your JavaScript code for better performance...',
     createdAt: '4 hours ago',
@@ -31,7 +31,7 @@ const mockTrendingNotes = [
 
 const mockPopularNotes = [
   {
-    id: 3,
+    id: 103,
     title: 'Remote Work Best Practices',
     content: 'Lessons learned from 3 years of remote work and team management...',
     createdAt: '6 hours ago',
@@ -40,7 +40,7 @@ const mockPopularNotes = [
     forkCount: 5,
   },
   {
-    id: 4,
+    id: 104,
     title: 'Getting Started with React Native',
     content: 'A beginner-friendly guide to React Native development...',
     createdAt: '1 hour ago',
@@ -90,6 +90,10 @@ const ExploreScreen = ({ navigation }) => {
 
   const handleNotePress = (note) => {
     console.log('Note pressed:', note.title);
+    navigation.navigate('noteDetail', { 
+      noteId: note.id,
+      returnToScreen: 'explore' // Return to explore screen after viewing note
+    });
   };
 
   const handleNavChange = (tabIndex) => {

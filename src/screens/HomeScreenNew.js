@@ -37,41 +37,13 @@ const mockPrivateNotes = [
     title: 'Morning thoughts',
     timeAgo: '1 day ago',
   },
-  {
-    id: 6,
-    title: 'Book reading notes',
-    timeAgo: '2 days ago',
-  },
-  {
-    id: 7,
-    title: 'Meeting minutes',
-    timeAgo: '3 days ago',
-  },
-  {
-    id: 8,
-    title: 'Travel plans',
-    timeAgo: '1 week ago',
-  },
-  {
-    id: 9,
-    title: 'Recipe collection',
-    timeAgo: '1 week ago',
-  },
-  {
-    id: 10,
-    title: 'Daily reflections',
-    timeAgo: '2 weeks ago',
-  },
-  {
-    id: 11,
-    title: 'Goal setting 2024',
-    timeAgo: '3 weeks ago',
-  },
-  {
-    id: 12,
-    title: 'Learning notes',
-    timeAgo: '1 month ago',
-  },
+  
+ 
+  
+  
+ 
+  
+  
 ];
 
 const mockPublicNotes = [

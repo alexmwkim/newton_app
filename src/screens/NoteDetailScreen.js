@@ -28,6 +28,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
   const { getNoteById, updateNote, deleteNote } = useNotesStore();
+  const currentUser = 'alexnwkim'; // Current logged-in user
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -140,6 +141,12 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   };
 
   const startEditing = (field = 'content') => {
+    // Only allow editing if user is the author
+    if (!isAuthor) {
+      console.log('🚫 Cannot edit note: User is not the author');
+      return;
+    }
+    
     setIsEditing(true);
     setShowToolbar(true);
     
@@ -280,7 +287,12 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
     isPublic: false,
   };
   
-  console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note);
+  // Check if current user is the author (can edit)
+  const isAuthor = displayNote.isPublic ? 
+    (displayNote.username === currentUser || displayNote.author === currentUser) : 
+    true; // Private notes are always editable by current user
+  
+  console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note, 'isAuthor:', isAuthor);
 
   const handleFolderPress = (folderId, folderName) => {
     console.log('📁 Opening folder:', folderId, folderName);
@@ -352,7 +364,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
     <TouchableWithoutFeedback onPress={() => {
       if (showSettingsMenu) {
         setShowSettingsMenu(false);
-      } else if (!isEditing) {
+      } else if (!isEditing && isAuthor) {
         startEditing();
       }
     }}>
@@ -394,14 +406,18 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
               
               {showSettingsMenu && (
                 <View style={styles.settingsMenu}>
-                  <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
-                    <Icon name="trash-2" size={16} color={Colors.primaryText} />
-                    <Text style={styles.menuItemText}>Delete</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleMoveToFolder} style={styles.menuItem}>
-                    <Icon name="folder" size={16} color={Colors.primaryText} />
-                    <Text style={styles.menuItemText}>Move to</Text>
-                  </TouchableOpacity>
+                  {isAuthor && (
+                    <>
+                      <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
+                        <Icon name="trash-2" size={16} color={Colors.primaryText} />
+                        <Text style={styles.menuItemText}>Delete</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleMoveToFolder} style={styles.menuItem}>
+                        <Icon name="folder" size={16} color={Colors.primaryText} />
+                        <Text style={styles.menuItemText}>Move to</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                   <TouchableOpacity onPress={handlePageInfo} style={styles.menuItem}>
                     <Icon name="info" size={16} color={Colors.primaryText} />
                     <Text style={styles.menuItemText}>Page Info</Text>
@@ -410,6 +426,12 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
                     <Icon name="heart" size={16} color={Colors.primaryText} />
                     <Text style={styles.menuItemText}>Add to Favorites</Text>
                   </TouchableOpacity>
+                  {!isAuthor && displayNote.isPublic && (
+                    <TouchableOpacity onPress={handleFork} style={styles.menuItem}>
+                      <Icon name="git-branch" size={16} color={Colors.primaryText} />
+                      <Text style={styles.menuItemText}>Fork</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -426,7 +448,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           {/* Note Title */}
-          <TouchableWithoutFeedback onPress={() => startEditing('title')}>
+          <TouchableWithoutFeedback onPress={() => isAuthor && startEditing('title')}>
             <View style={styles.titleContainer}>
               {isEditing ? (
                 <TextInput
@@ -460,14 +482,22 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
           {displayNote.isPublic && (
             <View style={styles.publicInfo}>
               <Text style={styles.author}>by {displayNote.username || 'Unknown'}</Text>
-              <Text style={styles.forkCount}>
-                <Icon name="git-branch" size={16} color={Colors.secondaryText} /> {displayNote.forksCount || 0} forks
-              </Text>
+              <View style={styles.publicMeta}>
+                <Text style={styles.forkCount}>
+                  <Icon name="git-branch" size={16} color={Colors.secondaryText} /> {displayNote.forksCount || displayNote.forkCount || 0} forks
+                </Text>
+                {!isAuthor && (
+                  <View style={styles.readOnlyIndicator}>
+                    <Icon name="eye" size={16} color={Colors.secondaryText} />
+                    <Text style={styles.readOnlyText}>Read only</Text>
+                  </View>
+                )}
+              </View>
             </View>
           )}
 
           {/* Note Content */}
-          <TouchableWithoutFeedback onPress={() => startEditing('content')}>
+          <TouchableWithoutFeedback onPress={() => isAuthor && startEditing('content')}>
             <View style={styles.noteContent}>
               {isEditing ? (
                 <TextInput
@@ -495,8 +525,8 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
           </TouchableWithoutFeedback>
         </ScrollView>
 
-        {/* Keyboard Toolbar with Layout Options - Show when editing or toolbar needed */}
-        {(showToolbar || isEditing) && (
+        {/* Keyboard Toolbar with Layout Options - Show when editing or toolbar needed and user is author */}
+        {(showToolbar || isEditing) && isAuthor && (
           <View style={styles.keyboardToolbar}>
             <View style={styles.toolbarLeft}>
               <TouchableOpacity 
@@ -608,9 +638,28 @@ const styles = StyleSheet.create({
     color: Colors.primaryText,
     fontWeight: Typography.fontWeight.medium,
   },
+  publicMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.md,
+  },
   forkCount: {
     fontSize: Typography.fontSize.body,
     color: Colors.secondaryText,
+  },
+  readOnlyIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.xs,
+    backgroundColor: Colors.noteCard,
+    paddingHorizontal: Layout.spacing.sm,
+    paddingVertical: Layout.spacing.xs,
+    borderRadius: Layout.borderRadius / 2,
+  },
+  readOnlyText: {
+    fontSize: Typography.fontSize.small,
+    color: Colors.secondaryText,
+    fontWeight: Typography.fontWeight.medium,
   },
   noteContent: {
     marginTop: Layout.spacing.md,

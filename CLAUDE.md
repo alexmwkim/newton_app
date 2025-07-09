@@ -279,3 +279,9 @@ Since this is a mobile-first React Native + Expo project:
 - **Style Implementation:** Reference `PRDs/newton_app_styleGuide.rtf` for precise color codes, typography, and component specifications
 - **UI Reference:** Use `ui_screenshots/` folder for exact screen layouts and interactions
 - **Accessibility:** Follow style guide accessibility considerations (contrast ratios, alt text, screen reader support)
+
+## Development Workflow Notes
+
+- **CLI Command Guideline:**
+  - Do not run `npx expo start --ios --port 8082` without explicit request
+  - Manage development server commands carefully to avoid port conflicts

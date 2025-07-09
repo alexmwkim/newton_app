@@ -3,10 +3,9 @@ import { View, TouchableOpacity, Text, StyleSheet, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
+import { NewtonLogo } from './NewtonLogo';
 
 const HeaderComponent = ({ onBackPress, onSearchPress, onMenuPress, onLogoPress }) => {
-  const [logoError, setLogoError] = useState(false);
-
   return (
     <View style={styles.container}>
       <TouchableOpacity 
@@ -14,18 +13,11 @@ const HeaderComponent = ({ onBackPress, onSearchPress, onMenuPress, onLogoPress 
         accessibilityLabel="Newton Logo - Refresh"
         style={styles.logoButton}
       >
-        {!logoError ? (
-          <Image 
-            source={require('../../assets/logo/logo_app.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-            onError={() => setLogoError(true)}
-          />
-        ) : (
-          <View style={styles.logoFallback}>
-            <Text style={styles.logoText}>N</Text>
-          </View>
-        )}
+        <NewtonLogo 
+          width={48} 
+          height={48} 
+          color={Colors.primaryText}
+        />
       </TouchableOpacity>
       
       <View style={styles.rightIcons}>
@@ -55,32 +47,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    paddingVertical: 8,
+    paddingVertical: 20,
     paddingHorizontal: 16,
   },
   logoButton: {
-    width: 64,
-    height: 64,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 32,
-  },
-  logoImage: {
-    width: 64,
-    height: 64,
-  },
-  logoFallback: {
-    width: 64,
-    height: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.textBlack,
-    borderRadius: 32,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.white,
+    borderRadius: 0,
   },
   rightIcons: {
     flexDirection: 'row',
