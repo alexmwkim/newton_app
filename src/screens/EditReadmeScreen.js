@@ -10,6 +10,7 @@ import {
   ScrollView
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import Markdown from 'react-native-markdown-display';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
@@ -65,7 +66,7 @@ const EditReadmeScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
           <Icon name="x" size={24} color={Colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Readme</Text>
+        <Text style={styles.headerTitle}>Readme</Text>
         <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
           <Text style={styles.saveButton}>Save</Text>
         </TouchableOpacity>
@@ -87,16 +88,28 @@ const EditReadmeScreen = ({ navigation, route }) => {
 
         {/* Content Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Content</Text>
+          <View style={styles.contentHeader}>
+            <Text style={styles.inputLabel}>Content</Text>
+            <Text style={styles.markdownHint}>Supports Markdown</Text>
+          </View>
           <TextInput
             style={styles.contentInput}
             value={content}
             onChangeText={setContent}
-            placeholder="Write your readme content..."
+            placeholder="Write your readme content using Markdown...\n\n**Bold text**\n*Italic text*\n# Heading 1\n## Heading 2\n### Heading 3\n[Link](url)\n- List item"
             placeholderTextColor={Colors.secondaryText}
             multiline={true}
             textAlignVertical="top"
           />
+        </View>
+
+        {/* Markdown Guide */}
+        <View style={styles.guideSection}>
+          <Text style={styles.guideLabel}>Markdown Guide</Text>
+          <View style={styles.guideContainer}>
+            <Text style={styles.guideText}>**Bold** • *Italic* • # H1 • ## H2 • ### H3</Text>
+            <Text style={styles.guideText}>[Link](url) • - List • {'>'} Quote</Text>
+          </View>
         </View>
 
         {/* Preview Section */}
@@ -104,7 +117,14 @@ const EditReadmeScreen = ({ navigation, route }) => {
           <Text style={styles.previewLabel}>Preview</Text>
           <View style={styles.previewContainer}>
             <Text style={styles.previewTitle}>{title || 'Title'}</Text>
-            <Text style={styles.previewContent}>{content || 'Your content will appear here...'}</Text>
+            <ScrollView style={styles.markdownScroll} nestedScrollEnabled={true}>
+              <Markdown 
+                style={markdownStyles}
+                mergeStyle={false}
+              >
+                {content || '*Your markdown content will appear here...*'}
+              </Markdown>
+            </ScrollView>
           </View>
         </View>
       </ScrollView>
@@ -132,10 +152,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.bold,
+    fontSize: 16,
+    fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
+    letterSpacing: -0.3,
   },
   saveButton: {
     fontSize: Typography.fontSize.body,
@@ -208,6 +229,123 @@ const styles = StyleSheet.create({
     color: Colors.primaryText,
     lineHeight: 22,
   },
+  contentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+  },
+  markdownHint: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.floatingButton,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  guideSection: {
+    marginBottom: Layout.spacing.xl,
+  },
+  guideLabel: {
+    fontSize: Typography.fontSize.small,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    marginBottom: Layout.spacing.sm,
+  },
+  guideContainer: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: 12,
+    padding: Layout.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  guideText: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    lineHeight: 18,
+  },
+  markdownScroll: {
+    maxHeight: 200,
+  },
 });
+
+// Markdown styles for preview
+const markdownStyles = {
+  body: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: 'System',
+    color: Colors.primaryText,
+    lineHeight: 22,
+  },
+  heading1: {
+    fontSize: Typography.fontSize.title,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: 'System',
+    color: Colors.primaryText,
+    marginBottom: Layout.spacing.sm,
+    marginTop: Layout.spacing.md,
+    lineHeight: 28,
+  },
+  heading2: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primaryText,
+    marginBottom: 8,
+    marginTop: 12,
+    lineHeight: 24,
+  },
+  heading3: {
+    fontSize: Typography.fontSize.body,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: 'System',
+    color: Colors.primaryText,
+    marginBottom: Layout.spacing.sm,
+    marginTop: Layout.spacing.md,
+    lineHeight: 20,
+  },
+  strong: {
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.primaryText,
+  },
+  em: {
+    fontStyle: 'italic',
+    color: Colors.primaryText,
+  },
+  link: {
+    color: Colors.floatingButton,
+    textDecorationLine: 'underline',
+  },
+  paragraph: {
+    marginBottom: Layout.spacing.sm,
+    lineHeight: 22,
+  },
+  list_item: {
+    marginBottom: Layout.spacing.xs,
+  },
+  blockquote: {
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.border,
+    paddingLeft: Layout.spacing.md,
+    marginLeft: Layout.spacing.sm,
+    fontStyle: 'italic',
+    color: Colors.secondaryText,
+  },
+  code_inline: {
+    backgroundColor: Colors.noteCard,
+    fontFamily: 'Courier',
+    fontSize: Typography.fontSize.small,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  code_block: {
+    backgroundColor: Colors.noteCard,
+    fontFamily: 'Courier',
+    fontSize: Typography.fontSize.small,
+    padding: Layout.spacing.md,
+    borderRadius: 8,
+    marginVertical: Layout.spacing.sm,
+  },
+};
 
 export default EditReadmeScreen;

@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.bold,
+    fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
@@ -421,11 +421,12 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.xl,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.heading,
-    fontWeight: Typography.fontWeight.bold,
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     marginBottom: Layout.spacing.md,
+    letterSpacing: -0.2,
   },
   chipContainer: {
     flexDirection: 'row',

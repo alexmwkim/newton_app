@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.bold,
+    fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
@@ -363,8 +363,8 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.xl,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.heading,
-    fontWeight: Typography.fontWeight.bold,
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     marginBottom: Layout.spacing.md,
@@ -387,10 +387,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   categoryTab: {
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
-    marginRight: Layout.spacing.md,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: Layout.spacing.sm,
+    borderRadius: 18,
     backgroundColor: '#F8F6F3',
   },
   activeCategoryTab: {
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   categoryText: {
-    fontSize: Typography.fontSize.body,
+    fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     fontWeight: Typography.fontWeight.medium,

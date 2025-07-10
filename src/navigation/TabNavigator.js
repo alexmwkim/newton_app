@@ -13,6 +13,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import NoteDetailScreen from '../screens/NoteDetailScreen';
 import CreateNoteScreen from '../screens/CreateNoteScreen';
 import EditReadmeScreen from '../screens/EditReadmeScreen';
+import MyNotesScreen from '../screens/MyNotesScreen';
 
 const TabNavigator = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -85,6 +86,9 @@ const TabNavigator = () => {
       case 'editReadme':
         console.log('📝 Rendering EditReadmeScreen with screenProps:', screenProps);
         return <EditReadmeScreen key="edit-readme" navigation={navigationProps} route={{ params: screenProps }} />;
+      case 'myNotes':
+        console.log('📄 Rendering MyNotesScreen');
+        return <MyNotesScreen key="my-notes" navigation={navigationProps} />;
       default:
         return <HomeScreenNew key="home-screen-default" navigation={navigationProps} />;
     }
