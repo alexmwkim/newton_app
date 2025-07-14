@@ -33,6 +33,7 @@ export const Colors = {
   primaryText: 'rgba(0, 0, 0, 1)',
   secondaryText: '#A6A29D',
   inverseText: 'rgba(255, 255, 255, 1)',
+  danger: '#DC3545',
   
   // Shadow (from CSS)
   shadow: '0px -1px 20px 0px rgba(0,0,0,0.5)', // rectangle-50-44

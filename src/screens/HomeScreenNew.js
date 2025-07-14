@@ -54,6 +54,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 5,
+    starCount: 24,
   },
   {
     id: 14,
@@ -62,6 +63,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 12,
+    starCount: 67,
   },
   {
     id: 15,
@@ -70,6 +72,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 8,
+    starCount: 41,
   },
   {
     id: 16,
@@ -78,6 +81,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 15,
+    starCount: 89,
   },
   {
     id: 17,
@@ -86,6 +90,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 3,
+    starCount: 16,
   },
   {
     id: 18,
@@ -94,6 +99,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 7,
+    starCount: 33,
   },
   {
     id: 19,
@@ -102,6 +108,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 22,
+    starCount: 156,
   },
   {
     id: 20,
@@ -110,6 +117,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 11,
+    starCount: 78,
   },
   {
     id: 21,
@@ -118,6 +126,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 6,
+    starCount: 29,
   },
   {
     id: 22,
@@ -126,6 +135,7 @@ const mockPublicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 18,
+    starCount: 134,
   },
 ];
 
@@ -190,12 +200,14 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     navigation.goBack();
   };
 
-  const handleSearchPress = () => {
-    navigation.navigate('search');
+  const handleNotificationsPress = () => {
+    console.log('🔔 Notifications pressed');
+    navigation.navigate('notifications');
   };
 
   const handleMenuPress = () => {
-    // Open menu or settings
+    console.log('📋 More menu pressed');
+    navigation.navigate('more');
   };
 
   const handleLogoPress = () => {
@@ -214,7 +226,7 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
         <View style={styles.mainContent}>
           <HeaderComponent
             onBackPress={handleBackPress}
-            onSearchPress={handleSearchPress}
+            onNotificationsPress={handleNotificationsPress}
             onMenuPress={handleMenuPress}
             onLogoPress={handleLogoPress}
           />

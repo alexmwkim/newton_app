@@ -115,7 +115,14 @@ const SwipeableNoteItem = ({
               </View>
               <Text style={styles.publicTitle}>{note.title}</Text>
               <View style={styles.noteFooter}>
-                <Text style={styles.forkCount}>{note.forksCount || 0} Forks</Text>
+                <View style={styles.statChip}>
+                  <Icon name="star" size={12} color={Colors.secondaryText} />
+                  <Text style={styles.statText}>{note.starCount || 0}</Text>
+                </View>
+                <View style={styles.statChip}>
+                  <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                  <Text style={styles.statText}>{note.forksCount || 0}</Text>
+                </View>
               </View>
             </View>
           ) : (
@@ -240,6 +247,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   forkCount: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textGray,
+  },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginRight: 12,
+  },
+  statText: {
     fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.textGray,

@@ -28,7 +28,11 @@ I'm a **developer** who loves to create amazing apps. Here's what I'm working on
 
 Feel free to check out my public notes below!`,
   myNotesCount: 12,
-  collectedNotesCount: 4,
+  starredNotesCount: 4,
+  followersCount: 1247,
+  followingCount: 456,
+  starsCount: 890,
+  isFollowing: false,
 };
 
 const mockHighlightNotes = [
@@ -36,13 +40,17 @@ const mockHighlightNotes = [
     id: 1,
     title: 'project abcd',
     forkCount: 5,
+    starCount: 12,
     username: 'userid',
+    isStarred: false,
   },
   {
     id: 2,
     title: 'my journal',
     forkCount: 5,
+    starCount: 8,
     username: 'userid',
+    isStarred: true,
   },
 ];
 
@@ -52,6 +60,11 @@ const ProfileScreen = ({ navigation }) => {
     title: mockUser.readmeTitle,
     content: mockUser.readmeContent,
   });
+  
+  // Social features state
+  const [isFollowing, setIsFollowing] = useState(mockUser.isFollowing);
+  const [followersCount, setFollowersCount] = useState(mockUser.followersCount);
+  const [highlightNotes, setHighlightNotes] = useState(mockHighlightNotes);
 
   useEffect(() => {
     // Check for global readme data on every render
@@ -95,8 +108,8 @@ const ProfileScreen = ({ navigation }) => {
     navigation.navigate('myNotes');
   };
 
-  const handleCollectedNotesPress = () => {
-    console.log('Collected notes pressed');
+  const handleStarredNotesPress = () => {
+    console.log('Starred notes pressed');
   };
 
   const handleNotePress = (note) => {
@@ -112,6 +125,44 @@ const ProfileScreen = ({ navigation }) => {
     });
   };
 
+  const handleSettingsPress = () => {
+    console.log('⚙️ Settings pressed');
+    navigation.navigate('settings');
+  };
+
+  // Social interaction handlers
+  const handleFollowPress = () => {
+    setIsFollowing(!isFollowing);
+    setFollowersCount(isFollowing ? followersCount - 1 : followersCount + 1);
+    console.log(isFollowing ? '👥 Unfollowed user' : '👥 Followed user');
+  };
+
+  const handleStarNote = (noteId) => {
+    setHighlightNotes(notes => 
+      notes.map(note => 
+        note.id === noteId 
+          ? { 
+              ...note, 
+              isStarred: !note.isStarred,
+              starCount: note.isStarred ? note.starCount - 1 : note.starCount + 1
+            }
+          : note
+      )
+    );
+    console.log(`⭐ ${highlightNotes.find(n => n.id === noteId)?.isStarred ? 'Unstarred' : 'Starred'} note`);
+  };
+
+  const handleFollowersPress = () => {
+    console.log('👥 Followers pressed');
+    // TODO: Navigate to followers list
+  };
+
+  const handleFollowingPress = () => {
+    console.log('👥 Following pressed');
+    // TODO: Navigate to following list
+  };
+
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -123,7 +174,7 @@ const ProfileScreen = ({ navigation }) => {
               <TouchableOpacity style={styles.headerButton}>
                 <Icon name="share" size={24} color={Colors.primaryText} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton}>
+              <TouchableOpacity style={styles.headerButton} onPress={handleSettingsPress}>
                 <Icon name="settings" size={24} color={Colors.primaryText} />
               </TouchableOpacity>
             </View>
@@ -140,6 +191,40 @@ const ProfileScreen = ({ navigation }) => {
                 <Icon name="user" size={24} color={Colors.secondaryText} />
               </View>
               <Text style={styles.username}>{mockUser.username}</Text>
+            </View>
+
+            {/* Social Stats Section */}
+            <View style={styles.socialStats}>
+              <TouchableOpacity onPress={handleFollowersPress}>
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{followersCount}</Text>
+                  <Text style={styles.statLabel}> followers</Text>
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.statSeparator}>  </Text>
+              <TouchableOpacity onPress={handleFollowingPress}>
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{mockUser.followingCount}</Text>
+                  <Text style={styles.statLabel}> following</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Follow Button Section */}
+            <View style={styles.followButtonSection}>
+              <TouchableOpacity 
+                style={[styles.followButton, isFollowing && styles.followingButton]} 
+                onPress={handleFollowPress}
+              >
+                <Icon 
+                  name={isFollowing ? "user-check" : "user-plus"} 
+                  size={16} 
+                  color={isFollowing ? Colors.secondaryText : Colors.mainBackground} 
+                />
+                <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                  {isFollowing ? 'Following' : 'Follow'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Readme Header */}
@@ -174,11 +259,11 @@ const ProfileScreen = ({ navigation }) => {
               </View>
             </TouchableOpacity>
 
-            {/* Collected Notes Section */}
-            <TouchableOpacity style={styles.menuItem} onPress={handleCollectedNotesPress}>
-              <Text style={styles.menuItemText}>Collected notes</Text>
+            {/* Starred Notes Section */}
+            <TouchableOpacity style={styles.menuItem} onPress={handleStarredNotesPress}>
+              <Text style={styles.menuItemText}>Starred notes</Text>
               <View style={styles.menuItemRight}>
-                <Text style={styles.menuItemCount}>{mockUser.collectedNotesCount}</Text>
+                <Text style={styles.menuItemCount}>{mockUser.starredNotesCount}</Text>
                 <Icon name="chevron-right" size={20} color={Colors.secondaryText} />
               </View>
             </TouchableOpacity>
@@ -187,7 +272,7 @@ const ProfileScreen = ({ navigation }) => {
             <View style={styles.highlightSection}>
               <Text style={styles.highlightTitle}>Highlight</Text>
               <View style={styles.highlightGrid}>
-                {mockHighlightNotes.map((note) => (
+                {highlightNotes.map((note) => (
                   <TouchableOpacity
                     key={note.id}
                     style={styles.highlightCard}
@@ -198,9 +283,29 @@ const ProfileScreen = ({ navigation }) => {
                         <Icon name="user" size={16} color={Colors.secondaryText} />
                       </View>
                       <Text style={styles.highlightUsername}>{note.username}</Text>
+                      <TouchableOpacity 
+                        style={styles.starButton}
+                        onPress={() => handleStarNote(note.id)}
+                      >
+                        <Icon 
+                          name="star" 
+                          size={16} 
+                          color={note.isStarred ? Colors.floatingButton : Colors.secondaryText}
+                          fill={note.isStarred ? Colors.floatingButton : 'none'}
+                        />
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.highlightNoteTitle}>{note.title}</Text>
-                    <Text style={styles.highlightForkCount}>{note.forkCount} Forks</Text>
+                    <View style={styles.highlightStats}>
+                      <View style={styles.statChip}>
+                        <Icon name="star" size={12} color={Colors.secondaryText} />
+                        <Text style={styles.highlightStatText}>{note.starCount}</Text>
+                      </View>
+                      <View style={styles.statChip}>
+                        <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                        <Text style={styles.highlightStatText}>{note.forkCount}</Text>
+                      </View>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -249,10 +354,43 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
-    gap: Layout.spacing.md,
+    gap: 20,
   },
   headerButton: {
-    padding: Layout.spacing.xs,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  followButtonSection: {
+    paddingHorizontal: Layout.screen.padding,
+    paddingBottom: Layout.spacing.lg,
+  },
+  followButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.floatingButton,
+    paddingHorizontal: Layout.spacing.lg,
+    paddingVertical: Layout.spacing.md,
+    borderRadius: 25,
+    gap: Layout.spacing.xs,
+    width: '100%',
+  },
+  followingButton: {
+    backgroundColor: Colors.noteCard,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  followButtonText: {
+    fontSize: Typography.fontSize.body,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.mainBackground,
+  },
+  followingButtonText: {
+    color: Colors.secondaryText,
   },
   scrollView: {
     flex: 1,
@@ -281,12 +419,39 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
   },
+  socialStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.screen.padding,
+    paddingVertical: Layout.spacing.md,
+    marginBottom: Layout.spacing.lg,
+  },
+  statText: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  statNumber: {
+    fontSize: Typography.fontSize.body,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+  },
+  statLabel: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+  },
+  statSeparator: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+  },
   readmeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Layout.screen.padding,
-    marginBottom: Layout.spacing.md,
+    marginBottom: Layout.spacing.sm,
   },
   readmeSection: {
     backgroundColor: Colors.noteCard,
@@ -373,6 +538,10 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.sm,
     gap: Layout.spacing.xs,
   },
+  starButton: {
+    marginLeft: 'auto',
+    padding: Layout.spacing.xs,
+  },
   highlightAvatar: {
     width: 24,
     height: 24,
@@ -394,6 +563,20 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.sm,
   },
   highlightForkCount: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+  },
+  highlightStats: {
+    flexDirection: 'row',
+    gap: Layout.spacing.sm,
+  },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.xs,
+  },
+  highlightStatText: {
     fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,

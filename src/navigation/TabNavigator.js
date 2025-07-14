@@ -14,6 +14,9 @@ import NoteDetailScreen from '../screens/NoteDetailScreen';
 import CreateNoteScreen from '../screens/CreateNoteScreen';
 import EditReadmeScreen from '../screens/EditReadmeScreen';
 import MyNotesScreen from '../screens/MyNotesScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import MoreScreen from '../screens/MoreScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 const TabNavigator = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -89,6 +92,15 @@ const TabNavigator = () => {
       case 'myNotes':
         console.log('📄 Rendering MyNotesScreen');
         return <MyNotesScreen key="my-notes" navigation={navigationProps} />;
+      case 'settings':
+        console.log('⚙️ Rendering SettingsScreen');
+        return <SettingsScreen key="settings" navigation={navigationProps} />;
+      case 'more':
+        console.log('📋 Rendering MoreScreen');
+        return <MoreScreen key="more" navigation={navigationProps} />;
+      case 'notifications':
+        console.log('🔔 Rendering NotificationsScreen');
+        return <NotificationsScreen key="notifications" navigation={navigationProps} />;
       default:
         return <HomeScreenNew key="home-screen-default" navigation={navigationProps} />;
     }

@@ -84,6 +84,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 5,
+    starCount: 24,
     isPublic: true,
   },
   {
@@ -93,6 +94,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 12,
+    starCount: 67,
     isPublic: true,
   },
   {
@@ -102,6 +104,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 8,
+    starCount: 41,
     isPublic: true,
   },
   {
@@ -111,6 +114,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 15,
+    starCount: 89,
     isPublic: true,
   },
   {
@@ -120,6 +124,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 3,
+    starCount: 16,
     isPublic: true,
   },
   {
@@ -129,6 +134,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 7,
+    starCount: 33,
     isPublic: true,
   },
   {
@@ -138,6 +144,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 22,
+    starCount: 156,
     isPublic: true,
   },
   {
@@ -147,6 +154,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 11,
+    starCount: 78,
     isPublic: true,
   },
   {
@@ -156,6 +164,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 6,
+    starCount: 29,
     isPublic: true,
   },
   {
@@ -165,6 +174,7 @@ let publicNotes = [
     username: 'alexnwkim',
     avatarUrl: 'https://via.placeholder.com/24',
     forksCount: 18,
+    starCount: 134,
     isPublic: true,
   },
   // Additional notes from ExploreScreen
@@ -178,6 +188,7 @@ let publicNotes = [
     isPublic: true,
     forkCount: 6,
     forksCount: 6,
+    starCount: 23,
     avatarUrl: 'https://via.placeholder.com/24',
   },
   {
@@ -190,6 +201,7 @@ let publicNotes = [
     isPublic: true,
     forkCount: 5,
     forksCount: 5,
+    starCount: 18,
     avatarUrl: 'https://via.placeholder.com/24',
   },
   {
@@ -202,6 +214,7 @@ let publicNotes = [
     isPublic: true,
     forkCount: 5,
     forksCount: 5,
+    starCount: 31,
     avatarUrl: 'https://via.placeholder.com/24',
   },
   {
@@ -214,6 +227,7 @@ let publicNotes = [
     isPublic: true,
     forkCount: 5,
     forksCount: 5,
+    starCount: 12,
     avatarUrl: 'https://via.placeholder.com/24',
   },
 ];
@@ -251,6 +265,7 @@ const NotesStore = {
         username: 'alexnwkim',
         avatarUrl: 'https://via.placeholder.com/24',
         forksCount: 0,
+        starCount: 0,
       })
     };
     

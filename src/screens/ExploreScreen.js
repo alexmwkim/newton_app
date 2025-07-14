@@ -17,6 +17,7 @@ const mockTrendingNotes = [
     author: 'userid001',
     isPublic: true,
     forkCount: 6,
+    starCount: 23,
   },
   {
     id: 102,
@@ -26,6 +27,7 @@ const mockTrendingNotes = [
     author: 'userid002',
     isPublic: true,
     forkCount: 5,
+    starCount: 18,
   },
 ];
 
@@ -38,6 +40,7 @@ const mockPopularNotes = [
     author: 'userid003',
     isPublic: true,
     forkCount: 5,
+    starCount: 31,
   },
   {
     id: 104,
@@ -47,6 +50,7 @@ const mockPopularNotes = [
     author: 'userid004',
     isPublic: true,
     forkCount: 5,
+    starCount: 12,
   },
 ];
 
@@ -197,7 +201,14 @@ const ExploreScreen = ({ navigation }) => {
                           </View>
                           <Text style={styles.noteTitle}>{note.title}</Text>
                           <View style={styles.noteFooter}>
-                            <Text style={styles.forkCount}>{note.forkCount} Forks</Text>
+                            <View style={styles.statChip}>
+                              <Icon name="star" size={12} color={Colors.secondaryText} />
+                              <Text style={styles.statText}>{note.starCount}</Text>
+                            </View>
+                            <View style={styles.statChip}>
+                              <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                              <Text style={styles.statText}>{note.forkCount}</Text>
+                            </View>
                           </View>
                         </TouchableOpacity>
                       </View>
@@ -227,7 +238,14 @@ const ExploreScreen = ({ navigation }) => {
                           </View>
                           <Text style={styles.noteTitle}>{note.title}</Text>
                           <View style={styles.noteFooter}>
-                            <Text style={styles.forkCount}>{note.forkCount} Forks</Text>
+                            <View style={styles.statChip}>
+                              <Icon name="star" size={12} color={Colors.secondaryText} />
+                              <Text style={styles.statText}>{note.starCount}</Text>
+                            </View>
+                            <View style={styles.statChip}>
+                              <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                              <Text style={styles.statText}>{note.forkCount}</Text>
+                            </View>
                           </View>
                         </TouchableOpacity>
                       </View>
@@ -251,7 +269,14 @@ const ExploreScreen = ({ navigation }) => {
                             </View>
                             <Text style={styles.gridNoteTitle}>{note.title}</Text>
                             <View style={styles.gridNoteFooter}>
-                              <Text style={styles.forkCount}>{note.forkCount} Forks</Text>
+                              <View style={styles.statChip}>
+                                <Icon name="star" size={12} color={Colors.secondaryText} />
+                                <Text style={styles.statText}>{note.starCount}</Text>
+                              </View>
+                              <View style={styles.statChip}>
+                                <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                                <Text style={styles.statText}>{note.forkCount}</Text>
+                              </View>
                             </View>
                           </TouchableOpacity>
                         </View>
@@ -452,6 +477,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   forkCount: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+  },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginRight: 12,
+  },
+  statText: {
     fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,

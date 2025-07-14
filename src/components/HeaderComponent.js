@@ -5,7 +5,7 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import { NewtonLogo } from './NewtonLogo';
 
-const HeaderComponent = ({ onBackPress, onSearchPress, onMenuPress, onLogoPress }) => {
+const HeaderComponent = ({ onBackPress, onNotificationsPress, onMenuPress, onLogoPress }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity 
@@ -22,7 +22,7 @@ const HeaderComponent = ({ onBackPress, onSearchPress, onMenuPress, onLogoPress 
       
       <View style={styles.rightIcons}>
         <TouchableOpacity 
-          onPress={onSearchPress}
+          onPress={onNotificationsPress}
           accessibilityLabel="Notifications"
           style={styles.iconButton}
         >
@@ -31,10 +31,10 @@ const HeaderComponent = ({ onBackPress, onSearchPress, onMenuPress, onLogoPress 
         
         <TouchableOpacity 
           onPress={onMenuPress}
-          accessibilityLabel="Settings"
+          accessibilityLabel="More options"
           style={styles.iconButton}
         >
-          <Icon name="settings" size={24} color={Colors.textBlack} />
+          <Icon name="more-horizontal" size={24} color={Colors.textBlack} />
         </TouchableOpacity>
       </View>
     </View>
