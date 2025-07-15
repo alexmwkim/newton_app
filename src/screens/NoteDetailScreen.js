@@ -19,7 +19,7 @@ import { useNotesStore } from '../store/NotesStore';
 import RichTextRenderer from '../components/RichTextRenderer';
 import FolderNoteScreen from './FolderNoteScreen';
 
-const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
+const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, isStarred, onUnstar }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState(null);
@@ -62,12 +62,18 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   };
 
   const handleFork = () => {
-    const forkedNote = {
-      ...displayNote,
-      title: `Fork of ${displayNote.title}`,
-      isPublic: false,
-    };
-    navigation.navigate('createNote', { initialNote: forkedNote });
+    if (isStarred && onFork) {
+      // Use the passed onFork handler for starred notes
+      onFork();
+    } else {
+      // Original fork logic for regular notes
+      const forkedNote = {
+        ...displayNote,
+        title: `Fork of ${displayNote.title}`,
+        isPublic: false,
+      };
+      navigation.navigate('createNote', { initialNote: forkedNote });
+    }
   };
 
   const handleSettingsPress = () => {
@@ -275,11 +281,11 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
     );
   };
 
-  // Get the actual note from store
-  const note = getNoteById(noteId);
+  // Get the actual note from store or use passed note (for starred notes)
+  const storeNote = getNoteById(noteId);
   
   // Fallback note data if none found
-  const displayNote = note || {
+  const displayNote = note || storeNote || {
     id: noteId || 1,
     title: 'Note Not Found',
     content: 'This note could not be found in the store.',
@@ -288,9 +294,11 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
   };
   
   // Check if current user is the author (can edit)
-  const isAuthor = displayNote.isPublic ? 
-    (displayNote.username === currentUser || displayNote.author === currentUser) : 
-    true; // Private notes are always editable by current user
+  const isAuthor = isStarred ? 
+    (displayNote.isOwnNote || displayNote.author?.id === currentUser || displayNote.author?.name === currentUser) : // Starred notes can be editable if owned by user
+    displayNote.isPublic ? 
+      (displayNote.username === currentUser || displayNote.author === currentUser) : 
+      true; // Private notes are always editable by current user
   
   console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note, 'isAuthor:', isAuthor);
 
@@ -426,7 +434,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
                     <Icon name="heart" size={16} color={Colors.primaryText} />
                     <Text style={styles.menuItemText}>Add to Favorites</Text>
                   </TouchableOpacity>
-                  {!isAuthor && displayNote.isPublic && (
+                  {(isStarred || (!isAuthor && displayNote.isPublic)) && (
                     <TouchableOpacity onPress={handleFork} style={styles.menuItem}>
                       <Icon name="git-branch" size={16} color={Colors.primaryText} />
                       <Text style={styles.menuItemText}>Fork</Text>
@@ -475,13 +483,37 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
           {/* Note Meta */}
           <View style={styles.meta}>
             <Text style={styles.metaText}>
-              Created {displayNote.timeAgo || 'Unknown'}
+              Created by {displayNote.author?.name || displayNote.username || 'Unknown'}, {displayNote.createdAt ? new Date(displayNote.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              }) : displayNote.timeAgo || ''}
             </Text>
           </View>
 
-          {displayNote.isPublic && (
+          {/* Fork Attribution */}
+          {displayNote.forkedFrom && (
+            <View style={styles.forkAttribution}>
+              <View style={styles.forkHeader}>
+                <Icon name="git-branch" size={16} color={Colors.floatingButton} />
+                <Text style={styles.forkTitle}>Forked from</Text>
+              </View>
+              <View style={styles.forkInfo}>
+                <Text style={styles.forkAuthor}>{displayNote.forkedFrom.author.name}</Text>
+                <Text style={styles.forkOriginalTitle}>"{displayNote.forkedFrom.title}"</Text>
+                <Text style={styles.forkDate}>
+                  Originally created {new Date(displayNote.forkedFrom.originalCreatedAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {(displayNote.isPublic || isStarred) && (
             <View style={styles.publicInfo}>
-              <Text style={styles.author}>by {displayNote.username || 'Unknown'}</Text>
               <View style={styles.publicMeta}>
                 <Text style={styles.forkCount}>
                   <Icon name="git-branch" size={16} color={Colors.secondaryText} /> {displayNote.forksCount || displayNote.forkCount || 0} forks
@@ -493,6 +525,16 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
                   </View>
                 )}
               </View>
+            </View>
+          )}
+
+          {/* Fork Button for Starred Notes */}
+          {isStarred && (
+            <View style={styles.starredActions}>
+              <TouchableOpacity style={styles.forkButton} onPress={handleFork}>
+                <Icon name="git-branch" size={16} color={Colors.floatingButton} />
+                <Text style={styles.forkButtonText}>Fork</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -523,6 +565,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation }) => {
               )}
             </View>
           </TouchableWithoutFeedback>
+
         </ScrollView>
 
         {/* Keyboard Toolbar with Layout Options - Show when editing or toolbar needed and user is author */}
@@ -618,6 +661,68 @@ const styles = StyleSheet.create({
   meta: {
     flexDirection: 'row',
     marginBottom: Layout.spacing.sm,
+  },
+  forkAttribution: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: 8,
+    padding: Layout.spacing.md,
+    marginBottom: Layout.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  forkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+    gap: Layout.spacing.sm,
+  },
+  forkTitle: {
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.floatingButton,
+  },
+  forkInfo: {
+    gap: Layout.spacing.xs,
+  },
+  forkAuthor: {
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textPrimary,
+  },
+  forkOriginalTitle: {
+    fontSize: Typography.fontSize.medium,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  forkDate: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textSecondary,
+  },
+  starredActions: {
+    marginBottom: Layout.spacing.md,
+  },
+  forkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.noteCard,
+    paddingHorizontal: Layout.spacing.xl,
+    paddingVertical: Layout.spacing.md,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.floatingButton,
+    gap: Layout.spacing.sm,
+    minWidth: 120,
+  },
+  forkButtonText: {
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.floatingButton,
   },
   metaText: {
     fontSize: Typography.fontSize.small,

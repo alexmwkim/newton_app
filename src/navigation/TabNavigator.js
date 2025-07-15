@@ -17,8 +17,9 @@ import MyNotesScreen from '../screens/MyNotesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import MoreScreen from '../screens/MoreScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import StarredNotesScreen from '../screens/StarredNotesScreen';
 
-const TabNavigator = () => {
+const TabNavigator = ({ logout }) => {
   const [activeTab, setActiveTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState('home');
   const [screenProps, setScreenProps] = useState({}); 
@@ -69,7 +70,7 @@ const TabNavigator = () => {
   };
 
   const renderScreen = () => {
-    const navigationProps = { navigate, goBack };
+    const navigationProps = { navigate, goBack, logout };
     
     switch (currentScreen) {
       case 'home':
@@ -101,6 +102,9 @@ const TabNavigator = () => {
       case 'notifications':
         console.log('🔔 Rendering NotificationsScreen');
         return <NotificationsScreen key="notifications" navigation={navigationProps} />;
+      case 'starredNotes':
+        console.log('⭐ Rendering StarredNotesScreen');
+        return <StarredNotesScreen key="starred-notes" navigation={navigationProps} />;
       default:
         return <HomeScreenNew key="home-screen-default" navigation={navigationProps} />;
     }

@@ -19,12 +19,14 @@ import Layout from '../constants/Layout';
 import SingleToggleComponent from '../components/SingleToggleComponent';
 import NotesStore from '../store/NotesStore';
 
-const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
-  const [title, setTitle] = useState(initialNote?.title || '');
-  const [content, setContent] = useState(initialNote?.content || '');
-  const [isPublic, setIsPublic] = useState(initialNote?.isPublic || false);
+const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen }) => {
+  const noteData = note || initialNote;
+  const [title, setTitle] = useState(noteData?.title || '');
+  const [content, setContent] = useState(noteData?.content || '');
+  const [isPublic, setIsPublic] = useState(noteData?.isPublic || false);
   const [showKeyboardToolbar, setShowKeyboardToolbar] = useState(false);
   const [activeInput, setActiveInput] = useState(null);
+  const [forkedFrom, setForkedFrom] = useState(noteData?.forkedFrom || null);
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -35,21 +37,31 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
   };
 
   const handleSave = () => {
-    const noteData = {
+    const newNoteData = {
       title: title.trim(),
       content: content.trim(),
       isPublic: isPublic,
+      isPrivate: !isPublic,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...(forkedFrom && { forkedFrom }),
     };
     
-    console.log('💾 CreateNoteScreen saving note:', noteData);
+    console.log('💾 CreateNoteScreen saving note:', newNoteData);
     
     // Save to store directly
-    NotesStore.addNote(noteData);
+    NotesStore.addNote(newNoteData);
     
-    console.log('🔙 Navigating back to home');
-    // Navigate back
-    handleBack();
+    if (isForked) {
+      Alert.alert(
+        'Note Forked!',
+        `Your version of "${forkedFrom?.title}" has been saved to your private notes.`,
+        [{ text: 'OK', onPress: () => handleBack() }]
+      );
+    } else {
+      console.log('🔙 Navigating back to home');
+      handleBack();
+    }
   };
 
   // Handle keyboard events
@@ -270,6 +282,16 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Forked Note Indicator */}
+        {forkedFrom && (
+          <View style={styles.forkedIndicator}>
+            <Icon name="git-branch" size={16} color={Colors.floatingButton} />
+            <Text style={styles.forkedText}>
+              Forked from <Text style={styles.forkedAuthor}>{forkedFrom.author.name}</Text>'s "{forkedFrom.title}"
+            </Text>
+          </View>
+        )}
+
         {/* Content */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Title Input */}
@@ -389,6 +411,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.screen.padding,
     paddingTop: Layout.spacing.md,
     paddingBottom: Layout.spacing.lg,
+  },
+  forkedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.noteCard,
+    marginHorizontal: Layout.screen.padding,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: 8,
+    marginBottom: Layout.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Layout.spacing.sm,
+  },
+  forkedText: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  forkedAuthor: {
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.floatingButton,
   },
   actionButton: {
     padding: Layout.spacing.sm,

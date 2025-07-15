@@ -110,6 +110,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleStarredNotesPress = () => {
     console.log('Starred notes pressed');
+    navigation.navigate('starredNotes');
   };
 
   const handleNotePress = (note) => {

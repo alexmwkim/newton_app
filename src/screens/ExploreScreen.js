@@ -62,6 +62,7 @@ const ExploreScreen = ({ navigation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeCategory, setActiveCategory] = useState('Trending');
+  const [starredNotes, setStarredNotes] = useState(new Set());
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -97,6 +98,18 @@ const ExploreScreen = ({ navigation }) => {
     navigation.navigate('noteDetail', { 
       noteId: note.id,
       returnToScreen: 'explore' // Return to explore screen after viewing note
+    });
+  };
+
+  const handleStarNote = (noteId) => {
+    setStarredNotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
     });
   };
 

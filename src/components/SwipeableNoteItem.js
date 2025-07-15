@@ -135,6 +135,14 @@ const SwipeableNoteItem = ({
                 <Text style={styles.timeAgo}>
                   {note.timeAgo}
                 </Text>
+                {note.forkedFrom && (
+                  <View style={styles.forkIndicator}>
+                    <Icon name="git-branch" size={12} color={Colors.floatingButton} />
+                    <Text style={styles.forkIndicatorText}>
+                      from {note.forkedFrom.author.name}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -179,6 +187,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+  },
+  forkIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  forkIndicatorText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: 12,
+    color: Colors.floatingButton,
+    fontWeight: Typography.fontWeight.medium,
   },
   timeAgo: {
     fontFamily: Typography.fontFamily.primary,

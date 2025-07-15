@@ -69,6 +69,26 @@ const SettingsScreen = ({ navigation }) => {
     // TODO: Open app store rating
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive', 
+          onPress: () => {
+            // Call logout function passed from parent
+            if (navigation.logout) {
+              navigation.logout();
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
@@ -252,6 +272,17 @@ const SettingsScreen = ({ navigation }) => {
             />
           </SettingsSection>
 
+          {/* Account Actions */}
+          <SettingsSection title="Account Actions">
+            <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
+              <View style={styles.settingsItemLeft}>
+                <Icon name="log-out" size={20} color={Colors.floatingButton} />
+                <Text style={[styles.settingsItemText, { color: Colors.floatingButton }]}>Sign Out</Text>
+              </View>
+              <Icon name="chevron-right" size={16} color={Colors.floatingButton} />
+            </TouchableOpacity>
+          </SettingsSection>
+
           {/* Danger Zone */}
           <SettingsSection title="Danger Zone">
             <TouchableOpacity style={styles.dangerItem} onPress={handleDeleteAccount}>
@@ -354,6 +385,17 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.body,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,
+  },
+  logoutItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Layout.screen.padding,
+    paddingVertical: Layout.spacing.lg,
+    backgroundColor: Colors.noteCard,
+    marginHorizontal: Layout.screen.padding,
+    marginBottom: 1,
+    borderRadius: 0,
   },
   dangerItem: {
     flexDirection: 'row',
