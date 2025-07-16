@@ -402,7 +402,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
               <Icon 
                 name={displayNote.isPublic ? "globe" : "lock"} 
                 size={16} 
-                color={displayNote.isPublic ? Colors.floatingButton : Colors.secondaryText} 
+                color={Colors.secondaryText} 
               />
             </View>
             
@@ -532,7 +532,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
           {isStarred && (
             <View style={styles.starredActions}>
               <TouchableOpacity style={styles.forkButton} onPress={handleFork}>
-                <Icon name="git-branch" size={16} color={Colors.floatingButton} />
+                <Icon name="git-branch" size={16} color={Colors.mainBackground} />
                 <Text style={styles.forkButtonText}>Fork</Text>
               </TouchableOpacity>
             </View>
@@ -709,12 +709,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.noteCard,
+    backgroundColor: Colors.primaryText,
     paddingHorizontal: Layout.spacing.xl,
     paddingVertical: Layout.spacing.md,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.floatingButton,
     gap: Layout.spacing.sm,
     minWidth: 120,
   },
@@ -722,7 +720,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.medium,
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.floatingButton,
+    color: Colors.mainBackground,
   },
   metaText: {
     fontSize: Typography.fontSize.small,
