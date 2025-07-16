@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Markdown from 'react-native-markdown-display';
+// import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
+import ProfileStore from '../store/ProfileStore';
+import { useNotesStore } from '../store/NotesStore';
 
 // Mock user data matching the design
 const mockUser = {
@@ -64,7 +68,14 @@ const ProfileScreen = ({ navigation }) => {
   // Social features state
   const [isFollowing, setIsFollowing] = useState(mockUser.isFollowing);
   const [followersCount, setFollowersCount] = useState(mockUser.followersCount);
-  const [highlightNotes, setHighlightNotes] = useState(mockHighlightNotes);
+  const [highlightNotes, setHighlightNotes] = useState([]);
+  
+  // Profile photo state
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [userProfilePhotoForNotes, setUserProfilePhotoForNotes] = useState(ProfileStore.getProfilePhoto());
+  
+  // Notes store
+  const { privateNotes, publicNotes, isFavorite, toggleFavorite } = useNotesStore();
 
   useEffect(() => {
     // Check for global readme data on every render
@@ -82,8 +93,180 @@ const ProfileScreen = ({ navigation }) => {
     // Set up an interval to check for updates
     const interval = setInterval(checkForUpdates, 100);
     
+    // Load saved profile photo
+    loadProfilePhoto();
+    
+    // Load highlight notes
+    loadHighlightNotes();
+    
     return () => clearInterval(interval);
   }, []);
+
+  // Subscribe to notes changes for highlight updates
+  useEffect(() => {
+    loadHighlightNotes();
+  }, [privateNotes, publicNotes, isFavorite]);
+
+  // Subscribe to profile photo changes for highlight notes
+  useEffect(() => {
+    const unsubscribe = ProfileStore.subscribe(() => {
+      setUserProfilePhotoForNotes(ProfileStore.getProfilePhoto());
+    });
+    return unsubscribe;
+  }, []);
+
+  const loadProfilePhoto = async () => {
+    try {
+      const savedPhoto = await AsyncStorage.getItem('profilePhoto');
+      if (savedPhoto) {
+        setProfilePhoto(savedPhoto);
+      }
+    } catch (error) {
+      console.log('Error loading profile photo:', error);
+    }
+  };
+
+  const saveProfilePhoto = async (uri) => {
+    try {
+      await AsyncStorage.setItem('profilePhoto', uri);
+      ProfileStore.setProfilePhoto(uri); // Update shared store
+    } catch (error) {
+      console.log('Error saving profile photo:', error);
+    }
+  };
+
+  const deleteProfilePhoto = async () => {
+    try {
+      await AsyncStorage.removeItem('profilePhoto');
+      setProfilePhoto(null);
+      ProfileStore.setProfilePhoto(null); // Update shared store
+    } catch (error) {
+      console.log('Error deleting profile photo:', error);
+    }
+  };
+  
+  const loadHighlightNotes = () => {
+    const allNotes = [...privateNotes, ...publicNotes];
+    const currentUser = 'alexnwkim'; // Current logged-in user
+    
+    // Filter for current user's public notes
+    const userPublicNotes = allNotes.filter(note => 
+      note.isPublic && 
+      (note.username === currentUser || note.author === currentUser)
+    );
+    
+    // Sort by modification date ("Just now" first, then by actual date)
+    const sortedNotes = userPublicNotes.sort((a, b) => {
+      // If both have "Just now", sort by id (newer first)
+      if (a.timeAgo === 'Just now' && b.timeAgo === 'Just now') {
+        return b.id - a.id;
+      }
+      // "Just now" notes come first
+      if (a.timeAgo === 'Just now') return -1;
+      if (b.timeAgo === 'Just now') return 1;
+      
+      // Sort by actual modification date if available
+      if (a.lastModified && b.lastModified) {
+        return new Date(b.lastModified) - new Date(a.lastModified);
+      }
+      
+      // Fall back to creation date or id
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      
+      return b.id - a.id;
+    });
+    
+    // Take only the first 2 notes for highlight section
+    const highlightData = sortedNotes.slice(0, 2).map(note => ({
+      id: note.id,
+      title: note.title,
+      forkCount: note.forksCount || note.forkCount || 0,
+      starCount: note.starCount || 0,
+      username: note.username || currentUser,
+      isStarred: isFavorite(note.id)
+    }));
+    
+    setHighlightNotes(highlightData);
+    console.log('📈 Loaded highlight notes:', highlightData.length, 'notes');
+  };
+
+  const handleProfilePhotoPress = () => {
+    if (profilePhoto) {
+      // Show options to change or delete photo
+      Alert.alert(
+        'Profile Photo',
+        'What would you like to do?',
+        [
+          { text: 'Change Photo', onPress: selectProfilePhoto },
+          { text: 'Delete Photo', onPress: () => {
+            Alert.alert(
+              'Delete Photo',
+              'Are you sure you want to delete your profile photo?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: deleteProfilePhoto }
+              ]
+            );
+          }},
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    } else {
+      // No photo, show upload option
+      selectProfilePhoto();
+    }
+  };
+
+  const selectProfilePhoto = async () => {
+    // For now, simulate photo upload with a placeholder
+    // In a production app, you would use expo-image-picker here
+    
+    /* 
+    // PRODUCTION CODE - uncomment when deploying to device:
+    // First, request permissions
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to upload a profile photo.');
+      return;
+    }
+
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const imageUri = result.assets[0].uri;
+      setProfilePhoto(imageUri);
+      await saveProfilePhoto(imageUri);
+      console.log('📸 Profile photo updated');
+    }
+    */
+    
+    // DEVELOPMENT/SIMULATOR CODE:
+    Alert.alert(
+      'Upload Profile Photo',
+      'Photo upload functionality will be available when running on a device. For now, a sample photo will be used.',
+      [
+        { 
+          text: 'Use Sample Photo', 
+          onPress: () => {
+            // Use a sample photo URL for demonstration
+            const samplePhotoUri = 'https://i.pravatar.cc/150?img=3';
+            setProfilePhoto(samplePhotoUri);
+            saveProfilePhoto(samplePhotoUri);
+            console.log('📸 Sample profile photo set');
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
 
   const handleNavChange = (tabIndex) => {
     setActiveNavTab(tabIndex);
@@ -114,7 +297,12 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleNotePress = (note) => {
-    console.log('Note pressed:', note.title);
+    console.log('Highlight note pressed:', note.title);
+    // Navigate to note detail with return to profile
+    navigation.navigate('noteDetail', { 
+      noteId: note.id,
+      returnToScreen: 'profile'
+    });
   };
 
   const handleEditReadme = () => {
@@ -139,18 +327,23 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleStarNote = (noteId) => {
+    const wasFavorite = isFavorite(noteId);
+    toggleFavorite(noteId);
+    
+    // Update local highlight notes state
     setHighlightNotes(notes => 
       notes.map(note => 
         note.id === noteId 
           ? { 
               ...note, 
-              isStarred: !note.isStarred,
-              starCount: note.isStarred ? note.starCount - 1 : note.starCount + 1
+              isStarred: !wasFavorite,
+              starCount: wasFavorite ? note.starCount - 1 : note.starCount + 1
             }
           : note
       )
     );
-    console.log(`⭐ ${highlightNotes.find(n => n.id === noteId)?.isStarred ? 'Unstarred' : 'Starred'} note`);
+    
+    console.log(`⭐ ${wasFavorite ? 'Removed from' : 'Added to'} favorites`);
   };
 
   const handleFollowersPress = () => {
@@ -188,9 +381,18 @@ const ProfileScreen = ({ navigation }) => {
           >
             {/* Profile Section */}
             <View style={styles.profileSection}>
-              <View style={styles.avatar}>
-                <Icon name="user" size={24} color={Colors.secondaryText} />
-              </View>
+              <TouchableOpacity style={styles.avatarContainer} onPress={handleProfilePhotoPress}>
+                <View style={styles.avatar}>
+                  {profilePhoto ? (
+                    <Image source={{ uri: profilePhoto }} style={styles.avatarImage} />
+                  ) : (
+                    <Icon name="user" size={24} color={Colors.secondaryText} />
+                  )}
+                </View>
+                <View style={styles.cameraIconContainer}>
+                  <Icon name="camera" size={16} color={Colors.mainBackground} />
+                </View>
+              </TouchableOpacity>
               <Text style={styles.username}>{mockUser.username}</Text>
             </View>
 
@@ -281,7 +483,11 @@ const ProfileScreen = ({ navigation }) => {
                   >
                     <View style={styles.highlightCardHeader}>
                       <View style={styles.highlightAvatar}>
-                        <Icon name="user" size={16} color={Colors.secondaryText} />
+                        {userProfilePhotoForNotes ? (
+                          <Image source={{ uri: userProfilePhotoForNotes }} style={styles.highlightAvatarImage} />
+                        ) : (
+                          <Icon name="user" size={16} color={Colors.secondaryText} />
+                        )}
                       </View>
                       <Text style={styles.highlightUsername}>{note.username}</Text>
                       <TouchableOpacity 
@@ -406,6 +612,9 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.lg,
     gap: Layout.spacing.sm,
   },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatar: {
     width: 48,
     height: 48,
@@ -413,6 +622,25 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.noteCard,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.floatingButton,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.mainBackground,
   },
   username: {
     fontSize: Typography.fontSize.body,
@@ -550,6 +778,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  highlightAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
   highlightUsername: {
     fontSize: Typography.fontSize.small,

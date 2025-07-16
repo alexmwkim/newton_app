@@ -25,7 +25,7 @@ const MyNotesScreen = ({ navigation }) => {
   };
 
   const handleBackPress = () => {
-    navigation.goBack();
+    navigation.navigate('profile');
   };
 
   return (

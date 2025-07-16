@@ -1,9 +1,11 @@
-import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder, Alert } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder, Alert, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import ProfileStore from '../store/ProfileStore';
+import { useNotesStore } from '../store/NotesStore';
 
 const SwipeableNoteItem = ({ 
   note,
@@ -11,6 +13,16 @@ const SwipeableNoteItem = ({
   onDelete,
   isPublic = false
 }) => {
+  const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
+  const currentUser = 'alexnwkim'; // Current logged-in user
+  const { toggleFavorite, isFavorite } = useNotesStore();
+  
+  useEffect(() => {
+    const unsubscribe = ProfileStore.subscribe(() => {
+      setUserProfilePhoto(ProfileStore.getProfilePhoto());
+    });
+    return unsubscribe;
+  }, []);
   const translateX = useRef(new Animated.Value(0)).current;
   const deleteOpacity = useRef(new Animated.Value(0)).current;
 
@@ -90,6 +102,30 @@ const SwipeableNoteItem = ({
     );
   };
 
+  const handleStarPress = (event) => {
+    event.stopPropagation(); // Prevent note opening
+    toggleFavorite(note.id);
+  };
+
+  const handleForkPress = (event) => {
+    event.stopPropagation(); // Prevent note opening
+    Alert.alert(
+      'Fork Note',
+      `Create your own version of "${note.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Fork',
+          onPress: () => {
+            // TODO: Implement fork functionality
+            console.log('Forking note:', note.id);
+          }
+        }
+      ]
+    );
+  };
+  
+
   return (
     <View style={styles.container}>
       <Animated.View 
@@ -108,21 +144,44 @@ const SwipeableNoteItem = ({
               <View style={styles.noteHeader}>
                 <View style={styles.userInfo}>
                   <View style={styles.avatar}>
-                    <Icon name="user" size={16} color={Colors.textGray} />
+                    {note.username === currentUser && userProfilePhoto ? (
+                      <Image source={{ uri: userProfilePhoto }} style={styles.avatarImage} />
+                    ) : (
+                      <Icon name="user" size={16} color={Colors.textGray} />
+                    )}
                   </View>
                   <Text style={styles.userName}>{note.username || 'username'}</Text>
                 </View>
               </View>
               <Text style={styles.publicTitle}>{note.title}</Text>
               <View style={styles.noteFooter}>
-                <View style={styles.statChip}>
-                  <Icon name="star" size={12} color={Colors.secondaryText} />
-                  <Text style={styles.statText}>{note.starCount || 0}</Text>
-                </View>
-                <View style={styles.statChip}>
-                  <Icon name="git-branch" size={12} color={Colors.secondaryText} />
-                  <Text style={styles.statText}>{note.forksCount || 0}</Text>
-                </View>
+                <TouchableOpacity 
+                  style={styles.statChip}
+                  onPress={handleStarPress}
+                  activeOpacity={0.7}
+                >
+                  <Icon 
+                    name="star" 
+                    size={12} 
+                    color={isFavorite(note.id) ? Colors.floatingButton : Colors.secondaryText}
+                    fill={isFavorite(note.id) ? Colors.floatingButton : 'none'}
+                  />
+                  <Text style={[styles.statText, isFavorite(note.id) && styles.favoriteText]}>
+                    {note.starCount || 0}
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Only show fork button for notes not created by current user */}
+                {note.username !== currentUser && (
+                  <TouchableOpacity 
+                    style={styles.statChip}
+                    onPress={handleForkPress}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                    <Text style={styles.statText}>{note.forksCount || 0}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           ) : (
@@ -131,19 +190,14 @@ const SwipeableNoteItem = ({
               <Text style={styles.title} numberOfLines={1}>
                 {note.title}
               </Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.timeAgo}>
-                  {note.timeAgo}
-                </Text>
-                {note.forkedFrom && (
-                  <View style={styles.forkIndicator}>
-                    <Icon name="git-branch" size={12} color={Colors.floatingButton} />
-                    <Text style={styles.forkIndicatorText}>
-                      from {note.forkedFrom.author.name}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              {note.forkedFrom && (
+                <View style={styles.forkIndicator}>
+                  <Icon name="git-branch" size={12} color={Colors.floatingButton} />
+                  <Text style={styles.forkIndicatorText}>
+                    from {note.forkedFrom.author.name}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </TouchableOpacity>
@@ -181,29 +235,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: Typography.fontWeight.medium,
     color: Colors.textBlack,
+    textAlign: 'left',
     marginBottom: 4,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
   },
   forkIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginTop: 4,
   },
   forkIndicatorText: {
     fontFamily: Typography.fontFamily.primary,
     fontSize: 12,
     color: Colors.floatingButton,
     fontWeight: Typography.fontWeight.medium,
-  },
-  timeAgo: {
-    fontFamily: Typography.fontFamily.primary,
-    fontSize: 12,
-    color: Colors.textGray,
   },
   username: {
     fontFamily: Typography.fontFamily.primary,
@@ -249,6 +294,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Layout.spacing.sm,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
   userName: {
     fontSize: Typography.fontSize.small,
@@ -281,6 +332,10 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.textGray,
+  },
+  favoriteText: {
+    color: Colors.floatingButton,
+    fontWeight: Typography.fontWeight.medium,
   },
 });
 

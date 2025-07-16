@@ -172,7 +172,7 @@ const StarredNotesScreen = ({ navigation }) => {
   };
 
   const handleBackPress = () => {
-    navigation.goBack();
+    navigation.navigate('profile');
   };
 
   const EmptyState = () => (

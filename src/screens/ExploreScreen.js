@@ -4,7 +4,8 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import NoteItemComponent from '../components/NoteItemComponent';
+import StarredNoteCard from '../components/StarredNoteCard';
+import { useNotesStore } from '../store/NotesStore';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 
 // Mock data for explore screen
@@ -62,24 +63,40 @@ const ExploreScreen = ({ navigation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeCategory, setActiveCategory] = useState('Trending');
-  const [starredNotes, setStarredNotes] = useState(new Set());
+  const { publicNotes, toggleFavorite, isFavorite } = useNotesStore();
+  
+  // Filter notes from other users (not current user)
+  const currentUser = 'alexnwkim';
+  const otherUsersNotes = publicNotes.filter(note => note.username !== currentUser);
+  
+  // Transform notes to match StarredNoteCard format
+  const transformedNotes = otherUsersNotes.map(note => ({
+    id: note.id,
+    title: note.title,
+    content: note.content || 'No content available...',
+    author: {
+      name: note.username || note.author,
+      avatar: '👤',
+      id: note.username || note.author
+    },
+    createdAt: note.createdAt || new Date().toISOString(),
+    starCount: note.starCount || 0,
+    forkCount: note.forksCount || note.forkCount || 0,
+    tags: note.tags || ['note'],
+    isPublic: true
+  }));
 
   const handleSearch = (query) => {
     setSearchQuery(query);
     if (query.trim().length > 0) {
       setIsSearching(true);
       // Filter notes based on search query
-      const filteredTrending = mockTrendingNotes.filter(note => 
+      const filteredNotes = transformedNotes.filter(note => 
         note.title.toLowerCase().includes(query.toLowerCase()) ||
         note.content.toLowerCase().includes(query.toLowerCase()) ||
-        note.author.toLowerCase().includes(query.toLowerCase())
+        note.author.name.toLowerCase().includes(query.toLowerCase())
       );
-      const filteredPopular = mockPopularNotes.filter(note => 
-        note.title.toLowerCase().includes(query.toLowerCase()) ||
-        note.content.toLowerCase().includes(query.toLowerCase()) ||
-        note.author.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults([...filteredTrending, ...filteredPopular]);
+      setSearchResults(filteredNotes);
       setIsSearching(false);
     } else {
       setSearchResults([]);
@@ -102,15 +119,7 @@ const ExploreScreen = ({ navigation }) => {
   };
 
   const handleStarNote = (noteId) => {
-    setStarredNotes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(noteId)) {
-        newSet.delete(noteId);
-      } else {
-        newSet.add(noteId);
-      }
-      return newSet;
-    });
+    toggleFavorite(noteId);
   };
 
   const handleNavChange = (tabIndex) => {
@@ -202,29 +211,12 @@ const ExploreScreen = ({ navigation }) => {
                   </Text>
                   {!isSearching && searchResults.length > 0 ? (
                     searchResults.map((note) => (
-                      <View key={note.id} style={styles.noteCard}>
-                        <TouchableOpacity onPress={() => handleNotePress(note)} style={styles.noteCardContent}>
-                          <View style={styles.noteHeader}>
-                            <View style={styles.userInfo}>
-                              <View style={styles.avatar}>
-                                <Icon name="user" size={16} color={Colors.secondaryText} />
-                              </View>
-                              <Text style={styles.userName}>{note.author}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.noteTitle}>{note.title}</Text>
-                          <View style={styles.noteFooter}>
-                            <View style={styles.statChip}>
-                              <Icon name="star" size={12} color={Colors.secondaryText} />
-                              <Text style={styles.statText}>{note.starCount}</Text>
-                            </View>
-                            <View style={styles.statChip}>
-                              <Icon name="git-branch" size={12} color={Colors.secondaryText} />
-                              <Text style={styles.statText}>{note.forkCount}</Text>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
+                      <StarredNoteCard
+                        key={note.id}
+                        note={note}
+                        onPress={() => handleNotePress(note)}
+                        onUnstar={() => handleStarNote(note.id)}
+                      />
                     ))
                   ) : !isSearching ? (
                     <View style={styles.emptyState}>
@@ -236,56 +228,18 @@ const ExploreScreen = ({ navigation }) => {
                 </View>
               ) : (
                 <>
-                  {/* Trending Notes */}
+                  {/* Other Users' Notes */}
                   <View style={styles.section}>
-                    {mockTrendingNotes.map((note) => (
-                      <View key={note.id} style={styles.noteCard}>
-                        <TouchableOpacity onPress={() => handleNotePress(note)} style={styles.noteCardContent}>
-                          <View style={styles.noteHeader}>
-                            <View style={styles.userInfo}>
-                              <View style={styles.avatar}>
-                                <Icon name="user" size={16} color={Colors.secondaryText} />
-                              </View>
-                              <Text style={styles.userName}>{note.author}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.noteTitle}>{note.title}</Text>
-                          <View style={styles.noteFooter}>
-                            <View style={styles.statChip}>
-                              <Icon name="star" size={12} color={Colors.secondaryText} />
-                              <Text style={styles.statText}>{note.starCount}</Text>
-                            </View>
-                            <View style={styles.statChip}>
-                              <Icon name="git-branch" size={12} color={Colors.secondaryText} />
-                              <Text style={styles.statText}>{note.forkCount}</Text>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
+                    <Text style={styles.sectionTitle}>Explore notes</Text>
+                    {transformedNotes.map((note) => (
+                      <StarredNoteCard
+                        key={note.id}
+                        note={note}
+                        onPress={() => handleNotePress(note)}
+                        onUnstar={() => handleStarNote(note.id)}
+                      />
                     ))}
                   </View>
-
-                  {/* Popular Notes Section */}
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Popular notes</Text>
-                    <View style={styles.gridContainer}>
-                      {mockPopularNotes.map((note) => (
-                        <View key={note.id} style={styles.gridNoteCard}>
-                          <TouchableOpacity onPress={() => handleNotePress(note)} style={styles.gridNoteContent}>
-                            <View style={styles.gridNoteHeader}>
-                              <View style={styles.userInfo}>
-                                <View style={styles.avatar}>
-                                  <Icon name="user" size={16} color={Colors.secondaryText} />
-                                </View>
-                                <Text style={styles.userName}>{note.author}</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.gridNoteTitle}>{note.title}</Text>
-                            <View style={styles.gridNoteFooter}>
-                              <View style={styles.statChip}>
-                                <Icon name="star" size={12} color={Colors.secondaryText} />
-                                <Text style={styles.statText}>{note.starCount}</Text>
-                              </View>
                               <View style={styles.statChip}>
                                 <Icon name="git-branch" size={12} color={Colors.secondaryText} />
                                 <Text style={styles.statText}>{note.forkCount}</Text>

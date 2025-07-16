@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Simple global state for notes
 let privateNotes = [
@@ -236,6 +237,33 @@ let folders = [];
 let listeners = [];
 let folderIdCounter = 1000; // Start from 1000 to avoid conflicts
 let noteIdCounter = 2000; // Start from 2000 for notes in folders
+let favoriteNotes = []; // Array to store favorite note IDs
+
+// Load favorites from storage on app start
+const loadFavorites = async () => {
+  try {
+    const saved = await AsyncStorage.getItem('favoriteNotes');
+    if (saved) {
+      favoriteNotes = JSON.parse(saved);
+      console.log('⭐ Loaded favorites from storage:', favoriteNotes);
+    }
+  } catch (error) {
+    console.log('Error loading favorites:', error);
+  }
+};
+
+// Save favorites to storage
+const saveFavorites = async () => {
+  try {
+    await AsyncStorage.setItem('favoriteNotes', JSON.stringify(favoriteNotes));
+    console.log('💾 Saved favorites to storage:', favoriteNotes);
+  } catch (error) {
+    console.log('Error saving favorites:', error);
+  }
+};
+
+// Initialize favorites on app start
+loadFavorites();
 
 // Simple store implementation
 const NotesStore = {
@@ -337,8 +365,50 @@ const NotesStore = {
       privateNotes = privateNotes.filter(note => note.id !== noteId);
     }
     
+    // Also remove from favorites if it was favorited
+    favoriteNotes = favoriteNotes.filter(id => id !== noteId);
+    
     // Notify all listeners
     listeners.forEach(listener => listener());
+  },
+  
+  // Favorite functionality
+  toggleFavorite: (noteId) => {
+    console.log('⭐ NotesStore.toggleFavorite called with:', noteId);
+    
+    const index = favoriteNotes.indexOf(noteId);
+    if (index > -1) {
+      // Remove from favorites
+      favoriteNotes.splice(index, 1);
+      console.log('❌ Removed from favorites:', noteId);
+    } else {
+      // Add to favorites
+      favoriteNotes.push(noteId);
+      console.log('✅ Added to favorites:', noteId);
+    }
+    
+    console.log('⭐ Current favorites:', favoriteNotes);
+    
+    // Save to storage
+    saveFavorites();
+    
+    // Notify all listeners
+    listeners.forEach(listener => listener());
+    
+    return !index > -1; // Return new favorite state
+  },
+  
+  isFavorite: (noteId) => {
+    return favoriteNotes.includes(noteId);
+  },
+  
+  getFavoriteNotes: () => {
+    const allNotes = [...privateNotes, ...publicNotes];
+    return allNotes.filter(note => favoriteNotes.includes(note.id));
+  },
+  
+  getFavoriteNoteIds: () => {
+    return [...favoriteNotes];
   },
   
   // Folder functions
@@ -479,6 +549,10 @@ export const useNotesStore = () => {
     getFoldersByParentNote: NotesStore.getFoldersByParentNote,
     addNoteToFolder: NotesStore.addNoteToFolder,
     debugFolders: NotesStore.debugFolders,
+    toggleFavorite: NotesStore.toggleFavorite,
+    isFavorite: NotesStore.isFavorite,
+    getFavoriteNotes: NotesStore.getFavoriteNotes,
+    getFavoriteNoteIds: NotesStore.getFavoriteNoteIds,
   };
 };
 

@@ -9,13 +9,15 @@ import {
   TextInput,
   TouchableWithoutFeedback,
   Keyboard,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import { useNotesStore } from '../store/NotesStore';
+import ProfileStore from '../store/ProfileStore';
 import RichTextRenderer from '../components/RichTextRenderer';
 import FolderNoteScreen from './FolderNoteScreen';
 
@@ -26,9 +28,17 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
   const [content, setContent] = useState('');
   const [showToolbar, setShowToolbar] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
   
-  const { getNoteById, updateNote, deleteNote } = useNotesStore();
+  const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite } = useNotesStore();
   const currentUser = 'alexnwkim'; // Current logged-in user
+  
+  useEffect(() => {
+    const unsubscribe = ProfileStore.subscribe(() => {
+      setUserProfilePhoto(ProfileStore.getProfilePhoto());
+    });
+    return unsubscribe;
+  }, []);
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -110,6 +120,8 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
 
   const handlePageInfo = () => {
     setShowSettingsMenu(false);
+    
+    // Format dates with more detailed information
     const createdDate = displayNote.createdAt 
       ? new Date(displayNote.createdAt).toLocaleDateString('en-US', {
           year: 'numeric',
@@ -118,7 +130,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
           hour: '2-digit',
           minute: '2-digit'
         })
-      : 'Unknown';
+      : displayNote.timeAgo || 'Unknown';
     
     const lastModified = displayNote.lastModified || displayNote.updatedAt
       ? new Date(displayNote.lastModified || displayNote.updatedAt).toLocaleDateString('en-US', {
@@ -128,20 +140,31 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
           hour: '2-digit',
           minute: '2-digit'
         })
-      : 'Unknown';
+      : displayNote.timeAgo || 'Unknown';
 
+    // Calculate content statistics
+    const contentLength = (displayNote.content || '').length;
+    const wordCount = (displayNote.content || '').split(/\s+/).filter(word => word.length > 0).length;
+    const lineCount = (displayNote.content || '').split('\n').length;
+    
+    // Get author information
+    const authorName = displayNote.author?.name || displayNote.username || 'Unknown';
+    
     Alert.alert(
       'Page Info',
-      `Created: ${createdDate}\nLast Modified: ${lastModified}\nCharacters: ${(displayNote.content || '').length}\nWords: ${(displayNote.content || '').split(/\s+/).filter(word => word.length > 0).length}`,
+      `Author: ${authorName}\n\nCreated: ${createdDate}\nLast Modified: ${lastModified}\n\nCharacters: ${contentLength}\nWords: ${wordCount}\nLines: ${lineCount}`,
       [{ text: 'OK' }]
     );
   };
 
   const handleAddToFavorites = () => {
     setShowSettingsMenu(false);
+    const wasFavorite = isFavorite(noteId);
+    toggleFavorite(noteId);
+    
     Alert.alert(
-      'Add to Favorites',
-      'This feature will be implemented soon.',
+      wasFavorite ? 'Removed from Favorites' : 'Added to Favorites',
+      wasFavorite ? 'Note removed from your favorites.' : 'Note added to your favorites.',
       [{ text: 'OK' }]
     );
   };
@@ -431,8 +454,15 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
                     <Text style={styles.menuItemText}>Page Info</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleAddToFavorites} style={styles.menuItem}>
-                    <Icon name="heart" size={16} color={Colors.primaryText} />
-                    <Text style={styles.menuItemText}>Add to Favorites</Text>
+                    <Icon 
+                      name="heart" 
+                      size={16} 
+                      color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
+                      fill={isFavorite(noteId) ? Colors.floatingButton : 'none'}
+                    />
+                    <Text style={styles.menuItemText}>
+                      {isFavorite(noteId) ? 'Remove from Favorites' : 'Add to Favorites'}
+                    </Text>
                   </TouchableOpacity>
                   {(isStarred || (!isAuthor && displayNote.isPublic)) && (
                     <TouchableOpacity onPress={handleFork} style={styles.menuItem}>
@@ -480,16 +510,24 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             </View>
           </TouchableWithoutFeedback>
           
-          {/* Note Meta */}
-          <View style={styles.meta}>
-            <Text style={styles.metaText}>
-              Created by {displayNote.author?.name || displayNote.username || 'Unknown'}, {displayNote.createdAt ? new Date(displayNote.createdAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              }) : displayNote.timeAgo || ''}
-            </Text>
-          </View>
+          {/* Author Profile Section for Public Notes */}
+          {(displayNote.isPublic || isStarred) && (
+            <View style={styles.authorSection}>
+              <View style={styles.authorInfo}>
+                <View style={styles.authorAvatar}>
+                  {displayNote.username === currentUser && userProfilePhoto ? (
+                    <Image source={{ uri: userProfilePhoto }} style={styles.authorAvatarImage} />
+                  ) : (
+                    <Icon name="user" size={20} color={Colors.textGray} />
+                  )}
+                </View>
+                <View style={styles.authorDetails}>
+                  <Text style={styles.authorName}>{displayNote.author?.name || displayNote.username || 'Unknown'}</Text>
+                  <Text style={styles.authorUserId}>@{displayNote.username || 'unknown'}</Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Fork Attribution */}
           {displayNote.forkedFrom && (
@@ -780,6 +818,46 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     backgroundColor: 'transparent',
+  },
+  authorSection: {
+    marginBottom: Layout.spacing.lg,
+    paddingBottom: Layout.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  authorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.sm,
+  },
+  authorAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  authorAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  authorDetails: {
+    flex: 1,
+  },
+  authorName: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  authorUserId: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    marginTop: 2,
   },
   contentInput: {
     borderWidth: 0,

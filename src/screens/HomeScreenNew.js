@@ -9,6 +9,7 @@ import ToggleButtonsComponent from '../components/ToggleButtonsComponent';
 import NotesListComponent from '../components/NotesListComponent';
 import CreateButtonComponent from '../components/CreateButtonComponent';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
+import FavoriteNotesSection from '../components/FavoriteNotesSection';
 
 // Mock data matching the design
 const mockPrivateNotes = [
@@ -142,7 +143,10 @@ const mockPublicNotes = [
 const HomeScreenNew = ({ navigation, initialTab }) => {
   const [activeTab, setActiveTab] = useState(initialTab || 'private');
   const [activeNavTab, setActiveNavTab] = useState(0);
-  const { privateNotes, publicNotes, deleteNote } = useNotesStore();
+  const { privateNotes, publicNotes, deleteNote, getFavoriteNotes, toggleFavorite } = useNotesStore();
+  
+  // Get favorite notes
+  const favoriteNotes = getFavoriteNotes();
 
   // Update activeTab when initialTab prop changes (coming back from note detail)
   useEffect(() => {
@@ -153,7 +157,15 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
 
 
   console.log('🏠 HomeScreen render - Private notes:', privateNotes.length, 'Public notes:', publicNotes.length);
-  const currentNotes = activeTab === 'private' ? privateNotes : publicNotes;
+  
+  // Filter out favorited notes from the main lists to avoid duplication
+  const favoriteNoteIds = favoriteNotes.map(note => note.id);
+  const filteredPrivateNotes = privateNotes.filter(note => !favoriteNoteIds.includes(note.id));
+  const filteredPublicNotes = publicNotes.filter(note => !favoriteNoteIds.includes(note.id));
+  
+  console.log('🏠 Favorites:', favoriteNotes.length, 'Filtered Private:', filteredPrivateNotes.length, 'Filtered Public:', filteredPublicNotes.length);
+  
+  const currentNotes = activeTab === 'private' ? filteredPrivateNotes : filteredPublicNotes;
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -242,6 +254,10 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >
+              <FavoriteNotesSection
+                favoriteNotes={favoriteNotes}
+                onNotePress={handleNoteClick}
+              />
               <NotesListComponent
                 notes={currentNotes}
                 onNoteClick={handleNoteClick}
