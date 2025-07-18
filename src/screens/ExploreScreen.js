@@ -63,7 +63,7 @@ const ExploreScreen = ({ navigation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeCategory, setActiveCategory] = useState('Trending');
-  const { publicNotes, toggleFavorite, isFavorite } = useNotesStore();
+  const { publicNotes, toggleStarred, isStarred } = useNotesStore();
   
   // Filter notes from other users (not current user)
   const currentUser = 'alexnwkim';
@@ -119,7 +119,12 @@ const ExploreScreen = ({ navigation }) => {
   };
 
   const handleStarNote = (noteId) => {
-    toggleFavorite(noteId);
+    toggleStarred(noteId);
+  };
+
+  const handleForkNote = (noteId) => {
+    console.log('Forking note:', noteId);
+    // TODO: Implement fork functionality with Supabase
   };
 
   const handleNavChange = (tabIndex) => {
@@ -216,6 +221,10 @@ const ExploreScreen = ({ navigation }) => {
                         note={note}
                         onPress={() => handleNotePress(note)}
                         onUnstar={() => handleStarNote(note.id)}
+                        onFork={() => handleForkNote(note.id)}
+                        showForkButton={false}
+                        isStarred={isStarred(note.id)}
+                        showDate={false}
                       />
                     ))
                   ) : !isSearching ? (
@@ -237,18 +246,12 @@ const ExploreScreen = ({ navigation }) => {
                         note={note}
                         onPress={() => handleNotePress(note)}
                         onUnstar={() => handleStarNote(note.id)}
+                        onFork={() => handleForkNote(note.id)}
+                        showForkButton={false}
+                        isStarred={isStarred(note.id)}
+                        showDate={false}
                       />
                     ))}
-                  </View>
-                              <View style={styles.statChip}>
-                                <Icon name="git-branch" size={12} color={Colors.secondaryText} />
-                                <Text style={styles.statText}>{note.forkCount}</Text>
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                    </View>
                   </View>
                 </>
               )}

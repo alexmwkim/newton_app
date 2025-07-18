@@ -13,105 +13,81 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import StarredNoteCard from '../components/StarredNoteCard';
+import { useNotesStore } from '../store/NotesStore';
 
 const StarredNotesScreen = ({ navigation }) => {
   const [starredNotes, setStarredNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { toggleStarred, isStarred, getStarredNotes, debugStarredState, clearAllStarredNotes } = useNotesStore();
 
   useEffect(() => {
+    console.log('📱 StarredNotesScreen mounted, loading starred notes');
     loadStarredNotes();
   }, []);
 
   const loadStarredNotes = async () => {
+    console.log('📱 StarredNotesScreen: Starting to load starred notes...');
     setLoading(true);
     
-    // Mock data for starred notes from other users
-    const mockStarredNotes = [
-      {
-        id: 'starred_1',
-        title: 'Morning Routine for Productivity',
-        content: '# Daily Morning Routine\n\n## 6:00 AM - Wake Up\n- Drink a glass of water\n- 5 minutes of deep breathing\n\n## 6:15 AM - Exercise\n- 20 minutes cardio\n- 10 minutes stretching\n\n## 6:45 AM - Journaling\n- Write 3 things I\'m grateful for\n- Set daily intentions\n\n## 7:00 AM - Breakfast\n- Healthy protein + fruit\n- Review daily schedule',
+    // Get starred notes from the global store
+    const actualStarredNotes = getStarredNotes();
+    console.log('📱 Raw starred notes from store:', actualStarredNotes);
+    console.log('📱 Number of starred notes:', actualStarredNotes.length);
+    
+    if (actualStarredNotes.length > 0) {
+      console.log('📱 First starred note:', actualStarredNotes[0]);
+    }
+    
+    // Transform notes to match the expected format
+    const transformedNotes = actualStarredNotes.map(note => {
+      console.log('📱 Transforming note:', note.id, note.title);
+      return {
+        id: note.id,
+        title: note.title,
+        content: note.content || 'No content available...',
         author: {
-          id: 'user_1',
-          name: 'Sarah Chen',
-          avatar: '👩‍💻',
+          id: note.username || note.author,
+          name: note.username || note.author,
+          avatar: '👤'
         },
-        createdAt: '2024-01-15T08:30:00Z',
-        updatedAt: '2024-01-15T08:30:00Z',
-        isPublic: true,
-        forkCount: 24,
-        starCount: 189,
-        tags: ['productivity', 'morning', 'routine'],
-        starredAt: '2024-01-16T10:00:00Z',
-      },
-      {
-        id: 'starred_2',
-        title: 'React Native Best Practices',
-        content: '# React Native Development Tips\n\n## Performance Optimization\n- Use FlatList for large lists\n- Implement proper key props\n- Avoid inline functions in render\n\n## Code Organization\n- Keep components small and focused\n- Use custom hooks for logic\n- Implement proper error boundaries\n\n## Testing Strategy\n- Unit tests for utilities\n- Integration tests for components\n- E2E tests for critical flows',
-        author: {
-          id: 'alexnwkim',
-          name: 'alexnwkim',
-          avatar: '👨‍💻',
-        },
-        createdAt: '2024-01-14T14:20:00Z',
-        updatedAt: '2024-01-14T14:20:00Z',
-        isPublic: true,
-        forkCount: 18,
-        starCount: 156,
-        tags: ['react-native', 'development', 'best-practices'],
-        starredAt: '2024-01-15T16:30:00Z',
-        isOwnNote: true,
-      },
-      {
-        id: 'starred_3',
-        title: 'Investment Portfolio Strategy',
-        content: '# Personal Investment Strategy\n\n## Asset Allocation\n- 60% Stock Index Funds\n- 30% Bond Index Funds\n- 10% REITs\n\n## Monthly Investment Plan\n- $1000 total monthly investment\n- $600 to stock index funds\n- $300 to bond funds\n- $100 to REITs\n\n## Rebalancing Schedule\n- Review quarterly\n- Rebalance if allocation drifts >5%\n- Tax-loss harvest in December',
-        author: {
-          id: 'user_3',
-          name: 'Jennifer Kim',
-          avatar: '👩‍💼',
-        },
-        createdAt: '2024-01-13T11:45:00Z',
-        updatedAt: '2024-01-13T11:45:00Z',
-        isPublic: true,
-        forkCount: 31,
-        starCount: 287,
-        tags: ['finance', 'investing', 'strategy'],
-        starredAt: '2024-01-14T09:15:00Z',
-      },
-      {
-        id: 'starred_4',
-        title: 'Meal Prep Sunday Ideas',
-        content: '# Weekly Meal Prep Guide\n\n## Breakfast Options\n- Overnight oats with berries\n- Egg muffins with vegetables\n- Greek yogurt parfait\n\n## Lunch Ideas\n- Quinoa bowl with roasted vegetables\n- Chicken and rice with steamed broccoli\n- Lentil salad with feta cheese\n\n## Dinner Plans\n- Sheet pan salmon with asparagus\n- Slow cooker chicken stew\n- Vegetarian chili with cornbread\n\n## Prep Tips\n- Wash and chop vegetables on Sunday\n- Cook grains in bulk\n- Marinate proteins overnight',
-        author: {
-          id: 'alexnwkim',
-          name: 'alexnwkim',
-          avatar: '👨‍🍳',
-        },
-        createdAt: '2024-01-12T16:00:00Z',
-        updatedAt: '2024-01-12T16:00:00Z',
-        isPublic: true,
-        forkCount: 42,
-        starCount: 324,
-        tags: ['meal-prep', 'cooking', 'healthy'],
-        starredAt: '2024-01-13T12:30:00Z',
-        isOwnNote: true,
-      },
-    ];
+        createdAt: note.createdAt || new Date().toISOString(),
+        updatedAt: note.updatedAt || new Date().toISOString(),
+        isPublic: note.isPublic,
+        forkCount: note.forkCount || note.forksCount || 0,
+        starCount: note.starCount || 0,
+        tags: note.tags || ['note'],
+        starredAt: new Date().toISOString()
+      };
+    });
+
+    console.log('📱 Transformed notes:', transformedNotes);
+    console.log('📱 Setting starred notes state...');
 
     setTimeout(() => {
-      setStarredNotes(mockStarredNotes);
+      setStarredNotes(transformedNotes);
       setLoading(false);
-    }, 1000);
+      console.log('📱 Starred notes state updated, loading complete');
+    }, 100);
   };
 
   const handleNotePress = (note) => {
+    console.log('📱 Opening note detail for:', note.id, note.title);
+    
+    // Create the callback function - only refresh the list, don't toggle again
+    const starredRemoveCallback = () => {
+      console.log('🔄 StarredRemove callback called for note:', note.id);
+      console.log('🔄 Note was already removed from starred, just refreshing list');
+      loadStarredNotes(); // Just reload the list, don't toggle again
+    };
+    
     navigation.navigate('noteDetail', {
+      noteId: note.id,
       note: note,
-      isStarred: true,
+      isStarredNote: true,
       returnToScreen: 'starredNotes',
       onFork: () => handleForkNote(note),
       onUnstar: () => handleUnstarNote(note.id),
+      onStarredRemove: starredRemoveCallback,
     });
   };
 
@@ -155,20 +131,17 @@ const StarredNotesScreen = ({ navigation }) => {
   };
 
   const handleUnstarNote = (noteId) => {
-    Alert.alert(
-      'Remove from Starred',
-      'Remove this note from your starred collection?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            setStarredNotes(prev => prev.filter(note => note.id !== noteId));
-          },
-        },
-      ]
-    );
+    console.log('🗑️ Removing note from starred list:', noteId);
+    
+    // Use the global toggleStarred function
+    toggleStarred(noteId);
+    
+    // Reload the starred notes to reflect the change
+    setTimeout(() => {
+      loadStarredNotes();
+    }, 100);
+    
+    console.log('✅ Note unstarred, reloading starred notes');
   };
 
   const handleBackPress = () => {
@@ -220,6 +193,31 @@ const StarredNotesScreen = ({ navigation }) => {
           <View style={styles.headerRight} />
         </View>
 
+        {/* Debug Buttons */}
+        <View style={styles.debugContainer}>
+          <TouchableOpacity 
+            style={styles.debugButton}
+            onPress={() => {
+              console.log('🔍 Manual debug triggered');
+              debugStarredState();
+              loadStarredNotes();
+            }}
+          >
+            <Text style={styles.debugButtonText}>Debug & Refresh</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.debugButton, styles.clearButton]}
+            onPress={() => {
+              console.log('🗑️ Clear all starred notes triggered');
+              clearAllStarredNotes();
+              loadStarredNotes();
+            }}
+          >
+            <Text style={styles.debugButtonText}>Clear All</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Content */}
         {starredNotes.length === 0 ? (
           <EmptyState />
@@ -236,6 +234,7 @@ const StarredNotesScreen = ({ navigation }) => {
                   note={note}
                   onPress={() => handleNotePress(note)}
                   onUnstar={() => handleUnstarNote(note.id)}
+                  showDate={false}
                 />
               ))}
             </View>
@@ -336,6 +335,29 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.white,
+  },
+  debugContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: Layout.screen.padding,
+    gap: Layout.spacing.sm,
+    marginBottom: Layout.spacing.md,
+  },
+  debugButton: {
+    backgroundColor: Colors.floatingButton,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: 8,
+    flex: 1,
+  },
+  clearButton: {
+    backgroundColor: '#ff4444',
+  },
+  debugButtonText: {
+    fontSize: Typography.fontSize.small,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.white,
+    textAlign: 'center',
   },
 });
 

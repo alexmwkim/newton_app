@@ -75,7 +75,16 @@ const ProfileScreen = ({ navigation }) => {
   const [userProfilePhotoForNotes, setUserProfilePhotoForNotes] = useState(ProfileStore.getProfilePhoto());
   
   // Notes store
-  const { privateNotes, publicNotes, isFavorite, toggleFavorite } = useNotesStore();
+  const { privateNotes, publicNotes, isFavorite, toggleFavorite, getStarredNotes } = useNotesStore();
+
+  // Calculate actual notes count
+  const currentUser = 'alexnwkim';
+  const myNotesCount = privateNotes.length + publicNotes.filter(note => 
+    note.username === currentUser || note.author === currentUser
+  ).length;
+  const starredNotesCount = getStarredNotes().length;
+
+  console.log('📊 Profile counts - My notes:', myNotesCount, 'Starred notes:', starredNotesCount);
 
   useEffect(() => {
     // Check for global readme data on every render
@@ -102,10 +111,11 @@ const ProfileScreen = ({ navigation }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Subscribe to notes changes for highlight updates
+  // Subscribe to notes changes for highlight updates and count updates
   useEffect(() => {
     loadHighlightNotes();
-  }, [privateNotes, publicNotes, isFavorite]);
+    console.log('📊 Notes changed - updating counts');
+  }, [privateNotes, publicNotes, isFavorite, starredNotesCount]);
 
   // Subscribe to profile photo changes for highlight notes
   useEffect(() => {
@@ -326,25 +336,6 @@ const ProfileScreen = ({ navigation }) => {
     console.log(isFollowing ? '👥 Unfollowed user' : '👥 Followed user');
   };
 
-  const handleStarNote = (noteId) => {
-    const wasFavorite = isFavorite(noteId);
-    toggleFavorite(noteId);
-    
-    // Update local highlight notes state
-    setHighlightNotes(notes => 
-      notes.map(note => 
-        note.id === noteId 
-          ? { 
-              ...note, 
-              isStarred: !wasFavorite,
-              starCount: wasFavorite ? note.starCount - 1 : note.starCount + 1
-            }
-          : note
-      )
-    );
-    
-    console.log(`⭐ ${wasFavorite ? 'Removed from' : 'Added to'} favorites`);
-  };
 
   const handleFollowersPress = () => {
     console.log('👥 Followers pressed');
@@ -457,7 +448,7 @@ const ProfileScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.menuItem} onPress={handleMyNotesPress}>
               <Text style={styles.menuItemText}>My notes</Text>
               <View style={styles.menuItemRight}>
-                <Text style={styles.menuItemCount}>{mockUser.myNotesCount}</Text>
+                <Text style={styles.menuItemCount}>{myNotesCount}</Text>
                 <Icon name="chevron-right" size={20} color={Colors.secondaryText} />
               </View>
             </TouchableOpacity>
@@ -466,7 +457,7 @@ const ProfileScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.menuItem} onPress={handleStarredNotesPress}>
               <Text style={styles.menuItemText}>Starred notes</Text>
               <View style={styles.menuItemRight}>
-                <Text style={styles.menuItemCount}>{mockUser.starredNotesCount}</Text>
+                <Text style={styles.menuItemCount}>{starredNotesCount}</Text>
                 <Icon name="chevron-right" size={20} color={Colors.secondaryText} />
               </View>
             </TouchableOpacity>
@@ -490,17 +481,6 @@ const ProfileScreen = ({ navigation }) => {
                         )}
                       </View>
                       <Text style={styles.highlightUsername}>{note.username}</Text>
-                      <TouchableOpacity 
-                        style={styles.starButton}
-                        onPress={() => handleStarNote(note.id)}
-                      >
-                        <Icon 
-                          name="star" 
-                          size={16} 
-                          color={note.isStarred ? Colors.floatingButton : Colors.secondaryText}
-                          fill={note.isStarred ? Colors.floatingButton : 'none'}
-                        />
-                      </TouchableOpacity>
                     </View>
                     <Text style={styles.highlightNoteTitle}>{note.title}</Text>
                     <View style={styles.highlightStats}>
@@ -766,10 +746,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Layout.spacing.sm,
     gap: Layout.spacing.xs,
-  },
-  starButton: {
-    marginLeft: 'auto',
-    padding: Layout.spacing.xs,
   },
   highlightAvatar: {
     width: 24,

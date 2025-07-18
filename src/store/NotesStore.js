@@ -237,7 +237,8 @@ let folders = [];
 let listeners = [];
 let folderIdCounter = 1000; // Start from 1000 to avoid conflicts
 let noteIdCounter = 2000; // Start from 2000 for notes in folders
-let favoriteNotes = []; // Array to store favorite note IDs
+let favoriteNotes = []; // Array to store favorite note IDs (for own notes)
+let starredNotes = []; // Array to store starred note IDs (for other users' notes)
 
 // Load favorites from storage on app start
 const loadFavorites = async () => {
@@ -252,6 +253,19 @@ const loadFavorites = async () => {
   }
 };
 
+// Load starred notes from storage on app start
+const loadStarredNotes = async () => {
+  try {
+    const saved = await AsyncStorage.getItem('starredNotes');
+    if (saved) {
+      starredNotes = JSON.parse(saved);
+      console.log('⭐ Loaded starred notes from storage:', starredNotes);
+    }
+  } catch (error) {
+    console.log('Error loading starred notes:', error);
+  }
+};
+
 // Save favorites to storage
 const saveFavorites = async () => {
   try {
@@ -262,8 +276,83 @@ const saveFavorites = async () => {
   }
 };
 
-// Initialize favorites on app start
+// Save starred notes to storage
+const saveStarredNotes = async () => {
+  try {
+    await AsyncStorage.setItem('starredNotes', JSON.stringify(starredNotes));
+    console.log('💾 Saved starred notes to storage:', starredNotes);
+  } catch (error) {
+    console.log('Error saving starred notes:', error);
+  }
+};
+
+// Initialize favorites and starred notes on app start
 loadFavorites();
+loadStarredNotes();
+
+// Migration function to move other users' notes from favorites to starred
+const migrateFavoritesToStarred = () => {
+  console.log('🔄 Starting migration check...');
+  console.log('🔄 Current favorites:', favoriteNotes);
+  console.log('🔄 Current starred:', starredNotes);
+  
+  const currentUser = 'alexnwkim';
+  const allNotes = [...privateNotes, ...publicNotes];
+  console.log('🔄 Total notes available:', allNotes.length);
+  
+  // Find other users' notes in favorites
+  const notesToMigrate = favoriteNotes.filter(noteId => {
+    const note = allNotes.find(n => n.id === noteId);
+    if (note) {
+      const noteAuthor = note.author || note.username;
+      console.log('🔄 Checking note:', note.id, note.title, 'author:', noteAuthor, 'isPublic:', note.isPublic);
+      
+      // A note should be migrated if:
+      // 1. It's public 
+      // 2. It's by another user (not current user)
+      const isOtherUser = noteAuthor && noteAuthor !== currentUser;
+      const shouldMigrate = note.isPublic && isOtherUser;
+      
+      console.log('🔄 isOtherUser:', isOtherUser, 'shouldMigrate:', shouldMigrate);
+      return shouldMigrate;
+    }
+    console.log('🔄 Note not found:', noteId);
+    return false;
+  });
+  
+  console.log('🔄 Notes to migrate:', notesToMigrate);
+  
+  if (notesToMigrate.length > 0) {
+    console.log('🔄 Migrating other users notes from favorites to starred:', notesToMigrate);
+    
+    // Remove from favorites
+    favoriteNotes = favoriteNotes.filter(id => !notesToMigrate.includes(id));
+    
+    // Add to starred (avoid duplicates)
+    notesToMigrate.forEach(noteId => {
+      if (!starredNotes.includes(noteId)) {
+        starredNotes.push(noteId);
+        console.log('🔄 Added to starred:', noteId);
+      } else {
+        console.log('🔄 Already in starred:', noteId);
+      }
+    });
+    
+    console.log('🔄 After migration - Favorites:', favoriteNotes);
+    console.log('🔄 After migration - Starred:', starredNotes);
+    
+    // Save both arrays
+    saveFavorites();
+    saveStarredNotes();
+    
+    console.log('✅ Migration complete. Favorites:', favoriteNotes.length, 'Starred:', starredNotes.length);
+  } else {
+    console.log('🔄 No notes to migrate');
+  }
+};
+
+// Run migration after loading
+setTimeout(migrateFavoritesToStarred, 100);
 
 // Simple store implementation
 const NotesStore = {
@@ -372,22 +461,22 @@ const NotesStore = {
     listeners.forEach(listener => listener());
   },
   
-  // Favorite functionality
+  // Favorite functionality (for pinned notes)
   toggleFavorite: (noteId) => {
-    console.log('⭐ NotesStore.toggleFavorite called with:', noteId);
+    console.log('📌 NotesStore.toggleFavorite (PINNED) called with:', noteId);
     
     const index = favoriteNotes.indexOf(noteId);
     if (index > -1) {
       // Remove from favorites
       favoriteNotes.splice(index, 1);
-      console.log('❌ Removed from favorites:', noteId);
+      console.log('❌ Removed from pinned favorites:', noteId);
     } else {
       // Add to favorites
       favoriteNotes.push(noteId);
-      console.log('✅ Added to favorites:', noteId);
+      console.log('✅ Added to pinned favorites:', noteId);
     }
     
-    console.log('⭐ Current favorites:', favoriteNotes);
+    console.log('📌 Current pinned favorites:', favoriteNotes);
     
     // Save to storage
     saveFavorites();
@@ -404,11 +493,121 @@ const NotesStore = {
   
   getFavoriteNotes: () => {
     const allNotes = [...privateNotes, ...publicNotes];
-    return allNotes.filter(note => favoriteNotes.includes(note.id));
+    const currentUser = 'alexnwkim';
+    
+    // Filter favorite notes
+    const favoriteNotesFiltered = allNotes.filter(note => 
+      favoriteNotes.includes(note.id) && 
+      (note.username === currentUser || note.author === currentUser || !note.isPublic)
+    );
+    
+    // Sort by time - most recent first
+    return favoriteNotesFiltered.sort((a, b) => {
+      // Handle "Just now" special case
+      if (a.timeAgo === 'Just now' && b.timeAgo !== 'Just now') return -1;
+      if (b.timeAgo === 'Just now' && a.timeAgo !== 'Just now') return 1;
+      if (a.timeAgo === 'Just now' && b.timeAgo === 'Just now') {
+        return b.id - a.id; // Sort by ID if both are "Just now"
+      }
+      
+      // Sort by actual date if available
+      if (a.updatedAt && b.updatedAt) {
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+      }
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      
+      // Fall back to ID sorting (newer IDs first)
+      return b.id - a.id;
+    });
   },
   
   getFavoriteNoteIds: () => {
     return [...favoriteNotes];
+  },
+
+  // Starred notes functionality (for all public notes)
+  toggleStarred: (noteId) => {
+    console.log('⭐ NotesStore.toggleStarred (PUBLIC NOTES) called with:', noteId);
+    
+    const index = starredNotes.indexOf(noteId);
+    if (index > -1) {
+      // Remove from starred
+      starredNotes.splice(index, 1);
+      console.log('❌ Removed from starred notes:', noteId);
+    } else {
+      // Add to starred
+      starredNotes.push(noteId);
+      console.log('✅ Added to starred notes:', noteId);
+    }
+    
+    console.log('⭐ Current starred notes:', starredNotes);
+    
+    // Save to storage
+    saveStarredNotes();
+    
+    // Notify all listeners
+    listeners.forEach(listener => listener());
+    
+    return !index > -1; // Return new starred state
+  },
+  
+  isStarred: (noteId) => {
+    return starredNotes.includes(noteId);
+  },
+  
+  getStarredNotes: () => {
+    const allNotes = [...privateNotes, ...publicNotes];
+    const currentUser = 'alexnwkim';
+    
+    console.log('⭐ getStarredNotes called');
+    console.log('⭐ starredNotes array:', starredNotes);
+    console.log('⭐ Total notes:', allNotes.length);
+    
+    const filtered = allNotes.filter(note => {
+      const isInStarred = starredNotes.includes(note.id);
+      const isPublic = note.isPublic;
+      
+      console.log('⭐ Note', note.id, note.title, '- inStarred:', isInStarred, 'isPublic:', isPublic);
+      
+      // Include all public notes that are in starred array (including own notes)
+      return isInStarred && isPublic;
+    });
+    
+    console.log('⭐ Filtered starred notes:', filtered);
+    return filtered;
+  },
+  
+  getStarredNoteIds: () => {
+    return [...starredNotes];
+  },
+
+  // Clear all starred notes
+  clearAllStarredNotes: () => {
+    console.log('🗑️ Clearing all starred notes');
+    starredNotes = [];
+    saveStarredNotes();
+    listeners.forEach(listener => listener());
+    console.log('✅ All starred notes cleared');
+  },
+
+  // Debug function
+  debugStarredState: () => {
+    console.log('🔍 DEBUG - Current state:');
+    console.log('🔍 favoriteNotes:', favoriteNotes);
+    console.log('🔍 starredNotes:', starredNotes);
+    console.log('🔍 publicNotes count:', publicNotes.length);
+    console.log('🔍 privateNotes count:', privateNotes.length);
+    
+    const starredNotesResult = NotesStore.getStarredNotes();
+    console.log('🔍 getStarredNotes result:', starredNotesResult);
+    
+    return {
+      favorites: favoriteNotes,
+      starred: starredNotes,
+      starredNotesResult: starredNotesResult
+    };
   },
   
   // Folder functions
@@ -553,6 +752,12 @@ export const useNotesStore = () => {
     isFavorite: NotesStore.isFavorite,
     getFavoriteNotes: NotesStore.getFavoriteNotes,
     getFavoriteNoteIds: NotesStore.getFavoriteNoteIds,
+    toggleStarred: NotesStore.toggleStarred,
+    isStarred: NotesStore.isStarred,
+    getStarredNotes: NotesStore.getStarredNotes,
+    getStarredNoteIds: NotesStore.getStarredNoteIds,
+    clearAllStarredNotes: NotesStore.clearAllStarredNotes,
+    debugStarredState: NotesStore.debugStarredState,
   };
 };
 

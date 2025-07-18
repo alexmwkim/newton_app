@@ -15,7 +15,7 @@ const SwipeableNoteItem = ({
 }) => {
   const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
   const currentUser = 'alexnwkim'; // Current logged-in user
-  const { toggleFavorite, isFavorite } = useNotesStore();
+  const { toggleFavorite, isFavorite, toggleStarred, isStarred } = useNotesStore();
   
   useEffect(() => {
     const unsubscribe = ProfileStore.subscribe(() => {
@@ -104,7 +104,16 @@ const SwipeableNoteItem = ({
 
   const handleStarPress = (event) => {
     event.stopPropagation(); // Prevent note opening
-    toggleFavorite(note.id);
+    
+    // For public notes, always use starred system (even for own notes)
+    if (note.isPublic) {
+      console.log('⭐ Public note star clicked - using starred system for note:', note.id);
+      toggleStarred(note.id);
+    } else {
+      // For private notes, use favorites (pinned)
+      console.log('📌 Private note star clicked - using favorites (pinned) system for note:', note.id);
+      toggleFavorite(note.id);
+    }
   };
 
   const handleForkPress = (event) => {
@@ -163,25 +172,19 @@ const SwipeableNoteItem = ({
                   <Icon 
                     name="star" 
                     size={12} 
-                    color={isFavorite(note.id) ? Colors.floatingButton : Colors.secondaryText}
-                    fill={isFavorite(note.id) ? Colors.floatingButton : 'none'}
+                    color={isStarred(note.id) ? Colors.floatingButton : Colors.secondaryText}
+                    fill={isStarred(note.id) ? Colors.floatingButton : 'none'}
                   />
-                  <Text style={[styles.statText, isFavorite(note.id) && styles.favoriteText]}>
+                  <Text style={[styles.statText, isStarred(note.id) && styles.favoriteText]}>
                     {note.starCount || 0}
                   </Text>
                 </TouchableOpacity>
                 
-                {/* Only show fork button for notes not created by current user */}
-                {note.username !== currentUser && (
-                  <TouchableOpacity 
-                    style={styles.statChip}
-                    onPress={handleForkPress}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="git-branch" size={12} color={Colors.secondaryText} />
-                    <Text style={styles.statText}>{note.forksCount || 0}</Text>
-                  </TouchableOpacity>
-                )}
+                {/* Fork count display for all public notes */}
+                <View style={styles.statChip}>
+                  <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                  <Text style={styles.statText}>{note.forksCount || note.forkCount || 0}</Text>
+                </View>
               </View>
             </View>
           ) : (

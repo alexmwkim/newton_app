@@ -5,7 +5,7 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 
-const StarredNoteCard = ({ note, onPress, onUnstar }) => {
+const StarredNoteCard = ({ note, onPress, onUnstar, onFork, showForkButton = false, isStarred = false, showDate = true }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -35,14 +35,20 @@ const StarredNoteCard = ({ note, onPress, onUnstar }) => {
           <Text style={styles.authorAvatar}>{note.author.avatar}</Text>
           <View style={styles.authorDetails}>
             <Text style={styles.authorName}>{note.author.name}</Text>
-            <Text style={styles.dateText}>
-              {formatDate(note.createdAt)}
-            </Text>
+            {showDate && (
+              <Text style={styles.dateText}>
+                {formatDate(note.createdAt)}
+              </Text>
+            )}
           </View>
         </View>
-        <TouchableOpacity style={styles.unstarButton} onPress={onUnstar}>
-          <Icon name="star" size={20} color={Colors.floatingButton} fill={Colors.floatingButton} />
-        </TouchableOpacity>
+        {showForkButton && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.actionButton} onPress={onFork}>
+              <Icon name="git-branch" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.content}>
@@ -58,12 +64,10 @@ const StarredNoteCard = ({ note, onPress, onUnstar }) => {
         <View style={styles.footerLeft}>
           <View style={styles.stats}>
             <View style={styles.stat}>
-              <Icon name="star" size={16} color={Colors.textSecondary} />
-              <Text style={styles.statText}>{note.starCount || 0}</Text>
+              <Text style={styles.statText}>{note.starCount || 0} stars</Text>
             </View>
             <View style={styles.stat}>
-              <Icon name="git-branch" size={16} color={Colors.textSecondary} />
-              <Text style={styles.statText}>{note.forkCount}</Text>
+              <Text style={styles.statText}>{note.forkCount} forks</Text>
             </View>
           </View>
         </View>
@@ -121,7 +125,12 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  unstarButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.sm,
+  },
+  actionButton: {
     padding: Layout.spacing.xs,
   },
   content: {

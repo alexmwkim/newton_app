@@ -13,7 +13,7 @@ const FavoriteNotesSection = ({ favoriteNotes, onNotePress }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Favorite notes</Text>
+        <Text style={styles.headerText}>Pinned notes</Text>
       </View>
       
       <ScrollView 

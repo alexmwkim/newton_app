@@ -21,7 +21,7 @@ import ProfileStore from '../store/ProfileStore';
 import RichTextRenderer from '../components/RichTextRenderer';
 import FolderNoteScreen from './FolderNoteScreen';
 
-const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, isStarred, onUnstar }) => {
+const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, isStarredNote, onUnstar, onStarredRemove, route }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState(null);
@@ -30,7 +30,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
   
-  const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite } = useNotesStore();
+  const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite, toggleStarred, isStarred } = useNotesStore();
   const currentUser = 'alexnwkim'; // Current logged-in user
   
   useEffect(() => {
@@ -159,12 +159,17 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
 
   const handleAddToFavorites = () => {
     setShowSettingsMenu(false);
+    
+    // This function should ONLY handle pinned notes (favorites)
+    // regardless of whether it's author's note or not
     const wasFavorite = isFavorite(noteId);
+    console.log('📌 Settings pin clicked - wasFavorite:', wasFavorite, 'isAuthor:', isAuthor);
+    
     toggleFavorite(noteId);
     
     Alert.alert(
-      wasFavorite ? 'Removed from Favorites' : 'Added to Favorites',
-      wasFavorite ? 'Note removed from your favorites.' : 'Note added to your favorites.',
+      wasFavorite ? 'Removed from Pinned' : 'Added to Pinned',
+      wasFavorite ? 'Note removed from your pinned notes.' : 'Note added to your pinned notes.',
       [{ text: 'OK' }]
     );
   };
@@ -317,13 +322,14 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
   };
   
   // Check if current user is the author (can edit)
-  const isAuthor = isStarred ? 
+  const isAuthor = isStarredNote ? 
     (displayNote.isOwnNote || displayNote.author?.id === currentUser || displayNote.author?.name === currentUser) : // Starred notes can be editable if owned by user
     displayNote.isPublic ? 
       (displayNote.username === currentUser || displayNote.author === currentUser) : 
       true; // Private notes are always editable by current user
   
-  console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note, 'isAuthor:', isAuthor);
+  console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note, 'isAuthor:', isAuthor, 'isStarredNote:', isStarredNote, 'hasStarredRemove:', !!onStarredRemove);
+  console.log('📄 Route params:', route?.params);
 
   const handleFolderPress = (folderId, folderName) => {
     console.log('📁 Opening folder:', folderId, folderName);
@@ -429,6 +435,45 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
               />
             </View>
             
+            {/* Action buttons for public notes */}
+            {displayNote.isPublic && (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={() => {
+                    const currentlyStarred = isStarred(noteId);
+                    console.log('⭐ Star button pressed - currentlyStarred:', currentlyStarred, 'isAuthor:', isAuthor, 'isStarredNote:', isStarredNote);
+                    
+                    // For ALL public notes (including own notes), use starred system
+                    if (displayNote.isPublic) {
+                      toggleStarred(noteId);
+                      
+                      // If removing from starred and we have a callback, call it to update the UI
+                      if (currentlyStarred && onStarredRemove) {
+                        console.log('🗑️ Notifying starred notes screen to update');
+                        setTimeout(() => onStarredRemove(), 100);
+                      }
+                    } else {
+                      // For private notes, use favorites (pinned)
+                      toggleFavorite(noteId);
+                    }
+                  }}
+                >
+                  {(displayNote.isPublic ? isStarred(noteId) : isFavorite(noteId)) ? (
+                    <Text style={[styles.solidStar, { color: Colors.floatingButton, fontSize: 20 }]}>★</Text>
+                  ) : (
+                    <Text style={[styles.outlineStar, { color: Colors.secondaryText, fontSize: 20 }]}>☆</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={handleFork}
+                >
+                  <Icon name="git-branch" size={20} color={Colors.secondaryText} />
+                </TouchableOpacity>
+              </View>
+            )}
+            
             {/* Settings menu - always visible */}
             <View style={styles.settingsContainer}>
               <TouchableOpacity onPress={handleSettingsPress} style={styles.actionButton}>
@@ -455,16 +500,16 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleAddToFavorites} style={styles.menuItem}>
                     <Icon 
-                      name="heart" 
+                      name={isFavorite(noteId) ? "bookmark" : "bookmark"} 
                       size={16} 
                       color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
                       fill={isFavorite(noteId) ? Colors.floatingButton : 'none'}
                     />
                     <Text style={styles.menuItemText}>
-                      {isFavorite(noteId) ? 'Remove from Favorites' : 'Add to Favorites'}
+                      {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
                     </Text>
                   </TouchableOpacity>
-                  {(isStarred || (!isAuthor && displayNote.isPublic)) && (
+                  {(isStarredNote || displayNote.isPublic) && (
                     <TouchableOpacity onPress={handleFork} style={styles.menuItem}>
                       <Icon name="git-branch" size={16} color={Colors.primaryText} />
                       <Text style={styles.menuItemText}>Fork</Text>
@@ -511,7 +556,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
           </TouchableWithoutFeedback>
           
           {/* Author Profile Section for Public Notes */}
-          {(displayNote.isPublic || isStarred) && (
+          {(displayNote.isPublic || isStarredNote) && (
             <View style={styles.authorSection}>
               <View style={styles.authorInfo}>
                 <View style={styles.authorAvatar}>
@@ -550,11 +595,14 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             </View>
           )}
 
-          {(displayNote.isPublic || isStarred) && (
+          {(displayNote.isPublic || isStarredNote) && (
             <View style={styles.publicInfo}>
               <View style={styles.publicMeta}>
-                <Text style={styles.forkCount}>
-                  <Icon name="git-branch" size={16} color={Colors.secondaryText} /> {displayNote.forksCount || displayNote.forkCount || 0} forks
+                <Text style={styles.statCount}>
+                  {displayNote.starCount || 0} stars
+                </Text>
+                <Text style={styles.statCount}>
+                  {displayNote.forksCount || displayNote.forkCount || 0} forks
                 </Text>
                 {!isAuthor && (
                   <View style={styles.readOnlyIndicator}>
@@ -566,8 +614,8 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             </View>
           )}
 
-          {/* Fork Button for Starred Notes */}
-          {isStarred && (
+          {/* Fork Button for Starred Notes - only show if not already shown in header */}
+          {isStarredNote && isAuthor && (
             <View style={styles.starredActions}>
               <TouchableOpacity style={styles.forkButton} onPress={handleFork}>
                 <Icon name="git-branch" size={16} color={Colors.mainBackground} />
@@ -674,6 +722,12 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.sm,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Layout.spacing.sm,
   },
   actionButton: {
@@ -787,6 +841,11 @@ const styles = StyleSheet.create({
   forkCount: {
     fontSize: Typography.fontSize.body,
     color: Colors.secondaryText,
+  },
+  statCount: {
+    fontSize: Typography.fontSize.body,
+    color: Colors.secondaryText,
+    marginRight: Layout.spacing.md,
   },
   readOnlyIndicator: {
     flexDirection: 'row',
@@ -969,6 +1028,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.body,
     color: Colors.primaryText,
     fontFamily: Typography.fontFamily.primary,
+  },
+  solidStar: {
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  outlineStar: {
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 
