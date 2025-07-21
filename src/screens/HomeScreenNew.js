@@ -158,10 +158,12 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
 
   console.log('🏠 HomeScreen render - Private notes:', privateNotes.length, 'Public notes:', publicNotes.length);
   
-  // Filter out favorited notes from the main lists to avoid duplication
-  const favoriteNoteIds = favoriteNotes.map(note => note.id);
-  const filteredPrivateNotes = privateNotes.filter(note => !favoriteNoteIds.includes(note.id));
-  const filteredPublicNotes = publicNotes.filter(note => !favoriteNoteIds.includes(note.id));
+  // Filter notes - pinned notes will appear in both pinned section and main lists
+  const currentUser = 'alexnwkim'; // Current logged-in user
+  const filteredPrivateNotes = privateNotes; // Show all private notes
+  const filteredPublicNotes = publicNotes.filter(note => 
+    (note.username === currentUser || note.author === currentUser)
+  );
   
   console.log('🏠 Favorites:', favoriteNotes.length, 'Filtered Private:', filteredPrivateNotes.length, 'Filtered Public:', filteredPublicNotes.length);
   

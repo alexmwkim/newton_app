@@ -509,12 +509,6 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
                       {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
                     </Text>
                   </TouchableOpacity>
-                  {(isStarredNote || displayNote.isPublic) && (
-                    <TouchableOpacity onPress={handleFork} style={styles.menuItem}>
-                      <Icon name="git-branch" size={16} color={Colors.primaryText} />
-                      <Text style={styles.menuItemText}>Fork</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               )}
             </View>

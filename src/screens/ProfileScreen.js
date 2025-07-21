@@ -77,9 +77,9 @@ const ProfileScreen = ({ navigation }) => {
   // Notes store
   const { privateNotes, publicNotes, isFavorite, toggleFavorite, getStarredNotes } = useNotesStore();
 
-  // Calculate actual notes count
+  // Calculate actual notes count - public notes by current user (matches My Notes screen)
   const currentUser = 'alexnwkim';
-  const myNotesCount = privateNotes.length + publicNotes.filter(note => 
+  const myNotesCount = publicNotes.filter(note => 
     note.username === currentUser || note.author === currentUser
   ).length;
   const starredNotesCount = getStarredNotes().length;
@@ -464,7 +464,7 @@ const ProfileScreen = ({ navigation }) => {
 
             {/* Highlight Section */}
             <View style={styles.highlightSection}>
-              <Text style={styles.highlightTitle}>Highlight</Text>
+              <Text style={styles.highlightTitle}>Recent</Text>
               <View style={styles.highlightGrid}>
                 {highlightNotes.map((note) => (
                   <TouchableOpacity

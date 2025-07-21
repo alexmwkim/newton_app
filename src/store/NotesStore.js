@@ -501,25 +501,13 @@ const NotesStore = {
       (note.username === currentUser || note.author === currentUser || !note.isPublic)
     );
     
-    // Sort by time - most recent first
+    // Sort by pinned order - most recently pinned first (latest in favoriteNotes array)
     return favoriteNotesFiltered.sort((a, b) => {
-      // Handle "Just now" special case
-      if (a.timeAgo === 'Just now' && b.timeAgo !== 'Just now') return -1;
-      if (b.timeAgo === 'Just now' && a.timeAgo !== 'Just now') return 1;
-      if (a.timeAgo === 'Just now' && b.timeAgo === 'Just now') {
-        return b.id - a.id; // Sort by ID if both are "Just now"
-      }
+      const aIndex = favoriteNotes.indexOf(a.id);
+      const bIndex = favoriteNotes.indexOf(b.id);
       
-      // Sort by actual date if available
-      if (a.updatedAt && b.updatedAt) {
-        return new Date(b.updatedAt) - new Date(a.updatedAt);
-      }
-      if (a.createdAt && b.createdAt) {
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      }
-      
-      // Fall back to ID sorting (newer IDs first)
-      return b.id - a.id;
+      // Most recently pinned (higher index in favoriteNotes array) should come first
+      return bIndex - aIndex;
     });
   },
   
