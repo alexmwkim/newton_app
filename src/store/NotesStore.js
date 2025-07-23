@@ -43,6 +43,13 @@ export const useNotesStore = () => {
           // Load pinned notes from Supabase first
           try {
             console.log('📌 🔄 Loading pinned notes from Supabase for user:', user.id);
+            
+            // Pre-validate user authentication before calling service
+            if (!user?.id) {
+              console.log('📌 ⚠️ No user ID available, skipping Supabase pinned notes');
+              throw new Error('No authenticated user');
+            }
+            
             const { data: supabasePinned, error } = await PinnedNotesService.getUserPinnedNotes(user.id);
             
             console.log('📌 🔄 PinnedNotesService.getUserPinnedNotes result:', { 
@@ -80,7 +87,7 @@ export const useNotesStore = () => {
               console.log('📌 Fallback: Loaded pinned notes from AsyncStorage:', parsedPinned);
               setPinnedNotes(parsedPinned);
             } else {
-              console.log('📌 No pinned notes found in AsyncStorage fallback');
+              console.log('📌 No pinned notes found in AsyncStorage fallback, using empty array');
               setPinnedNotes([]);
             }
           }
@@ -88,6 +95,13 @@ export const useNotesStore = () => {
           // Load starred notes from Supabase
           try {
             console.log('⭐ 🔄 Loading starred notes from Supabase for user:', user.id);
+            
+            // Pre-validate user authentication before calling service
+            if (!user?.id) {
+              console.log('⭐ ⚠️ No user ID available, skipping Supabase starred notes');
+              throw new Error('No authenticated user');
+            }
+            
             await supabaseStore.fetchStarredNotes?.(user.id);
             const supabaseStarred = supabaseStore.starredNotes || [];
             const starredIds = supabaseStarred.map(note => note.id);
@@ -107,7 +121,7 @@ export const useNotesStore = () => {
               console.log('⭐ Fallback: Loaded starred notes from AsyncStorage:', parsedStarred);
               setStarredNotes(parsedStarred);
             } else {
-              console.log('⭐ No starred notes found in AsyncStorage fallback');
+              console.log('⭐ No starred notes found in AsyncStorage fallback, using empty array');
               setStarredNotes([]);
             }
           }

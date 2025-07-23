@@ -180,17 +180,29 @@ const ProfileScreen = ({ navigation }) => {
     });
     
     // Take only the first 2 notes for highlight section
-    const highlightData = sortedNotes.slice(0, 2).map(note => ({
-      id: note.id,
-      title: note.title,
-      forkCount: note.forksCount || note.forkCount || 0,
-      starCount: note.starCount || 0,
-      username: note.username || currentUser,
-      isStarred: false // Simplified to avoid circular dependency - will be calculated in render
-    }));
+    const highlightData = sortedNotes.slice(0, 2).map(note => {
+      console.log('📈 Processing note for highlight:', {
+        id: note.id,
+        title: note.title,
+        star_count: note.star_count,
+        starCount: note.starCount,
+        fork_count: note.fork_count,
+        forkCount: note.forkCount
+      });
+      
+      return {
+        id: note.id,
+        title: note.title,
+        forkCount: note.fork_count || note.forksCount || note.forkCount || 0,
+        starCount: note.star_count || note.starCount || 0,
+        username: note.username || currentUser,
+        isStarred: false // Simplified to avoid circular dependency - will be calculated in render
+      };
+    });
     
     setHighlightNotes(highlightData);
     console.log('📈 Loaded highlight notes:', highlightData.length, 'notes');
+    console.log('📈 Highlight notes with counts:', highlightData.map(n => `${n.title}: star=${n.starCount}, fork=${n.forkCount}`));
   };
 
   const handleProfilePhotoPress = () => {
@@ -476,7 +488,7 @@ const ProfileScreen = ({ navigation }) => {
                     <Text style={styles.highlightNoteTitle}>{note.title}</Text>
                     <View style={styles.highlightStats}>
                       <View style={styles.statChip}>
-                        <Icon name="star" size={12} color={Colors.secondaryText} />
+                        <Icon name="star" size={12} color={note.starCount > 0 ? '#FFD700' : Colors.secondaryText} />
                         <Text style={styles.highlightStatText}>{note.starCount}</Text>
                       </View>
                       <View style={styles.statChip}>

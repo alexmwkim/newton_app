@@ -396,11 +396,22 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
   // Normalize data - convert is_public to isPublic for consistency
   const normalizeNote = (noteData) => {
     if (!noteData) return null;
+    console.log('🔄 Normalizing note data:', {
+      id: noteData.id,
+      title: noteData.title,
+      star_count: noteData.star_count,
+      starCount: noteData.starCount,
+      fork_count: noteData.fork_count,
+      forkCount: noteData.forkCount
+    });
+    
     return {
       ...noteData,
       isPublic: noteData.isPublic || noteData.is_public || false,
       username: noteData.username || noteData.profiles?.username || 'Unknown',
-      author: noteData.author || noteData.profiles?.username || 'Unknown'
+      author: noteData.author || noteData.profiles?.username || 'Unknown',
+      starCount: noteData.star_count || noteData.starCount || 0,
+      forkCount: noteData.fork_count || noteData.forkCount || noteData.forksCount || 0
     };
   };
 
@@ -765,10 +776,10 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             <View style={styles.publicInfo}>
               <View style={styles.publicMeta}>
                 <Text style={styles.statCount}>
-                  {displayNote.starCount || 0} stars
+                  {displayNote.star_count || displayNote.starCount || 0} stars
                 </Text>
                 <Text style={styles.statCount}>
-                  {displayNote.forksCount || displayNote.forkCount || 0} forks
+                  {displayNote.fork_count || displayNote.forksCount || displayNote.forkCount || 0} forks
                 </Text>
                 {!isAuthor && (
                   <View style={styles.readOnlyIndicator}>
