@@ -4,56 +4,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import StarredNoteCard from '../components/StarredNoteCard';
+import SwipeableNoteItem from '../components/SwipeableNoteItem';
 import { useNotesStore } from '../store/NotesStore';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 
-// Mock data for explore screen
-const mockTrendingNotes = [
-  {
-    id: 101,
-    title: 'Building a Mobile-First Design System',
-    content: 'Complete guide to creating design systems that work across platforms...',
-    createdAt: '2 hours ago',
-    author: 'userid001',
-    isPublic: true,
-    forkCount: 6,
-    starCount: 23,
-  },
-  {
-    id: 102,
-    title: 'JavaScript Performance Tips',
-    content: 'Essential techniques to optimize your JavaScript code for better performance...',
-    createdAt: '4 hours ago',
-    author: 'userid002',
-    isPublic: true,
-    forkCount: 5,
-    starCount: 18,
-  },
-];
-
-const mockPopularNotes = [
-  {
-    id: 103,
-    title: 'Remote Work Best Practices',
-    content: 'Lessons learned from 3 years of remote work and team management...',
-    createdAt: '6 hours ago',
-    author: 'userid003',
-    isPublic: true,
-    forkCount: 5,
-    starCount: 31,
-  },
-  {
-    id: 104,
-    title: 'Getting Started with React Native',
-    content: 'A beginner-friendly guide to React Native development...',
-    createdAt: '1 hour ago',
-    author: 'userid004',
-    isPublic: true,
-    forkCount: 5,
-    starCount: 12,
-  },
-];
 
 const categories = ['Trending', 'Following', 'Idea', 'Routine', 'Journal'];
 
@@ -63,27 +17,22 @@ const ExploreScreen = ({ navigation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeCategory, setActiveCategory] = useState('Trending');
-  const { publicNotes, toggleStarred, isStarred } = useNotesStore();
+  const { globalPublicNotes, toggleStarred, isStarred } = useNotesStore();
   
-  // Filter notes from other users (not current user)
-  const currentUser = 'alexnwkim';
-  const otherUsersNotes = publicNotes.filter(note => note.username !== currentUser);
+  console.log('🌍 ExploreScreen - globalPublicNotes:', globalPublicNotes?.length || 0, 'notes');
   
-  // Transform notes to match StarredNoteCard format
-  const transformedNotes = otherUsersNotes.map(note => ({
-    id: note.id,
-    title: note.title,
-    content: note.content || 'No content available...',
-    author: {
-      name: note.username || note.author,
-      avatar: '👤',
-      id: note.username || note.author
-    },
-    createdAt: note.createdAt || new Date().toISOString(),
-    starCount: note.starCount || 0,
-    forkCount: note.forksCount || note.forkCount || 0,
-    tags: note.tags || ['note'],
-    isPublic: true
+  // Use global public notes (from all users) for explore page
+  const exploreNotes = globalPublicNotes || [];
+  
+  // Transform notes to match SwipeableNoteItem format (keep original note structure)
+  const transformedNotes = exploreNotes.map(note => ({
+    ...note,
+    // Ensure required fields for SwipeableNoteItem
+    isPublic: true,
+    is_public: true,
+    starCount: note.starCount || note.star_count || 0,
+    forkCount: note.forksCount || note.forkCount || note.fork_count || 0,
+    username: note.username || note.profiles?.username || 'Unknown'
   }));
 
   const handleSearch = (query) => {
@@ -93,8 +42,8 @@ const ExploreScreen = ({ navigation }) => {
       // Filter notes based on search query
       const filteredNotes = transformedNotes.filter(note => 
         note.title.toLowerCase().includes(query.toLowerCase()) ||
-        note.content.toLowerCase().includes(query.toLowerCase()) ||
-        note.author.name.toLowerCase().includes(query.toLowerCase())
+        (note.content || '').toLowerCase().includes(query.toLowerCase()) ||
+        (note.username || '').toLowerCase().includes(query.toLowerCase())
       );
       setSearchResults(filteredNotes);
       setIsSearching(false);
@@ -216,15 +165,12 @@ const ExploreScreen = ({ navigation }) => {
                   </Text>
                   {!isSearching && searchResults.length > 0 ? (
                     searchResults.map((note) => (
-                      <StarredNoteCard
+                      <SwipeableNoteItem
                         key={note.id}
                         note={note}
                         onPress={() => handleNotePress(note)}
-                        onUnstar={() => handleStarNote(note.id)}
-                        onFork={() => handleForkNote(note.id)}
-                        showForkButton={false}
-                        isStarred={isStarred(note.id)}
-                        showDate={false}
+                        onDelete={() => {}} // Explore notes can't be deleted
+                        isPublic={true}
                       />
                     ))
                   ) : !isSearching ? (
@@ -241,15 +187,12 @@ const ExploreScreen = ({ navigation }) => {
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Explore notes</Text>
                     {transformedNotes.map((note) => (
-                      <StarredNoteCard
+                      <SwipeableNoteItem
                         key={note.id}
                         note={note}
                         onPress={() => handleNotePress(note)}
-                        onUnstar={() => handleStarNote(note.id)}
-                        onFork={() => handleForkNote(note.id)}
-                        showForkButton={false}
-                        isStarred={isStarred(note.id)}
-                        showDate={false}
+                        onDelete={() => {}} // Explore notes can't be deleted
+                        isPublic={true}
                       />
                     ))}
                   </View>

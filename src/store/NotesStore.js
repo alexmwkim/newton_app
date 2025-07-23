@@ -1,752 +1,621 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
+import { useSupabaseNotesStore } from './useSupabaseNotesStore';
+import { useAuth } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PinnedNotesService from '../services/pinned';
+import SocialService from '../services/social';
 
-// Simple global state for notes
-let privateNotes = [
-  {
-    id: 1,
-    title: '📏 Scroll gap fixed - Notes have proper margin ✅ LIVE RELOAD TEST',
-    timeAgo: '5 hrs ago',
-    isPublic: false,
-  },
-  {
-    id: 2,
-    title: 'Idea notes',
-    timeAgo: '05/08/25',
-    isPublic: false,
-  },
-  {
-    id: 3,
-    title: 'Oio project',
-    timeAgo: '10/04/24',
-    isPublic: false,
-  },
-  {
-    id: 4,
-    title: 'Workout session',
-    timeAgo: '09/12/24',
-    isPublic: false,
-  },
-  {
-    id: 5,
-    title: 'Morning thoughts',
-    timeAgo: '1 day ago',
-    isPublic: false,
-  },
-  {
-    id: 6,
-    title: 'Book reading notes',
-    timeAgo: '2 days ago',
-    isPublic: false,
-  },
-  {
-    id: 7,
-    title: 'Meeting minutes',
-    timeAgo: '3 days ago',
-    isPublic: false,
-  },
-  {
-    id: 8,
-    title: 'Travel plans',
-    timeAgo: '1 week ago',
-    isPublic: false,
-  },
-  {
-    id: 9,
-    title: 'Recipe collection',
-    timeAgo: '1 week ago',
-    isPublic: false,
-  },
-  {
-    id: 10,
-    title: 'Daily reflections',
-    timeAgo: '2 weeks ago',
-    isPublic: false,
-  },
-  {
-    id: 11,
-    title: 'Goal setting 2024',
-    timeAgo: '3 weeks ago',
-    isPublic: false,
-  },
-  {
-    id: 12,
-    title: 'Learning notes',
-    timeAgo: '1 month ago',
-    isPublic: false,
-  },
-];
+// Legacy compatibility wrapper for existing UI components
+// This provides the same interface as before but uses Supabase data
 
-let publicNotes = [
-  {
-    id: 13,
-    title: 'React Native Best Practices',
-    timeAgo: '5 hours ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 5,
-    starCount: 24,
-    isPublic: true,
-  },
-  {
-    id: 14,
-    title: 'Design System Guide',
-    timeAgo: '1 day ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 12,
-    starCount: 67,
-    isPublic: true,
-  },
-  {
-    id: 15,
-    title: 'JavaScript Performance Tips',
-    timeAgo: '2 days ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 8,
-    starCount: 41,
-    isPublic: true,
-  },
-  {
-    id: 16,
-    title: 'Mobile App Architecture',
-    timeAgo: '3 days ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 15,
-    starCount: 89,
-    isPublic: true,
-  },
-  {
-    id: 17,
-    title: 'UI/UX Design Principles',
-    timeAgo: '1 week ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 3,
-    starCount: 16,
-    isPublic: true,
-  },
-  {
-    id: 18,
-    title: 'Remote Work Tips',
-    timeAgo: '1 week ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 7,
-    starCount: 33,
-    isPublic: true,
-  },
-  {
-    id: 19,
-    title: 'Building Great Teams',
-    timeAgo: '2 weeks ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 22,
-    starCount: 156,
-    isPublic: true,
-  },
-  {
-    id: 20,
-    title: 'Productivity Hacks',
-    timeAgo: '2 weeks ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 11,
-    starCount: 78,
-    isPublic: true,
-  },
-  {
-    id: 21,
-    title: 'Tech Industry Insights',
-    timeAgo: '3 weeks ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 6,
-    starCount: 29,
-    isPublic: true,
-  },
-  {
-    id: 22,
-    title: 'Startup Lessons Learned',
-    timeAgo: '1 month ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 18,
-    starCount: 134,
-    isPublic: true,
-  },
-  // Additional notes from ExploreScreen
-  {
-    id: 101,
-    title: 'Building a Mobile-First Design System',
-    content: 'Complete guide to creating design systems that work across platforms...',
-    timeAgo: '2 hours ago',
-    author: 'userid001',
-    username: 'userid001',
-    isPublic: true,
-    forkCount: 6,
-    forksCount: 6,
-    starCount: 23,
-    avatarUrl: 'https://via.placeholder.com/24',
-  },
-  {
-    id: 102,
-    title: 'JavaScript Performance Tips',
-    content: 'Essential techniques to optimize your JavaScript code for better performance...',
-    timeAgo: '4 hours ago',
-    author: 'userid002',
-    username: 'userid002',
-    isPublic: true,
-    forkCount: 5,
-    forksCount: 5,
-    starCount: 18,
-    avatarUrl: 'https://via.placeholder.com/24',
-  },
-  {
-    id: 103,
-    title: 'Remote Work Best Practices',
-    content: 'Lessons learned from 3 years of remote work and team management...',
-    timeAgo: '6 hours ago',
-    author: 'userid003',
-    username: 'userid003',
-    isPublic: true,
-    forkCount: 5,
-    forksCount: 5,
-    starCount: 31,
-    avatarUrl: 'https://via.placeholder.com/24',
-  },
-  {
-    id: 104,
-    title: 'Getting Started with React Native',
-    content: 'A beginner-friendly guide to React Native development...',
-    timeAgo: '1 hour ago',
-    author: 'userid004',
-    username: 'userid004',
-    isPublic: true,
-    forkCount: 5,
-    forksCount: 5,
-    starCount: 12,
-    avatarUrl: 'https://via.placeholder.com/24',
-  },
-];
-
-let folders = [];
-let listeners = [];
-let folderIdCounter = 1000; // Start from 1000 to avoid conflicts
-let noteIdCounter = 2000; // Start from 2000 for notes in folders
-let favoriteNotes = []; // Array to store favorite note IDs (for own notes)
-let starredNotes = []; // Array to store starred note IDs (for other users' notes)
-
-// Load favorites from storage on app start
-const loadFavorites = async () => {
-  try {
-    const saved = await AsyncStorage.getItem('favoriteNotes');
-    if (saved) {
-      favoriteNotes = JSON.parse(saved);
-      console.log('⭐ Loaded favorites from storage:', favoriteNotes);
-    }
-  } catch (error) {
-    console.log('Error loading favorites:', error);
-  }
-};
-
-// Load starred notes from storage on app start
-const loadStarredNotes = async () => {
-  try {
-    const saved = await AsyncStorage.getItem('starredNotes');
-    if (saved) {
-      starredNotes = JSON.parse(saved);
-      console.log('⭐ Loaded starred notes from storage:', starredNotes);
-    }
-  } catch (error) {
-    console.log('Error loading starred notes:', error);
-  }
-};
-
-// Save favorites to storage
-const saveFavorites = async () => {
-  try {
-    await AsyncStorage.setItem('favoriteNotes', JSON.stringify(favoriteNotes));
-    console.log('💾 Saved favorites to storage:', favoriteNotes);
-  } catch (error) {
-    console.log('Error saving favorites:', error);
-  }
-};
-
-// Save starred notes to storage
-const saveStarredNotes = async () => {
-  try {
-    await AsyncStorage.setItem('starredNotes', JSON.stringify(starredNotes));
-    console.log('💾 Saved starred notes to storage:', starredNotes);
-  } catch (error) {
-    console.log('Error saving starred notes:', error);
-  }
-};
-
-// Initialize favorites and starred notes on app start
-loadFavorites();
-loadStarredNotes();
-
-// Migration function to move other users' notes from favorites to starred
-const migrateFavoritesToStarred = () => {
-  console.log('🔄 Starting migration check...');
-  console.log('🔄 Current favorites:', favoriteNotes);
-  console.log('🔄 Current starred:', starredNotes);
+export const useNotesStore = () => {
+  // Reduce console spam - only log when user changes
+  const { user } = useAuth();
+  const userIdRef = React.useRef(user?.id);
   
-  const currentUser = 'alexnwkim';
-  const allNotes = [...privateNotes, ...publicNotes];
-  console.log('🔄 Total notes available:', allNotes.length);
+  if (userIdRef.current !== user?.id) {
+    console.log('🚨 useNotesStore - User changed:', userIdRef.current, '->', user?.id);
+    userIdRef.current = user?.id;
+  }
+  const supabaseStore = useSupabaseNotesStore();
   
-  // Find other users' notes in favorites
-  const notesToMigrate = favoriteNotes.filter(noteId => {
-    const note = allNotes.find(n => n.id === noteId);
-    if (note) {
-      const noteAuthor = note.author || note.username;
-      console.log('🔄 Checking note:', note.id, note.title, 'author:', noteAuthor, 'isPublic:', note.isPublic);
-      
-      // A note should be migrated if:
-      // 1. It's public 
-      // 2. It's by another user (not current user)
-      const isOtherUser = noteAuthor && noteAuthor !== currentUser;
-      const shouldMigrate = note.isPublic && isOtherUser;
-      
-      console.log('🔄 isOtherUser:', isOtherUser, 'shouldMigrate:', shouldMigrate);
-      return shouldMigrate;
-    }
-    console.log('🔄 Note not found:', noteId);
-    return false;
-  });
+  // Stabilize supabaseStore values to prevent unnecessary rerenders
+  const stableSupabaseData = React.useMemo(() => ({
+    notes: supabaseStore.notes,
+    publicNotes: supabaseStore.publicNotes,
+    loading: supabaseStore.loading,
+    error: supabaseStore.error
+  }), [supabaseStore.notes, supabaseStore.publicNotes, supabaseStore.loading, supabaseStore.error]);
   
-  console.log('🔄 Notes to migrate:', notesToMigrate);
-  
-  if (notesToMigrate.length > 0) {
-    console.log('🔄 Migrating other users notes from favorites to starred:', notesToMigrate);
+  const [pinnedNotes, setPinnedNotes] = React.useState([]);
+  const [starredNotes, setStarredNotes] = React.useState([]);
+
+  // Load pinned and starred notes from Supabase + AsyncStorage when user changes
+  React.useEffect(() => {
+    console.log('🔍 Pinned/Starred useEffect triggered - user:', user?.id);
     
-    // Remove from favorites
-    favoriteNotes = favoriteNotes.filter(id => !notesToMigrate.includes(id));
-    
-    // Add to starred (avoid duplicates)
-    notesToMigrate.forEach(noteId => {
-      if (!starredNotes.includes(noteId)) {
-        starredNotes.push(noteId);
-        console.log('🔄 Added to starred:', noteId);
-      } else {
-        console.log('🔄 Already in starred:', noteId);
+    if (user) { // Remove the pinnedNotes.length === 0 condition that was blocking execution
+      console.log('🔄 User exists, starting pinned/starred data load for:', user.id);
+      const loadData = async () => {
+        try {
+          console.log('🔄 Loading pinned/starred notes for user:', user.id);
+          
+          // Load pinned notes from Supabase first
+          try {
+            console.log('📌 🔄 Loading pinned notes from Supabase for user:', user.id);
+            const { data: supabasePinned, error } = await PinnedNotesService.getUserPinnedNotes(user.id);
+            
+            console.log('📌 🔄 PinnedNotesService.getUserPinnedNotes result:', { 
+              data: supabasePinned, 
+              error,
+              dataType: typeof supabasePinned,
+              isArray: Array.isArray(supabasePinned) 
+            });
+            
+            if (error) {
+              console.error('📌 ❌ Supabase error, will fallback:', error);
+              throw new Error(error);
+            }
+            
+            if (!supabasePinned || !Array.isArray(supabasePinned)) {
+              console.error('📌 ❌ Invalid data format from Supabase:', supabasePinned);
+              throw new Error('Invalid data format from Supabase');
+            }
+            
+            console.log('📌 ✅ Successfully loaded pinned notes from Supabase:', supabasePinned);
+            setPinnedNotes(supabasePinned);
+            console.log('📌 ✅ setPinnedNotes called with:', supabasePinned);
+            
+            // Sync to AsyncStorage as backup
+            await AsyncStorage.setItem(`pinnedNotes_${user.id}`, JSON.stringify(supabasePinned));
+            console.log('💾 ✅ Synced Supabase pinned notes to AsyncStorage:', supabasePinned);
+            
+          } catch (pinnedError) {
+            console.error('⚠️ Supabase pinned notes error, falling back to AsyncStorage:', pinnedError);
+            
+            // Fallback to AsyncStorage
+            const savedPinned = await AsyncStorage.getItem(`pinnedNotes_${user.id}`);
+            if (savedPinned) {
+              const parsedPinned = JSON.parse(savedPinned);
+              console.log('📌 Fallback: Loaded pinned notes from AsyncStorage:', parsedPinned);
+              setPinnedNotes(parsedPinned);
+            } else {
+              console.log('📌 No pinned notes found in AsyncStorage fallback');
+              setPinnedNotes([]);
+            }
+          }
+
+          // Load starred notes from Supabase
+          try {
+            console.log('⭐ 🔄 Loading starred notes from Supabase for user:', user.id);
+            await supabaseStore.fetchStarredNotes?.(user.id);
+            const supabaseStarred = supabaseStore.starredNotes || [];
+            const starredIds = supabaseStarred.map(note => note.id);
+            console.log('⭐ ✅ Successfully loaded starred notes from Supabase:', starredIds);
+            setStarredNotes(starredIds);
+            
+            // Sync to AsyncStorage as backup
+            await AsyncStorage.setItem(`starredNotes_${user.id}`, JSON.stringify(starredIds));
+            console.log('💾 ✅ Synced Supabase starred notes to AsyncStorage:', starredIds);
+          } catch (starredError) {
+            console.error('⭐ ❌ Supabase starred notes error, falling back to AsyncStorage:', starredError);
+            
+            // Fallback to AsyncStorage
+            const savedStarred = await AsyncStorage.getItem(`starredNotes_${user.id}`);
+            if (savedStarred) {
+              const parsedStarred = JSON.parse(savedStarred);
+              console.log('⭐ Fallback: Loaded starred notes from AsyncStorage:', parsedStarred);
+              setStarredNotes(parsedStarred);
+            } else {
+              console.log('⭐ No starred notes found in AsyncStorage fallback');
+              setStarredNotes([]);
+            }
+          }
+        } catch (error) {
+          console.log('Error loading pinned/starred notes:', error);
+        }
+      };
+      loadData();
+    } else {
+      console.log('🔍 No user found, skipping pinned/starred data load');
+    }
+  }, [user?.id]);
+
+  // Save pinned notes to AsyncStorage
+  const savePinned = React.useCallback(async (pinned) => {
+    if (user) {
+      try {
+        await AsyncStorage.setItem(`pinnedNotes_${user.id}`, JSON.stringify(pinned));
+        console.log('💾 Saved pinned notes to storage:', pinned);
+      } catch (error) {
+        console.log('Error saving pinned notes:', error);
       }
-    });
-    
-    console.log('🔄 After migration - Favorites:', favoriteNotes);
-    console.log('🔄 After migration - Starred:', starredNotes);
-    
-    // Save both arrays
-    saveFavorites();
-    saveStarredNotes();
-    
-    console.log('✅ Migration complete. Favorites:', favoriteNotes.length, 'Starred:', starredNotes.length);
-  } else {
-    console.log('🔄 No notes to migrate');
-  }
-};
+    }
+  }, [user?.id]);
 
-// Run migration after loading
-setTimeout(migrateFavoritesToStarred, 100);
+  // Save starred notes to AsyncStorage
+  const saveStarred = React.useCallback(async (starred) => {
+    if (user) {
+      try {
+        await AsyncStorage.setItem(`starredNotes_${user.id}`, JSON.stringify(starred));
+        console.log('💾 Saved starred notes to storage:', starred);
+      } catch (error) {
+        console.log('Error saving starred notes:', error);
+      }
+    }
+  }, [user?.id]);
 
-// Simple store implementation
-const NotesStore = {
-  // Get current notes
-  getPrivateNotes: () => privateNotes,
-  getPublicNotes: () => publicNotes,
-  
-  // Get note by ID
-  getNoteById: (noteId) => {
-    const allNotes = [...privateNotes, ...publicNotes];
-    const note = allNotes.find(note => note.id === noteId);
-    console.log('🔍 NotesStore.getNoteById:', noteId, 'Found:', !!note);
-    return note;
-  },
-  
-  // Add new note
-  addNote: (noteData) => {
-    console.log('📝 NotesStore.addNote called with:', noteData);
-    
-    const newNote = {
-      id: Date.now(),
-      title: noteData.title,
-      content: noteData.content,
-      timeAgo: 'Just now',
-      isPublic: noteData.isPublic,
-      ...(noteData.isPublic && {
-        username: 'alexnwkim',
-        avatarUrl: 'https://via.placeholder.com/24',
-        forksCount: 0,
-        starCount: 0,
-      })
-    };
-    
-    if (noteData.isPublic) {
-      publicNotes = [newNote, ...publicNotes];
-      console.log('✅ Added to public notes, new count:', publicNotes.length);
-    } else {
-      privateNotes = [newNote, ...privateNotes];
-      console.log('✅ Added to private notes, new count:', privateNotes.length);
-    }
-    
-    // Notify all listeners
-    listeners.forEach(listener => listener());
-    
-    return newNote;
-  },
-  
-  // Update existing note
-  updateNote: (noteId, updatedData) => {
-    console.log('✏️ NotesStore.updateNote called with:', noteId, updatedData);
-    
-    // Find note in private notes
-    const privateIndex = privateNotes.findIndex(note => note.id === noteId);
-    if (privateIndex !== -1) {
-      const updatedNote = {
-        ...privateNotes[privateIndex],
-        title: updatedData.title,
-        content: updatedData.content,
-        timeAgo: 'Just now', // Update time
+  // Initialize data loading
+  React.useEffect(() => {
+    if (user) {
+      console.log('🔄 Initializing notes store for user:', user.id);
+      // Load initial data
+      const loadData = async () => {
+        try {
+          console.log('📥 Loading user notes...');
+          await supabaseStore.fetchUserNotes?.(user.id);
+          console.log('📥 Loading public notes...');
+          await supabaseStore.fetchPublicNotes?.();
+          console.log('⭐ Loading starred notes...');
+          await supabaseStore.fetchStarredNotes?.(user.id);
+          console.log('✅ All notes loaded (including starred notes)');
+        } catch (error) {
+          console.error('❌ Error loading notes (continuing anyway):', error);
+          // Continue anyway - schema cache issues are handled elsewhere
+        }
       };
-      
-      // Remove from current position and add to top
-      privateNotes.splice(privateIndex, 1);
-      privateNotes.unshift(updatedNote);
-      
-      console.log('✅ Updated private note and moved to top:', updatedNote);
-      listeners.forEach(listener => listener());
-      return updatedNote;
+      loadData();
     }
+  }, [user?.id]);
+
+  // Use real Supabase data (not mock data) - Stabilize with useMemo
+  const allUserNotes = React.useMemo(() => stableSupabaseData.notes || [], [stableSupabaseData.notes]);
+  const privateNotes = React.useMemo(() => allUserNotes.filter(note => !note.is_public), [allUserNotes]);
+  const userPublicNotes = React.useMemo(() => allUserNotes.filter(note => note.is_public), [allUserNotes]); // User's own public notes
+  
+  console.log('🔀 Using REAL SUPABASE DATA - User notes:', allUserNotes.length, 'Private:', privateNotes.length, 'User public:', userPublicNotes.length);
+
+  // Memoize functions outside of the return object
+  const getPinnedNotes = React.useCallback(() => {
+    const allNotes = allUserNotes; // Use real Supabase data
     
-    // Find note in public notes
-    const publicIndex = publicNotes.findIndex(note => note.id === noteId);
-    if (publicIndex !== -1) {
-      const updatedNote = {
-        ...publicNotes[publicIndex],
-        title: updatedData.title,
-        content: updatedData.content,
-        timeAgo: 'Just now', // Update time
-      };
+    // Filter notes that are in pinnedNotes array (pinned notes)
+    const filteredPinnedNotes = allNotes.filter(note => pinnedNotes.includes(note.id));
+    
+    // Sort by pinned order - most recently pinned first (latest in pinnedNotes array)
+    filteredPinnedNotes.sort((a, b) => {
+      const aIndex = pinnedNotes.indexOf(a.id);
+      const bIndex = pinnedNotes.indexOf(b.id);
       
-      // Remove from current position and add to top
-      publicNotes.splice(publicIndex, 1);
-      publicNotes.unshift(updatedNote);
-      
-      console.log('✅ Updated public note and moved to top:', updatedNote);
-      listeners.forEach(listener => listener());
-      return updatedNote;
-    }
-    
-    console.log('❌ Note not found for update:', noteId);
-    return null;
-  },
-  
-  // Delete note
-  deleteNote: (noteId, isPublic) => {
-    if (isPublic) {
-      publicNotes = publicNotes.filter(note => note.id !== noteId);
-    } else {
-      privateNotes = privateNotes.filter(note => note.id !== noteId);
-    }
-    
-    // Also remove from favorites if it was favorited
-    favoriteNotes = favoriteNotes.filter(id => id !== noteId);
-    
-    // Notify all listeners
-    listeners.forEach(listener => listener());
-  },
-  
-  // Favorite functionality (for pinned notes)
-  toggleFavorite: (noteId) => {
-    console.log('📌 NotesStore.toggleFavorite (PINNED) called with:', noteId);
-    
-    const index = favoriteNotes.indexOf(noteId);
-    if (index > -1) {
-      // Remove from favorites
-      favoriteNotes.splice(index, 1);
-      console.log('❌ Removed from pinned favorites:', noteId);
-    } else {
-      // Add to favorites
-      favoriteNotes.push(noteId);
-      console.log('✅ Added to pinned favorites:', noteId);
-    }
-    
-    console.log('📌 Current pinned favorites:', favoriteNotes);
-    
-    // Save to storage
-    saveFavorites();
-    
-    // Notify all listeners
-    listeners.forEach(listener => listener());
-    
-    return !index > -1; // Return new favorite state
-  },
-  
-  isFavorite: (noteId) => {
-    return favoriteNotes.includes(noteId);
-  },
-  
-  getFavoriteNotes: () => {
-    const allNotes = [...privateNotes, ...publicNotes];
-    const currentUser = 'alexnwkim';
-    
-    // Filter favorite notes
-    const favoriteNotesFiltered = allNotes.filter(note => 
-      favoriteNotes.includes(note.id) && 
-      (note.username === currentUser || note.author === currentUser || !note.isPublic)
-    );
-    
-    // Sort by pinned order - most recently pinned first (latest in favoriteNotes array)
-    return favoriteNotesFiltered.sort((a, b) => {
-      const aIndex = favoriteNotes.indexOf(a.id);
-      const bIndex = favoriteNotes.indexOf(b.id);
-      
-      // Most recently pinned (higher index in favoriteNotes array) should come first
+      // Most recently pinned (higher index in pinnedNotes array) should come first
       return bIndex - aIndex;
     });
-  },
-  
-  getFavoriteNoteIds: () => {
-    return [...favoriteNotes];
-  },
+    
+    console.log('📌 getPinnedNotes - pinnedNotes array order:', pinnedNotes);
+    console.log('📌 getPinnedNotes - sorted pinned notes:', filteredPinnedNotes.map(n => `${n.title}(${n.id})`));
+    
+    return filteredPinnedNotes;
+  }, [allUserNotes, pinnedNotes]);
 
-  // Starred notes functionality (for all public notes)
-  toggleStarred: (noteId) => {
-    console.log('⭐ NotesStore.toggleStarred (PUBLIC NOTES) called with:', noteId);
-    
-    const index = starredNotes.indexOf(noteId);
-    if (index > -1) {
-      // Remove from starred
-      starredNotes.splice(index, 1);
-      console.log('❌ Removed from starred notes:', noteId);
-    } else {
-      // Add to starred
-      starredNotes.push(noteId);
-      console.log('✅ Added to starred notes:', noteId);
-    }
-    
-    console.log('⭐ Current starred notes:', starredNotes);
-    
-    // Save to storage
-    saveStarredNotes();
-    
-    // Notify all listeners
-    listeners.forEach(listener => listener());
-    
-    return !index > -1; // Return new starred state
-  },
-  
-  isStarred: (noteId) => {
-    return starredNotes.includes(noteId);
-  },
-  
-  getStarredNotes: () => {
-    const allNotes = [...privateNotes, ...publicNotes];
-    const currentUser = 'alexnwkim';
-    
+
+  const getStarredNotes = React.useCallback(() => {
     console.log('⭐ getStarredNotes called');
-    console.log('⭐ starredNotes array:', starredNotes);
-    console.log('⭐ Total notes:', allNotes.length);
+    console.log('⭐ Current starredNotes state:', starredNotes);
+    console.log('⭐ Available supabaseStore.starredNotes:', supabaseStore.starredNotes?.length || 0, 'notes');
     
-    const filtered = allNotes.filter(note => {
-      const isInStarred = starredNotes.includes(note.id);
-      const isPublic = note.isPublic;
-      
-      console.log('⭐ Note', note.id, note.title, '- inStarred:', isInStarred, 'isPublic:', isPublic);
-      
-      // Include all public notes that are in starred array (including own notes)
-      return isInStarred && isPublic;
-    });
+    // Use supabaseStore.starredNotes (actual note objects) if available, 
+    // otherwise return empty array
+    const result = supabaseStore.starredNotes || [];
+    console.log('⭐ getStarredNotes returning:', result.length, 'notes');
     
-    console.log('⭐ Filtered starred notes:', filtered);
-    return filtered;
-  },
-  
-  getStarredNoteIds: () => {
-    return [...starredNotes];
-  },
+    return result;
+  }, [starredNotes, supabaseStore.starredNotes]);
 
-  // Clear all starred notes
-  clearAllStarredNotes: () => {
-    console.log('🗑️ Clearing all starred notes');
-    starredNotes = [];
-    saveStarredNotes();
-    listeners.forEach(listener => listener());
-    console.log('✅ All starred notes cleared');
-  },
-
-  // Debug function
-  debugStarredState: () => {
-    console.log('🔍 DEBUG - Current state:');
-    console.log('🔍 favoriteNotes:', favoriteNotes);
-    console.log('🔍 starredNotes:', starredNotes);
-    console.log('🔍 publicNotes count:', publicNotes.length);
-    console.log('🔍 privateNotes count:', privateNotes.length);
+  const togglePinned = React.useCallback(async (noteId) => {
+    console.log('📌 ==========================================');
+    console.log('📌 togglePinned called for noteId:', noteId);
+    console.log('📌 User authenticated:', !!user, user?.id);
+    console.log('📌 Current pinnedNotes state:', pinnedNotes);
     
-    const starredNotesResult = NotesStore.getStarredNotes();
-    console.log('🔍 getStarredNotes result:', starredNotesResult);
-    
-    return {
-      favorites: favoriteNotes,
-      starred: starredNotes,
-      starredNotesResult: starredNotesResult
-    };
-  },
-  
-  // Folder functions
-  createFolder: (folderData) => {
-    console.log('📁 NotesStore.createFolder called with:', folderData);
-    
-    // Generate unique ID
-    folderIdCounter++;
-    const folderId = folderIdCounter;
-    
-    const newFolder = {
-      id: folderId,
-      name: folderData.name,
-      parentNoteId: folderData.parentNoteId,
-      createdAt: new Date().toISOString(),
-      notes: [], // Notes inside this folder
-    };
-    
-    folders = [newFolder, ...folders];
-    console.log('✅ Created folder:', newFolder);
-    console.log('📊 Total folders now:', folders.length);
-    console.log('📊 All folders:', folders.map(f => ({ id: f.id, name: f.name, parentNoteId: f.parentNoteId })));
-    
-    // Notify all listeners
-    listeners.forEach(listener => listener());
-    
-    return newFolder;
-  },
-  
-  getFolders: () => folders,
-  
-  getFolderById: (folderId) => {
-    return folders.find(folder => folder.id === folderId);
-  },
-  
-  getFoldersByParentNote: (noteId) => {
-    return folders.filter(folder => folder.parentNoteId === noteId);
-  },
-  
-  // Debug function
-  debugFolders: () => {
-    console.log('🔍 DEBUG - All folders:', folders.map(f => ({
-      id: f.id,
-      name: f.name,
-      parentNoteId: f.parentNoteId,
-      notesCount: f.notes.length
-    })));
-    return folders;
-  },
-  
-  addNoteToFolder: (folderId, noteData) => {
-    console.log('📝 Adding/updating note to folder:', folderId, noteData);
-    
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) {
-      console.log('❌ Folder not found:', folderId);
-      console.log('📊 Available folders:', folders.map(f => ({ id: f.id, name: f.name })));
-      return null;
+    if (!user) {
+      console.error('📌 ❌ User not authenticated, rejecting');
+      return Promise.reject(new Error('User not authenticated'));
     }
     
-    // Check if a note with the same title already exists in this folder
-    const existingNoteIndex = folder.notes.findIndex(note => note.title === noteData.title);
+    const newPinned = [...pinnedNotes];
+    const index = newPinned.indexOf(noteId);
+    const isUnpinning = index > -1;
     
-    if (existingNoteIndex !== -1) {
-      // Update existing note
-      const updatedNote = {
-        ...folder.notes[existingNoteIndex],
-        content: noteData.content,
-        timeAgo: 'Just now',
-      };
+    console.log('📌 Pin analysis:');
+    console.log('  - noteId in pinnedNotes?', index > -1);
+    console.log('  - current index:', index);
+    console.log('  - action:', isUnpinning ? 'UNPIN' : 'PIN');
+    console.log('  - newPinned before action:', newPinned);
+    
+    try {
+      if (isUnpinning) {
+        // Remove from pinned (unpin) - Try Supabase first
+        console.log('📌 ❌ UNPINNING note from Supabase:', noteId, 'for user:', user.id);
+        const unpinResult = await PinnedNotesService.unpinNote(noteId, user.id);
+        console.log('📌 Unpin Supabase result:', unpinResult);
+        
+        if (unpinResult.error) {
+          throw new Error(`Unpin failed: ${unpinResult.error}`);
+        }
+        
+        newPinned.splice(index, 1);
+        console.log('📌 ❌ Local array after unpin:', newPinned);
+      } else {
+        // Add to pinned (pin) - Try Supabase first
+        console.log('📌 ✅ PINNING note to Supabase:', noteId, 'for user:', user.id);
+        const pinResult = await PinnedNotesService.pinNote(noteId, user.id);
+        console.log('📌 Pin Supabase result:', pinResult);
+        
+        if (pinResult.error) {
+          throw new Error(`Pin failed: ${pinResult.error}`);
+        }
+        
+        newPinned.push(noteId);
+        console.log('📌 ✅ Local array after pin:', newPinned);
+      }
       
-      // Remove from current position and add to top
-      folder.notes.splice(existingNoteIndex, 1);
-      folder.notes.unshift(updatedNote);
+      // Update local state after successful Supabase operation
+      console.log('📌 🎉 Supabase operation SUCCESS - updating local state');
+      console.log('📌 State change from:', pinnedNotes, 'to:', newPinned);
+      setPinnedNotes(newPinned);
+      console.log('📌 ✅ Local state updated with setPinnedNotes:', newPinned);
       
-      console.log('✅ Updated existing note in folder and moved to top:', updatedNote);
+      // Sync to AsyncStorage as backup
+      await AsyncStorage.setItem(`pinnedNotes_${user.id}`, JSON.stringify(newPinned));
+      console.log('💾 ✅ Synced to AsyncStorage after Supabase success:', newPinned);
       
-      // Notify all listeners
-      listeners.forEach(listener => listener());
+      const newPinnedState = !isUnpinning;
+      console.log('📌 🏁 Returning new pinned state:', newPinnedState);
+      console.log('📌 ==========================================');
+      return Promise.resolve(newPinnedState); // Return new pinned state
+    } catch (error) {
+      console.error('📌 💥 SUPABASE OPERATION FAILED - using fallback');
+      console.error('📌 💥 Error details:', error.message);
+      console.error('📌 💥 Full error:', error);
       
-      return updatedNote;
+      // Reset newPinned array since Supabase failed
+      const fallbackPinned = [...pinnedNotes];
+      
+      // Fallback: Update local state and AsyncStorage only
+      if (isUnpinning) {
+        fallbackPinned.splice(index, 1);
+        console.log('📌 💾 FALLBACK: Unpinning note locally:', noteId);
+        console.log('📌 💾 FALLBACK: Local array after unpin:', fallbackPinned);
+      } else {
+        fallbackPinned.push(noteId);
+        console.log('📌 💾 FALLBACK: Pinning note locally:', noteId);
+        console.log('📌 💾 FALLBACK: Local array after pin:', fallbackPinned);
+      }
+      
+      setPinnedNotes(fallbackPinned);
+      console.log('📌 💾 FALLBACK: State updated locally:', fallbackPinned);
+      
+      await AsyncStorage.setItem(`pinnedNotes_${user.id}`, JSON.stringify(fallbackPinned));
+      console.log('💾 💾 FALLBACK: Saved to AsyncStorage only:', fallbackPinned);
+      
+      const fallbackState = !isUnpinning;
+      console.log('📌 🏁 FALLBACK: Returning state:', fallbackState);
+      console.log('📌 ==========================================');
+      return Promise.resolve(fallbackState);
+    }
+  }, [user, pinnedNotes]);
+
+  const toggleFavorite = React.useCallback(async (noteId) => {
+    console.log('🔄 toggleFavorite called - redirecting to togglePinned');
+    console.log('🔄 noteId:', noteId);
+    
+    // toggleFavorite is legacy name for togglePinned - redirect to the Supabase version
+    return await togglePinned(noteId);
+  }, [togglePinned]);
+
+  const toggleStarred = React.useCallback(async (noteId) => {
+    console.log('⭐ ==========================================');
+    console.log('⭐ toggleStarred called for noteId:', noteId);
+    console.log('⭐ User authenticated:', !!user, user?.id);
+    console.log('⭐ Current starredNotes state:', starredNotes);
+    
+    if (!user) {
+      console.error('⭐ ❌ User not authenticated, rejecting');
+      return Promise.reject(new Error('User not authenticated'));
+    }
+    
+    const newStarred = [...starredNotes];
+    const index = newStarred.indexOf(noteId);
+    const isUnstarring = index > -1;
+    
+    console.log('⭐ Star analysis:');
+    console.log('  - noteId in starredNotes?', index > -1);
+    console.log('  - current index:', index);
+    console.log('  - action:', isUnstarring ? 'UNSTAR' : 'STAR');
+    console.log('  - newStarred before action:', newStarred);
+    
+    try {
+      if (isUnstarring) {
+        // Remove from starred (unstar) - Try Supabase first
+        console.log('⭐ ❌ UNSTARRING note from Supabase:', noteId, 'for user:', user.id);
+        const unstarResult = await SocialService.unstarNote(noteId, user.id);
+        console.log('⭐ Unstar Supabase result:', unstarResult);
+        
+        if (unstarResult.error) {
+          throw new Error(`Unstar failed: ${unstarResult.error}`);
+        }
+        
+        newStarred.splice(index, 1);
+        console.log('⭐ ❌ Local array after unstar:', newStarred);
+      } else {
+        // Add to starred (star) - Try Supabase first
+        console.log('⭐ ✅ STARRING note to Supabase:', noteId, 'for user:', user.id);
+        const starResult = await SocialService.starNote(noteId, user.id);
+        console.log('⭐ Star Supabase result:', starResult);
+        
+        if (starResult.error) {
+          throw new Error(`Star failed: ${starResult.error}`);
+        }
+        
+        newStarred.push(noteId);
+        console.log('⭐ ✅ Local array after star:', newStarred);
+      }
+      
+      // Update local state after successful Supabase operation
+      console.log('⭐ 🎉 Supabase operation SUCCESS - updating local state');
+      console.log('⭐ State change from:', starredNotes, 'to:', newStarred);
+      setStarredNotes(newStarred);
+      console.log('⭐ ✅ Local state updated with setStarredNotes:', newStarred);
+      
+      // Refresh starred notes from Supabase to ensure UI/server sync
+      try {
+        console.log('⭐ 🔄 Refreshing starred notes from Supabase after star toggle...');
+        await supabaseStore.fetchStarredNotes?.(user.id);
+        console.log('⭐ ✅ Starred notes refreshed from Supabase');
+      } catch (refreshError) {
+        console.error('⭐ ⚠️ Failed to refresh starred notes, continuing anyway:', refreshError);
+      }
+      
+      // Sync to AsyncStorage as backup
+      await AsyncStorage.setItem(`starredNotes_${user.id}`, JSON.stringify(newStarred));
+      console.log('💾 ✅ Synced to AsyncStorage after Supabase success:', newStarred);
+      
+      const newStarredState = !isUnstarring;
+      console.log('⭐ 🏁 Returning new starred state:', newStarredState);
+      console.log('⭐ ==========================================');
+      return Promise.resolve(newStarredState); // Return new starred state
+    } catch (error) {
+      console.error('⭐ 💥 SUPABASE OPERATION FAILED - using fallback');
+      console.error('⭐ 💥 Error details:', error.message);
+      console.error('⭐ 💥 Full error:', error);
+      
+      // Reset newStarred array since Supabase failed
+      const fallbackStarred = [...starredNotes];
+      
+      // Fallback: Update local state and AsyncStorage only
+      if (isUnstarring) {
+        fallbackStarred.splice(index, 1);
+        console.log('⭐ 💾 FALLBACK: Unstarring note locally:', noteId);
+        console.log('⭐ 💾 FALLBACK: Local array after unstar:', fallbackStarred);
+      } else {
+        fallbackStarred.push(noteId);
+        console.log('⭐ 💾 FALLBACK: Starring note locally:', noteId);
+        console.log('⭐ 💾 FALLBACK: Local array after star:', fallbackStarred);
+      }
+      
+      setStarredNotes(fallbackStarred);
+      console.log('⭐ 💾 FALLBACK: State updated locally:', fallbackStarred);
+      
+      await AsyncStorage.setItem(`starredNotes_${user.id}`, JSON.stringify(fallbackStarred));
+      console.log('💾 💾 FALLBACK: Saved to AsyncStorage only:', fallbackStarred);
+      
+      const fallbackState = !isUnstarring;
+      console.log('⭐ 🏁 FALLBACK: Returning state:', fallbackState);
+      console.log('⭐ ==========================================');
+      return Promise.resolve(fallbackState);
+    }
+  }, [user, starredNotes]);
+
+  const isPinned = React.useCallback((noteId) => {
+    console.log('🔍 isPinned called for noteId:', noteId);
+    console.log('🔍 Current pinnedNotes state:', pinnedNotes);
+    console.log('🔍 pinnedNotes type:', typeof pinnedNotes, 'Array?', Array.isArray(pinnedNotes));
+    
+    const pinned = pinnedNotes.includes(noteId);
+    console.log('🔍 isPinned result for', noteId, ':', pinned);
+    
+    if (pinnedNotes.length > 0) {
+      console.log('🔍 pinnedNotes details:', pinnedNotes.map((id, idx) => `${idx}: ${id}`));
     } else {
-      // Create new note
-      noteIdCounter++;
-      const noteId = noteIdCounter;
-      
-      const newNote = {
-        id: noteId,
-        title: noteData.title,
-        content: noteData.content,
-        timeAgo: 'Just now',
-        folderId: folderId,
-      };
-      
-      folder.notes = [newNote, ...folder.notes];
-      console.log('✅ Added new note to folder:', newNote);
+      console.log('🔍 pinnedNotes is empty array');
     }
     
-    console.log('📊 Folder now has:', folder.notes.length, 'notes');
+    return pinned;
+  }, [pinnedNotes]);
+
+  const isFavorite = React.useCallback((noteId) => {
+    console.log('🔄 isFavorite called - redirecting to isPinned for noteId:', noteId);
     
-    // Notify all listeners
-    listeners.forEach(listener => listener());
+    // isFavorite is legacy name for isPinned - redirect to the detailed version
+    return isPinned(noteId);
+  }, [isPinned]);
+
+  const isStarred = React.useCallback((noteId) => {
+    console.log('⭐ isStarred called for noteId:', noteId);
+    console.log('⭐ Current starredNotes (local IDs array):', starredNotes);
+    console.log('⭐ Available supabaseStore.starredNotes (note objects):', supabaseStore.starredNotes?.length || 0, 'notes');
     
-    return folder.notes[0];
-  },
-  
-  // Subscribe to changes
-  subscribe: (listener) => {
-    listeners.push(listener);
-    return () => {
-      listeners = listeners.filter(l => l !== listener);
-    };
-  }
+    // Check in actual starred notes from Supabase store (array of note objects)
+    const supabaseStarredIds = supabaseStore.starredNotes?.map(note => note.id) || [];
+    console.log('⭐ Supabase starred IDs:', supabaseStarredIds);
+    
+    // Also check local starredNotes array (array of IDs)
+    const localStarred = starredNotes.includes(noteId);
+    const supabaseStarred = supabaseStarredIds.includes(noteId);
+    
+    console.log('⭐ Local starred check:', localStarred);
+    console.log('⭐ Supabase starred check:', supabaseStarred);
+    
+    // Use Supabase data as source of truth, fallback to local
+    const result = supabaseStarred || localStarred;
+    console.log('⭐ Final isStarred result for', noteId, ':', result);
+    
+    return result;
+  }, [starredNotes, supabaseStore.starredNotes]);
+
+  return React.useMemo(() => ({
+    // Data (using real Supabase data)
+    notes: allUserNotes,
+    privateNotes: privateNotes,
+    publicNotes: userPublicNotes, // Show user's own public notes for home screen
+    globalPublicNotes: stableSupabaseData.publicNotes || [], // Global public notes for explore screen
+    starredNotes: supabaseStore.starredNotes || [], // Re-enabled for star functionality
+    loading: stableSupabaseData.loading || false,
+    error: stableSupabaseData.error,
+
+    // Actions - Re-enabled after fixing schema cache issues
+    createNote: async (noteData) => {
+      if (!user) {
+        console.error('❌ No user authenticated for createNote');
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('💾 Creating note for user:', user.id, 'with data:', noteData);
+      return supabaseStore.createNote({ ...noteData, userId: user.id });
+    },
+
+    updateNote: async (noteId, updates) => {
+      console.log('📝 Updating note:', noteId, 'with updates:', updates);
+      return supabaseStore.updateNote(noteId, updates);
+    },
+    
+    deleteNote: async (noteId) => {
+      console.log('🗑️ Deleting note:', noteId);
+      return supabaseStore.deleteNote(noteId);
+    },
+    
+    // Fetch operations - Re-enabled
+    fetchUserNotes: () => {
+      if (!user) return Promise.resolve([]);
+      return supabaseStore.fetchUserNotes(user.id);
+    },
+    
+    fetchPublicNotes: () => {
+      return supabaseStore.fetchPublicNotes();
+    },
+    
+    fetchStarredNotes: () => {
+      if (!user) return Promise.resolve([]);
+      return supabaseStore.fetchStarredNotes(user.id);
+    },
+
+    // Social features - Re-enabled
+    starNote: (noteId) => {
+      if (!user) throw new Error('User not authenticated');
+      return supabaseStore.starNote(noteId, user.id);
+    },
+    
+    unstarNote: (noteId) => {
+      if (!user) throw new Error('User not authenticated');
+      return supabaseStore.unstarNote(noteId, user.id);
+    },
+    
+    forkNote: (noteId) => {
+      if (!user) throw new Error('User not authenticated');
+      return supabaseStore.forkNote(noteId, user.id);
+    },
+
+    // UI compatibility functions
+    getPinnedNotes,
+    getStarredNotes,
+    togglePinned,
+    // Legacy compatibility
+    toggleFavorite,
+    toggleStarred,
+    isPinned,
+    // Legacy compatibility
+    isFavorite,
+    isStarred,
+
+    // Legacy methods for backward compatibility - DISABLED
+    getAllNotes: () => {
+      console.log('📋 getAllNotes DISABLED - using mock data');
+      return allUserNotes;
+    },
+    getPublicNotes: () => {
+      console.log('🌍 getPublicNotes DISABLED - using mock data');
+      return userPublicNotes;
+    },
+    getPrivateNotes: () => {
+      console.log('🔒 getPrivateNotes DISABLED - using mock data');
+      return privateNotes;
+    },
+    getNoteById: async (noteId) => {
+      console.log('🔍 getNoteById 호출됨, noteId:', noteId);
+      
+      // First check if note exists in current store data
+      const localNote = allUserNotes.find(note => note.id === noteId);
+      if (localNote) {
+        console.log('✅ 로컬 스토어에서 노트 발견:', localNote.title);
+        return localNote;
+      }
+      
+      // If not found locally, fetch from Supabase
+      console.log('🔄 로컬에서 찾을 수 없음, Supabase에서 조회...');
+      try {
+        const result = await supabaseStore.getNoteById(noteId);
+        console.log('📋 Supabase 조회 결과:', result?.title || 'not found');
+        return result;
+      } catch (error) {
+        console.error('❌ getNoteById 에러:', error);
+        return null;
+      }
+    },
+
+    // Real-time subscriptions - DISABLED
+    subscribeToUserNotes: () => {
+      console.log('📡 subscribeToUserNotes DISABLED');
+      return null;
+    },
+
+    // Cleanup - DISABLED
+    clearNotes: () => {
+      console.log('🧹 clearNotes DISABLED');
+    },
+    unsubscribeAll: () => {
+      console.log('📡 unsubscribeAll DISABLED');
+    },
+    
+    // Database cleanup - DISABLED
+    clearAllPinnedNotesFromDatabase: async () => {
+      console.log('🗑️ clearAllPinnedNotesFromDatabase DISABLED - using mock data mode');
+      // Clear from AsyncStorage instead
+      if (user) {
+        await AsyncStorage.removeItem(`pinnedNotes_${user.id}`);
+        setPinnedNotes([]);
+      }
+      return Promise.resolve();
+    },
+  }), [
+    allUserNotes,
+    privateNotes,
+    userPublicNotes,
+    stableSupabaseData.publicNotes,
+    stableSupabaseData.loading,
+    stableSupabaseData.error,
+    pinnedNotes,
+    starredNotes,
+    user?.id,
+    // Add stable function references
+    getPinnedNotes,
+    getStarredNotes,
+    togglePinned,
+    toggleFavorite,
+    toggleStarred,
+    isPinned,
+    isFavorite,
+    isStarred
+  ]);
 };
 
-// React hook to use the notes store
-export const useNotesStore = () => {
-  const [, forceUpdate] = useState({});
-  
-  useEffect(() => {
-    const unsubscribe = NotesStore.subscribe(() => {
-      forceUpdate({});
-    });
-    
-    return unsubscribe;
-  }, []);
-  
-  return {
-    privateNotes: NotesStore.getPrivateNotes(),
-    publicNotes: NotesStore.getPublicNotes(),
-    getNoteById: NotesStore.getNoteById,
-    addNote: NotesStore.addNote,
-    updateNote: NotesStore.updateNote,
-    deleteNote: NotesStore.deleteNote,
-    createFolder: NotesStore.createFolder,
-    getFolders: NotesStore.getFolders,
-    getFolderById: NotesStore.getFolderById,
-    getFoldersByParentNote: NotesStore.getFoldersByParentNote,
-    addNoteToFolder: NotesStore.addNoteToFolder,
-    debugFolders: NotesStore.debugFolders,
-    toggleFavorite: NotesStore.toggleFavorite,
-    isFavorite: NotesStore.isFavorite,
-    getFavoriteNotes: NotesStore.getFavoriteNotes,
-    getFavoriteNoteIds: NotesStore.getFavoriteNoteIds,
-    toggleStarred: NotesStore.toggleStarred,
-    isStarred: NotesStore.isStarred,
-    getStarredNotes: NotesStore.getStarredNotes,
-    getStarredNoteIds: NotesStore.getStarredNoteIds,
-    clearAllStarredNotes: NotesStore.clearAllStarredNotes,
-    debugStarredState: NotesStore.debugStarredState,
-  };
-};
-
-export default NotesStore;
+export default useNotesStore;

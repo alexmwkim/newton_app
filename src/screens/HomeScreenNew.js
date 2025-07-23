@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { View, ScrollView, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
 import Colors from '../constants/Colors';
 import { useNotesStore } from '../store/NotesStore';
+import { useAuth } from '../contexts/AuthContext';
 
 // Builder.io converted components
 import HeaderComponent from '../components/HeaderComponent';
@@ -9,144 +10,18 @@ import ToggleButtonsComponent from '../components/ToggleButtonsComponent';
 import NotesListComponent from '../components/NotesListComponent';
 import CreateButtonComponent from '../components/CreateButtonComponent';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
-import FavoriteNotesSection from '../components/FavoriteNotesSection';
+import PinnedNotesSection from '../components/PinnedNotesSection';
+import AdminService from '../services/admin';
 
-// Mock data matching the design
-const mockPrivateNotes = [
-  {
-    id: 1,
-    title: '📏 Scroll gap fixed - Notes have proper margin ✅ LIVE RELOAD TEST',
-    timeAgo: '5 hrs ago',
-  },
-  {
-    id: 2,
-    title: 'Idea notes',
-    timeAgo: '05/08/25',
-  },
-  {
-    id: 3,
-    title: 'Oio project',
-    timeAgo: '10/04/24',
-  },
-  {
-    id: 4,
-    title: 'Workout session',
-    timeAgo: '09/12/24',
-  },
-  {
-    id: 5,
-    title: 'Morning thoughts',
-    timeAgo: '1 day ago',
-  },
-  
- 
-  
-  
- 
-  
-  
-];
-
-const mockPublicNotes = [
-  {
-    id: 13,
-    title: 'React Native Best Practices',
-    timeAgo: '5 hours ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 5,
-    starCount: 24,
-  },
-  {
-    id: 14,
-    title: 'Design System Guide',
-    timeAgo: '1 day ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 12,
-    starCount: 67,
-  },
-  {
-    id: 15,
-    title: 'JavaScript Performance Tips',
-    timeAgo: '2 days ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 8,
-    starCount: 41,
-  },
-  {
-    id: 16,
-    title: 'Mobile App Architecture',
-    timeAgo: '3 days ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 15,
-    starCount: 89,
-  },
-  {
-    id: 17,
-    title: 'UI/UX Design Principles',
-    timeAgo: '1 week ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 3,
-    starCount: 16,
-  },
-  {
-    id: 18,
-    title: 'Remote Work Tips',
-    timeAgo: '1 week ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 7,
-    starCount: 33,
-  },
-  {
-    id: 19,
-    title: 'Building Great Teams',
-    timeAgo: '2 weeks ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 22,
-    starCount: 156,
-  },
-  {
-    id: 20,
-    title: 'Productivity Hacks',
-    timeAgo: '2 weeks ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 11,
-    starCount: 78,
-  },
-  {
-    id: 21,
-    title: 'Tech Industry Insights',
-    timeAgo: '3 weeks ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 6,
-    starCount: 29,
-  },
-  {
-    id: 22,
-    title: 'Startup Lessons Learned',
-    timeAgo: '1 month ago',
-    username: 'alexnwkim',
-    avatarUrl: 'https://via.placeholder.com/24',
-    forksCount: 18,
-    starCount: 134,
-  },
-];
 
 const HomeScreenNew = ({ navigation, initialTab }) => {
   const [activeTab, setActiveTab] = useState(initialTab || 'private');
   const [activeNavTab, setActiveNavTab] = useState(0);
-  const { privateNotes, publicNotes, deleteNote, getFavoriteNotes, toggleFavorite } = useNotesStore();
+  const { privateNotes, publicNotes, deleteNote, getPinnedNotes, togglePinned, clearAllPinnedNotesFromDatabase } = useNotesStore();
+  const { signOut, user } = useAuth();
   
-  // Get favorite notes
-  const favoriteNotes = getFavoriteNotes();
+  // Get pinned notes
+  const pinnedNotes = getPinnedNotes();
 
   // Update activeTab when initialTab prop changes (coming back from note detail)
   useEffect(() => {
@@ -158,14 +33,30 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
 
   console.log('🏠 HomeScreen render - Private notes:', privateNotes.length, 'Public notes:', publicNotes.length);
   
-  // Filter notes - pinned notes will appear in both pinned section and main lists
-  const currentUser = 'alexnwkim'; // Current logged-in user
-  const filteredPrivateNotes = privateNotes; // Show all private notes
-  const filteredPublicNotes = publicNotes.filter(note => 
-    (note.username === currentUser || note.author === currentUser)
-  );
+  // Debug: Check first note from each category
+  if (privateNotes.length > 0) {
+    console.log('🔍 First private note:', privateNotes[0].title, 'isPublic:', privateNotes[0].isPublic, 'is_public:', privateNotes[0].is_public);
+  }
+  if (publicNotes.length > 0) {
+    console.log('🔍 First public note:', publicNotes[0].title, 'isPublic:', publicNotes[0].isPublic, 'is_public:', publicNotes[0].is_public);
+  }
   
-  console.log('🏠 Favorites:', favoriteNotes.length, 'Filtered Private:', filteredPrivateNotes.length, 'Filtered Public:', filteredPublicNotes.length);
+  // Filter notes - pinned notes will appear in both pinned section and main lists
+  const filteredPrivateNotes = privateNotes; // Show all private notes
+  
+  // Since these are user's own notes, no filtering needed - just show all
+  const filteredPublicNotes = publicNotes; // Show all user's public notes
+  
+  console.log('🏠 Pinned:', pinnedNotes.length, 'Filtered Private:', filteredPrivateNotes.length, 'Filtered Public:', filteredPublicNotes.length);
+  console.log('🏠 Pinned notes details:', pinnedNotes);
+  
+  // Debug: Show available note IDs for testing pinning
+  if (privateNotes.length > 0) {
+    console.log('🔍 Available private note IDs for testing:', privateNotes.map(n => `${n.title}: ${n.id}`));
+  }
+  if (publicNotes.length > 0) {
+    console.log('🔍 Available public note IDs for testing:', publicNotes.map(n => `${n.title}: ${n.id}`));
+  }
   
   const currentNotes = activeTab === 'private' ? filteredPrivateNotes : filteredPublicNotes;
 
@@ -219,6 +110,24 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     navigation.navigate('notifications');
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      `User ID: ${user?.id}\nAre you sure you want to logout?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive', 
+          onPress: async () => {
+            console.log('🚪 Manual logout triggered');
+            await signOut();
+          }
+        }
+      ]
+    );
+  };
+
   const handleMenuPress = () => {
     console.log('📋 More menu pressed');
     navigation.navigate('more');
@@ -232,6 +141,89 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     console.log('Logo pressed - refreshing page');
   };
 
+  // TEMP: Database cleanup function (for debugging)
+  const handleDatabaseCleanup = async () => {
+    try {
+      console.log('🗑️ Cleaning up Supabase pinned notes database...');
+      await clearAllPinnedNotesFromDatabase();
+      console.log('✅ Database cleanup completed');
+    } catch (error) {
+      console.error('❌ Database cleanup failed:', error);
+    }
+  };
+
+  // TEMP: DISABLED auto-fix to prevent foreign key errors
+  React.useEffect(() => {
+    // const autoFixUserIds = async () => {
+    //   console.log('🔧 Auto-fixing user IDs on app load...');
+    //   const result = await AdminService.fixUserIdMismatch();
+    //   console.log('🔧 Auto-fix result:', result);
+    // };
+    
+    // Auto-fix user IDs when component mounts
+    // autoFixUserIds();
+    
+    global.cleanupDatabase = handleDatabaseCleanup;
+    
+    // TEMP: Add direct pin test functions
+    global.testPinFirst = async () => {
+      if (currentNotes.length > 0) {
+        const noteToPin = currentNotes[0];
+        console.log('🧪 Testing pin for first note:', noteToPin.title, noteToPin.id);
+        try {
+          const result = await togglePinned(noteToPin.id);
+          console.log('🧪 Pin test result:', result);
+        } catch (error) {
+          console.error('🧪 Pin test error:', error);
+        }
+      } else {
+        console.log('🧪 No notes available to test');
+      }
+    };
+    
+    global.testUnpinFirst = async () => {
+      if (pinnedNotes.length > 0) {
+        const noteToUnpin = pinnedNotes[0];
+        console.log('🧪 Testing unpin for first pinned note:', noteToUnpin.title, noteToUnpin.id);
+        try {
+          const result = await togglePinned(noteToUnpin.id);
+          console.log('🧪 Unpin test result:', result);
+        } catch (error) {
+          console.error('🧪 Unpin test error:', error);
+        }
+      } else {
+        console.log('🧪 No pinned notes to test');
+      }
+    };
+    
+    global.fixUserIds = async () => {
+      console.log('🔧 Starting User ID fix...');
+      const result = await AdminService.fixUserIdMismatch();
+      console.log('🔧 Fix result:', result);
+    };
+    
+    global.fixUserIdsProper = async () => {
+      console.log('🔧 Starting PROPER User ID fix...');
+      const result = await AdminService.fixUserIdMismatchProper();
+      console.log('🔧 PROPER Fix result:', result);
+    };
+    
+    global.fixUserIdsNoConstraints = async () => {
+      console.log('🔧 Starting NO-CONSTRAINTS User ID fix...');
+      const result = await AdminService.fixUserIdNoConstraints();
+      console.log('🔧 NO-CONSTRAINTS Fix result:', result);
+    };
+    
+    return () => {
+      delete global.cleanupDatabase;
+      delete global.testPinFirst;
+      delete global.testUnpinFirst;
+      delete global.fixUserIds;
+      delete global.fixUserIdsProper;
+      delete global.fixUserIdsNoConstraints;
+    };
+  }, [currentNotes, pinnedNotes, togglePinned]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.mainBackground} />
@@ -241,7 +233,7 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
           <HeaderComponent
             onBackPress={handleBackPress}
             onNotificationsPress={handleNotificationsPress}
-            onMenuPress={handleMenuPress}
+            onMenuPress={handleLogout}
             onLogoPress={handleLogoPress}
           />
           
@@ -256,8 +248,8 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >
-              <FavoriteNotesSection
-                favoriteNotes={favoriteNotes}
+              <PinnedNotesSection
+                pinnedNotes={pinnedNotes}
                 onNotePress={handleNoteClick}
               />
               <NotesListComponent

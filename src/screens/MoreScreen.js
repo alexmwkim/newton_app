@@ -32,7 +32,7 @@ const MoreScreen = ({ navigation }) => {
 
   const handleFilterOptions = () => {
     console.log('Filter Options pressed');
-    Alert.alert('Filter Options', 'Filter your notes by:\n• Private/Public\n• Recent Activity\n• Favorites\n• Tags');
+    Alert.alert('Filter Options', 'Filter your notes by:\n• Private/Public\n• Recent Activity\n• Pinned\n• Tags');
   };
 
   const handleFolderManagement = () => {
@@ -189,7 +189,7 @@ const MoreScreen = ({ navigation }) => {
             <MenuItem
               icon="filter"
               title="Filter Options"
-              description="Private/Public, Recent, Favorites"
+              description="Private/Public, Recent, Pinned"
               onPress={handleFilterOptions}
             />
             <MenuItem

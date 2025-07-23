@@ -10,8 +10,11 @@ import { useNotesStore } from '../store/NotesStore';
 const MyNotesScreen = ({ navigation }) => {
   const { publicNotes, deleteNote } = useNotesStore();
   
-  // Filter notes by current user (in a real app, this would filter by actual user ID)
-  const myPublicNotes = publicNotes.filter(note => note.username === 'alexnwkim');
+  // publicNotes already contains only current user's public notes
+  const myPublicNotes = publicNotes;
+  
+  console.log('📋 MyNotesScreen - publicNotes count:', publicNotes.length);
+  console.log('📋 MyNotesScreen - notes:', publicNotes.map(n => `${n.title}(${n.is_public})`));
 
   const handleNoteClick = (noteId) => {
     navigation.navigate('noteDetail', { 

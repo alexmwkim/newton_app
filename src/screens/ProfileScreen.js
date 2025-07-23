@@ -39,25 +39,6 @@ Feel free to check out my public notes below!`,
   isFollowing: false,
 };
 
-const mockHighlightNotes = [
-  {
-    id: 1,
-    title: 'project abcd',
-    forkCount: 5,
-    starCount: 12,
-    username: 'userid',
-    isStarred: false,
-  },
-  {
-    id: 2,
-    title: 'my journal',
-    forkCount: 5,
-    starCount: 8,
-    username: 'userid',
-    isStarred: true,
-  },
-];
-
 const ProfileScreen = ({ navigation }) => {
   const [activeNavTab, setActiveNavTab] = useState(3); // Profile is index 3
   const [readmeData, setReadmeData] = useState({
@@ -75,16 +56,30 @@ const ProfileScreen = ({ navigation }) => {
   const [userProfilePhotoForNotes, setUserProfilePhotoForNotes] = useState(ProfileStore.getProfilePhoto());
   
   // Notes store
-  const { privateNotes, publicNotes, isFavorite, toggleFavorite, getStarredNotes } = useNotesStore();
+  const { privateNotes, publicNotes, globalPublicNotes, isFavorite, toggleFavorite, getStarredNotes, starredNotes } = useNotesStore();
 
-  // Calculate actual notes count - public notes by current user (matches My Notes screen)
+  // Calculate actual notes count - user's own public notes only
   const currentUser = 'alexnwkim';
-  const myNotesCount = publicNotes.filter(note => 
-    note.username === currentUser || note.author === currentUser
-  ).length;
-  const starredNotesCount = getStarredNotes().length;
+  const myNotesCount = publicNotes.length; // publicNotes already contains only user's own public notes
+  
+  // Get starred notes - use the data from NotesStore
+  const userStarredNotes = React.useMemo(() => {
+    console.log('⭐ ProfileScreen calculating starred notes');
+    console.log('⭐ starredNotes from store (local IDs):', starredNotes?.length || 0, 'IDs');
+    console.log('⭐ getStarredNotes() (note objects):', getStarredNotes()?.length || 0, 'notes');
+    console.log('⭐ starredNotes array detail:', starredNotes);
+    
+    const result = getStarredNotes();
+    console.log('⭐ ProfileScreen using starred notes:', result?.length || 0);
+    console.log('⭐ ProfileScreen starred notes details:', result?.map(n => `${n.title}(${n.id})`));
+    return result;
+  }, [getStarredNotes, starredNotes]);
+  
+  const starredNotesCount = userStarredNotes?.length || 0;
 
   console.log('📊 Profile counts - My notes:', myNotesCount, 'Starred notes:', starredNotesCount);
+  console.log('📊 Profile data - publicNotes:', publicNotes.length, 'globalPublicNotes:', globalPublicNotes?.length);
+  console.log('📊 Public notes details:', publicNotes.map(n => `${n.title}(${n.is_public})`));
 
   useEffect(() => {
     // Check for global readme data on every render
@@ -115,7 +110,7 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     loadHighlightNotes();
     console.log('📊 Notes changed - updating counts');
-  }, [privateNotes, publicNotes, isFavorite, starredNotesCount]);
+  }, [privateNotes?.length, publicNotes?.length]);
 
   // Subscribe to profile photo changes for highlight notes
   useEffect(() => {
@@ -156,13 +151,9 @@ const ProfileScreen = ({ navigation }) => {
   };
   
   const loadHighlightNotes = () => {
-    const allNotes = [...privateNotes, ...publicNotes];
-    const currentUser = 'alexnwkim'; // Current logged-in user
-    
-    // Filter for current user's public notes
-    const userPublicNotes = allNotes.filter(note => 
-      note.isPublic && 
-      (note.username === currentUser || note.author === currentUser)
+    // Use publicNotes directly since it already contains only user's own public notes
+    const userPublicNotes = publicNotes.filter(note => 
+      note.isPublic !== false // Make sure it's actually a public note
     );
     
     // Sort by modification date ("Just now" first, then by actual date)
@@ -195,7 +186,7 @@ const ProfileScreen = ({ navigation }) => {
       forkCount: note.forksCount || note.forkCount || 0,
       starCount: note.starCount || 0,
       username: note.username || currentUser,
-      isStarred: isFavorite(note.id)
+      isStarred: false // Simplified to avoid circular dependency - will be calculated in render
     }));
     
     setHighlightNotes(highlightData);

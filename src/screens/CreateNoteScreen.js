@@ -17,16 +17,23 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import SingleToggleComponent from '../components/SingleToggleComponent';
-import NotesStore from '../store/NotesStore';
+import { useNotesStore } from '../store/NotesStore';
+import { useAuth } from '../contexts/AuthContext';
 
-const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen }) => {
+const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen, route }) => {
+  const { user } = useAuth();
+  const notesStore = useNotesStore();
   const noteData = note || initialNote;
+  
+  // Get initial values from route params if available
+  const routeParams = route?.params || {};
   const [title, setTitle] = useState(noteData?.title || '');
   const [content, setContent] = useState(noteData?.content || '');
-  const [isPublic, setIsPublic] = useState(noteData?.isPublic || false);
+  const [isPublic, setIsPublic] = useState(noteData?.is_public ?? routeParams.isPublic ?? false);
   const [showKeyboardToolbar, setShowKeyboardToolbar] = useState(false);
   const [activeInput, setActiveInput] = useState(null);
-  const [forkedFrom, setForkedFrom] = useState(noteData?.forkedFrom || null);
+  const [forkedFrom, setForkedFrom] = useState(noteData?.forked_from || null);
+  const [isLoading, setIsLoading] = useState(false);
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -36,31 +43,62 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     if (onBack) onBack();
   };
 
-  const handleSave = () => {
-    const newNoteData = {
-      title: title.trim(),
-      content: content.trim(),
-      isPublic: isPublic,
-      isPrivate: !isPublic,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      ...(forkedFrom && { forkedFrom }),
-    };
+  const handleSave = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to save notes');
+      return;
+    }
+
+    const titleText = title.trim();
+    const contentText = content.trim();
     
-    console.log('💾 CreateNoteScreen saving note:', newNoteData);
+    if (!titleText) {
+      Alert.alert('Error', 'Please enter a title for your note');
+      return;
+    }
+
+    setIsLoading(true);
     
-    // Save to store directly
-    NotesStore.addNote(newNoteData);
-    
-    if (isForked) {
-      Alert.alert(
-        'Note Forked!',
-        `Your version of "${forkedFrom?.title}" has been saved to your private notes.`,
-        [{ text: 'OK', onPress: () => handleBack() }]
-      );
-    } else {
-      console.log('🔙 Navigating back to home');
-      handleBack();
+    try {
+      const newNoteData = {
+        title: titleText,
+        content: contentText,
+        isPublic: isPublic,
+        ...(forkedFrom && { forkedFrom }),
+      };
+      
+      console.log('💾 CreateNoteScreen saving note:', newNoteData);
+      
+      if (isEditing && noteData?.id) {
+        // Update existing note
+        await notesStore.updateNote(noteData.id, {
+          title: titleText,
+          content: contentText,
+          is_public: isPublic,
+        });
+        Alert.alert('Success', 'Note updated successfully');
+      } else {
+        // Create new note
+        await notesStore.createNote(newNoteData);
+        Alert.alert('Success', 'Note created successfully');
+      }
+      
+      if (onSave) {
+        onSave(newNoteData);
+      }
+      
+      // Navigate back
+      if (navigation) {
+        navigation.goBack();
+      } else if (onBack) {
+        onBack();
+      }
+      
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      Alert.alert('Error', 'Failed to save note. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -275,9 +313,13 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
             onToggle={setIsPublic}
           />
           
-          <TouchableOpacity onPress={hasContent ? handleSave : handleBack} style={styles.actionButton}>
+          <TouchableOpacity 
+            onPress={hasContent ? handleSave : handleBack} 
+            style={[styles.actionButton, isLoading && styles.actionButtonDisabled]}
+            disabled={isLoading}
+          >
             <Text style={styles.actionButtonText}>
-              {hasContent ? 'Done' : 'X'}
+              {isLoading ? 'Saving...' : hasContent ? 'Done' : 'X'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -441,6 +483,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   backIcon: {
     fontSize: 18,

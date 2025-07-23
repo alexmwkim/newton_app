@@ -6,9 +6,21 @@ import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 
 const RichTextRenderer = ({ content, onFolderPress, style }) => {
+  console.log('🎨 RichTextRenderer received content:', typeof content, content?.length || 0, 'chars');
+  
+  // Safety check for content
+  if (!content || typeof content !== 'string') {
+    console.log('⚠️ RichTextRenderer: No valid content, showing fallback');
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.text, style]}>No content available</Text>
+      </View>
+    );
+  }
+
   // Function to parse content and detect folder links
   const parseContent = (text) => {
-    if (!text) return [{ type: 'text', content: '' }];
+    if (!text || typeof text !== 'string') return [{ type: 'text', content: '' }];
     
     // Regex to match folder links: 📁 [Folder Name](#folder-123)
     const folderRegex = /📁\s*\[([^\]]+)\]\(#folder-(\d+)\)/g;
@@ -67,23 +79,30 @@ const RichTextRenderer = ({ content, onFolderPress, style }) => {
       );
     }
     
-    // Regular text - preserve line breaks and formatting
-    const textLines = part.content.split('\n');
-    return textLines.map((line, lineIndex) => (
-      <React.Fragment key={`${index}-${lineIndex}`}>
-        <Text style={[styles.text, style]}>{line}</Text>
-        {lineIndex < textLines.length - 1 && <Text>{'\n'}</Text>}
-      </React.Fragment>
-    ));
+    // Regular text - simplified rendering to prevent issues
+    return (
+      <Text key={index} style={[styles.text, style]}>
+        {part.content || ''}
+      </Text>
+    );
   };
 
-  const parts = parseContent(content);
+  try {
+    const parts = parseContent(content);
 
-  return (
-    <View style={styles.container}>
-      {parts.map((part, index) => renderPart(part, index))}
-    </View>
-  );
+    return (
+      <View style={styles.container}>
+        {parts.map((part, index) => renderPart(part, index))}
+      </View>
+    );
+  } catch (error) {
+    console.error('RichTextRenderer error:', error);
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.text, style]}>{content}</Text>
+      </View>
+    );
+  }
 };
 
 const styles = StyleSheet.create({

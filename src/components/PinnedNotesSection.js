@@ -5,8 +5,13 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 
-const FavoriteNotesSection = ({ favoriteNotes, onNotePress }) => {
-  if (favoriteNotes.length === 0) {
+const PinnedNotesSection = ({ pinnedNotes, onNotePress }) => {
+  console.log('📌 PinnedNotesSection received:', pinnedNotes?.length || 0, 'notes');
+  console.log('📌 PinnedNotesSection data:', pinnedNotes);
+  console.log('📌 PinnedNotesSection pinnedNotes type:', typeof pinnedNotes, 'Array.isArray:', Array.isArray(pinnedNotes));
+  
+  if (!pinnedNotes || !Array.isArray(pinnedNotes) || pinnedNotes.length === 0) {
+    console.log('📌 PinnedNotesSection hiding - no pinned notes');
     return null;
   }
 
@@ -22,29 +27,39 @@ const FavoriteNotesSection = ({ favoriteNotes, onNotePress }) => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        {favoriteNotes.map((note) => (
-          <TouchableOpacity
-            key={note.id}
-            style={styles.favoriteCard}
-            onPress={() => onNotePress(note.id)}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {note.title}
-              </Text>
-            </View>
-            
-            <View style={styles.cardFooter}>
-              <View style={styles.statusIndicator}>
-                <Icon 
-                  name={note.isPublic ? "globe" : "lock"} 
-                  size={12} 
-                  color={Colors.secondaryText} 
-                />
+        {pinnedNotes.map((note) => {
+          // Normalize note data - ensure isPublic is set correctly
+          const normalizedNote = {
+            ...note,
+            isPublic: note.isPublic || note.is_public || false
+          };
+          
+          console.log('📌 PinnedNotesSection - note.title:', normalizedNote.title, 'normalizedNote.isPublic:', normalizedNote.isPublic, 'will show icon:', normalizedNote.isPublic ? 'globe' : 'lock');
+          
+          return (
+            <TouchableOpacity
+              key={normalizedNote.id}
+              style={styles.pinnedCard}
+              onPress={() => onNotePress(normalizedNote.id)}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {normalizedNote.title}
+                </Text>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+              
+              <View style={styles.cardFooter}>
+                <View style={styles.statusIndicator}>
+                  <Icon 
+                    name={normalizedNote.isPublic ? "globe" : "lock"} 
+                    size={12} 
+                    color={Colors.secondaryText} 
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -72,7 +87,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Layout.spacing.xs,
   },
-  favoriteCard: {
+  pinnedCard: {
     backgroundColor: Colors.noteCard,
     borderRadius: 10,
     padding: Layout.spacing.md,
@@ -102,4 +117,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FavoriteNotesSection;
+export default PinnedNotesSection;

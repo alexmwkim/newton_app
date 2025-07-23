@@ -15,8 +15,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { useAuth } from '../contexts/AuthContext';
 
 const SignUpScreen = ({ navigation }) => {
+  const { signUp } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -79,12 +81,23 @@ const SignUpScreen = ({ navigation }) => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { data, error } = await signUp(formData.email, formData.password, formData.name);
       
-      // For now, just navigate to sign in after successful signup
-      Alert.alert('Success', 'Account created successfully! Please sign in.');
-      navigation.navigate('signIn');
+      if (error) {
+        Alert.alert('Sign Up Failed', error);
+        return;
+      }
+      
+      Alert.alert(
+        'Success', 
+        'Account created successfully! Please check your email to verify your account.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('signIn')
+          }
+        ]
+      );
     } catch (error) {
       Alert.alert('Error', 'Failed to create account. Please try again.');
     } finally {
@@ -120,7 +133,7 @@ const SignUpScreen = ({ navigation }) => {
                 value={formData.name}
                 onChangeText={(value) => handleInputChange('name', value)}
                 placeholder="Enter your full name"
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor={Colors.secondaryText}
                 autoCapitalize="words"
                 autoComplete="name"
                 textContentType="name"
@@ -135,7 +148,7 @@ const SignUpScreen = ({ navigation }) => {
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
                 placeholder="Enter your email"
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor={Colors.secondaryText}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -146,13 +159,13 @@ const SignUpScreen = ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
+              <View style={[styles.passwordContainer, errors.password && styles.passwordContainerError]}>
                 <TextInput
-                  style={[styles.passwordInput, errors.password && styles.inputError]}
+                  style={styles.passwordInput}
                   value={formData.password}
                   onChangeText={(value) => handleInputChange('password', value)}
                   placeholder="Create a password"
-                  placeholderTextColor={Colors.textSecondary}
+                  placeholderTextColor={Colors.secondaryText}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoComplete="new-password"
@@ -165,7 +178,7 @@ const SignUpScreen = ({ navigation }) => {
                   <Icon
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color={Colors.textSecondary}
+                    color={Colors.secondaryText}
                   />
                 </TouchableOpacity>
               </View>
@@ -174,13 +187,13 @@ const SignUpScreen = ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Confirm Password</Text>
-              <View style={styles.passwordContainer}>
+              <View style={[styles.passwordContainer, errors.confirmPassword && styles.passwordContainerError]}>
                 <TextInput
-                  style={[styles.passwordInput, errors.confirmPassword && styles.inputError]}
+                  style={styles.passwordInput}
                   value={formData.confirmPassword}
                   onChangeText={(value) => handleInputChange('confirmPassword', value)}
                   placeholder="Confirm your password"
-                  placeholderTextColor={Colors.textSecondary}
+                  placeholderTextColor={Colors.secondaryText}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                   autoComplete="new-password"
@@ -193,7 +206,7 @@ const SignUpScreen = ({ navigation }) => {
                   <Icon
                     name={showConfirmPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color={Colors.textSecondary}
+                    color={Colors.secondaryText}
                   />
                 </TouchableOpacity>
               </View>
@@ -276,13 +289,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xxl,
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.bold,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     marginBottom: Layout.spacing.sm,
   },
   subtitle: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
     textAlign: 'center',
   },
   form: {
@@ -295,7 +308,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.medium,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     marginBottom: Layout.spacing.sm,
   },
   input: {
@@ -306,7 +319,7 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.md,
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     backgroundColor: Colors.white,
   },
   inputError: {
@@ -326,8 +339,11 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.md,
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     borderWidth: 0,
+  },
+  passwordContainerError: {
+    borderColor: '#FF4444',
   },
   eyeIcon: {
     paddingHorizontal: Layout.spacing.md,
@@ -367,7 +383,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
     marginHorizontal: Layout.spacing.md,
   },
   socialButtons: {
@@ -388,7 +404,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.medium,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
   },
   footer: {
     alignItems: 'center',
@@ -397,7 +413,7 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
   },
   linkText: {
     color: Colors.floatingButton,

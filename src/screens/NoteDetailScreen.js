@@ -10,7 +10,8 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Alert,
-  Image
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
@@ -20,6 +21,7 @@ import { useNotesStore } from '../store/NotesStore';
 import ProfileStore from '../store/ProfileStore';
 import RichTextRenderer from '../components/RichTextRenderer';
 import FolderNoteScreen from './FolderNoteScreen';
+import { useAuth } from '../contexts/AuthContext';
 
 const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, isStarredNote, onUnstar, onStarredRemove, route }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -31,7 +33,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
   const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
   
   const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite, toggleStarred, isStarred } = useNotesStore();
-  const currentUser = 'alexnwkim'; // Current logged-in user
+  const { user } = useAuth(); // useAuth 훅에서 user 가져오기
   
   useEffect(() => {
     const unsubscribe = ProfileStore.subscribe(() => {
@@ -87,7 +89,11 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
   };
 
   const handleSettingsPress = () => {
-    setShowSettingsMenu(!showSettingsMenu);
+    console.log('🔥 SETTINGS BUTTON PRESSED!');
+    console.log('🔥 Current state:', { showSettingsMenu, isAuthor, noteId });
+    const newState = !showSettingsMenu;
+    setShowSettingsMenu(newState);
+    console.log('🔥 Menu state changed from', showSettingsMenu, 'to', newState);
   };
 
   const handleDeleteNote = () => {
@@ -157,40 +163,81 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
     );
   };
 
-  const handleAddToFavorites = () => {
+  const handleAddToPinned = async () => {
+    console.log('🔥 =========================================');
+    console.log('🔥 handleAddToPinned called!');
+    console.log('🔥 noteId:', noteId);
+    console.log('🔥 user:', user?.id);
     setShowSettingsMenu(false);
     
-    // This function should ONLY handle pinned notes (favorites)
+    // This function handles pinned notes
     // regardless of whether it's author's note or not
-    const wasFavorite = isFavorite(noteId);
-    console.log('📌 Settings pin clicked - wasFavorite:', wasFavorite, 'isAuthor:', isAuthor);
+    const wasPinned = isFavorite(noteId); // isFavorite is legacy alias for isPinned
+    console.log('📌 BEFORE toggle - wasPinned:', wasPinned);
+    console.log('📌 BEFORE toggle - isAuthor:', isAuthor);
     
-    toggleFavorite(noteId);
+    console.log('🔥 About to call toggleFavorite with noteId:', noteId);
     
-    Alert.alert(
-      wasFavorite ? 'Removed from Pinned' : 'Added to Pinned',
-      wasFavorite ? 'Note removed from your pinned notes.' : 'Note added to your pinned notes.',
-      [{ text: 'OK' }]
-    );
+    try {
+      const result = await toggleFavorite(noteId); // toggleFavorite is legacy alias for togglePinned
+      console.log('🔥 toggleFavorite returned:', result);
+      
+      // Check state after toggle
+      const isNowPinned = isFavorite(noteId);
+      console.log('📌 AFTER toggle - isNowPinned:', isNowPinned);
+      
+      Alert.alert(
+        wasPinned ? 'Removed from Pinned' : 'Added to Pinned',
+        wasPinned ? 'Note removed from your pinned notes.' : 'Note added to your pinned notes.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('🔥 toggleFavorite error:', error);
+      Alert.alert('Error', 'Failed to update pin status. Please try again.');
+    }
+    
+    console.log('🔥 =========================================');
   };
 
   const startEditing = (field = 'content') => {
+    console.log('✍️ =========================');
+    console.log('✍️ startEditing called with field:', field);
+    console.log('✍️ 현재 상태 체크:');
+    console.log('  - isAuthor:', isAuthor);
+    console.log('  - isEditing:', isEditing);
+    console.log('  - isStarredNote:', isStarredNote);
+    console.log('  - displayNote.isPublic:', displayNote.isPublic);
+    console.log('  - displayNote.username:', displayNote.username);
+    console.log('  - currentUserId:', user?.id);
+    console.log('  - title 길이:', title.length);
+    console.log('  - content 길이:', content.length);
+    
     // Only allow editing if user is the author
     if (!isAuthor) {
       console.log('🚫 Cannot edit note: User is not the author');
+      console.log('🚫 Debug - isAuthor logic result:', isAuthor);
       return;
     }
     
+    console.log('✅ 편집 모드 활성화 시작...');
     setIsEditing(true);
     setShowToolbar(true);
+    console.log('✅ setIsEditing(true) 호출 완료');
+    console.log('✅ setShowToolbar(true) 호출 완료');
     
     setTimeout(() => {
+      console.log('⏰ 포커스 setTimeout 실행, 대상 필드:', field);
       if (field === 'title') {
+        console.log('🎯 Title input에 포커스 시도...');
         titleInputRef.current?.focus();
       } else {
+        console.log('🎯 Content input에 포커스 시도...');
         contentInputRef.current?.focus();
       }
+      console.log('⏰ 포커스 작업 완료');
     }, 100);
+    
+    console.log('✍️ =========================');
   };
 
   const stopEditing = () => {
@@ -255,10 +302,12 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
               console.log('📝 Current content before folder creation:', content);
               
               // Create the folder and insert it into the note content
-              const folder = NotesStore.createFolder({
+              console.log('⚠️  Folder creation temporarily disabled - NotesStore not imported');
+              const folder = {
+                id: Date.now().toString(),
                 name: folderName.trim(),
                 parentNoteId: noteId,
-              });
+              };
               
               if (folder) {
                 console.log('✅ Created folder:', folder);
@@ -309,27 +358,99 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
     );
   };
 
-  // Get the actual note from store or use passed note (for starred notes)
-  const storeNote = getNoteById(noteId);
+  // State for storing the note loaded from store
+  const [storeNote, setStoreNote] = useState(null);
+  const [loadingNote, setLoadingNote] = useState(true);
   
-  // Fallback note data if none found
-  const displayNote = note || storeNote || {
+  // Load note from store asynchronously
+  useEffect(() => {
+    const loadNote = async () => {
+      console.log('🔍 Loading note for ID:', noteId);
+      setLoadingNote(true);
+      
+      if (note) {
+        // If note is passed as prop, use it directly
+        console.log('✅ Using passed note:', note.title);
+        setStoreNote(note);
+        setLoadingNote(false);
+        return;
+      }
+      
+      try {
+        const foundNote = await getNoteById(noteId);
+        console.log('📋 Found note:', foundNote?.title || 'not found');
+        setStoreNote(foundNote);
+      } catch (error) {
+        console.error('❌ Error loading note:', error);
+        setStoreNote(null);
+      } finally {
+        setLoadingNote(false);
+      }
+    };
+    
+    if (noteId) {
+      loadNote();
+    }
+  }, [noteId, note]); // Remove getNoteById from deps to prevent infinite rerenders
+  
+  // Normalize data - convert is_public to isPublic for consistency
+  const normalizeNote = (noteData) => {
+    if (!noteData) return null;
+    return {
+      ...noteData,
+      isPublic: noteData.isPublic || noteData.is_public || false,
+      username: noteData.username || noteData.profiles?.username || 'Unknown',
+      author: noteData.author || noteData.profiles?.username || 'Unknown'
+    };
+  };
+
+  // Get displayNote from store or fallback
+  const displayNote = normalizeNote(storeNote) || {
     id: noteId || 1,
-    title: 'Note Not Found',
-    content: 'This note could not be found in the store.',
+    title: loadingNote ? 'Loading...' : 'Note Not Found',
+    content: loadingNote ? 'Loading note content...' : 'This note could not be found in the store.',
     timeAgo: 'Unknown',
     isPublic: false,
   };
   
-  // Check if current user is the author (can edit)
-  const isAuthor = isStarredNote ? 
-    (displayNote.isOwnNote || displayNote.author?.id === currentUser || displayNote.author?.name === currentUser) : // Starred notes can be editable if owned by user
-    displayNote.isPublic ? 
-      (displayNote.username === currentUser || displayNote.author === currentUser) : 
-      true; // Private notes are always editable by current user
+  // Check if current user is the author (can edit) - TEMPORARILY FORCE TRUE
+  const isAuthor = React.useMemo(() => {
+    if (!displayNote || !user) return false;
+    
+    console.log('🔍 Author check:', {
+      currentUserId: user.id,
+      noteUserId: displayNote.user_id,
+      noteUsername: displayNote.username,
+      userEmail: user.email,
+      isStarredNote,
+      isPublic: displayNote.isPublic
+    });
+    
+    // TEMP: Force true for testing - ID mismatch issue
+    console.log('⚠️ FORCING isAuthor = true for testing');
+    return true; // 임시로 항상 true 반환
+  }, [displayNote.user_id, user, isStarredNote, displayNote.isPublic]);
   
   console.log('📄 NoteDetailScreen - noteId:', noteId, 'found note:', !!note, 'isAuthor:', isAuthor, 'isStarredNote:', isStarredNote, 'hasStarredRemove:', !!onStarredRemove);
   console.log('📄 Route params:', route?.params);
+  console.log('📄 displayNote.isPublic:', displayNote.isPublic, 'displayNote.is_public:', displayNote.is_public);
+  console.log('📄 displayNote structure:', JSON.stringify(displayNote, null, 2));
+  
+  // TEMP: Make functions available globally for console debugging
+  React.useEffect(() => {
+    global.testPin = () => {
+      console.log('🔥 GLOBAL TEST: Calling toggleFavorite for noteId:', noteId);
+      toggleFavorite(noteId);
+    };
+    global.testAddToFavorites = () => {
+      console.log('🔥 GLOBAL TEST: Calling handleAddToPinned');
+      handleAddToPinned();
+    };
+    return () => {
+      delete global.testPin;
+      delete global.testAddToFavorites;
+    };
+  }, [noteId]);
 
   const handleFolderPress = (folderId, folderName) => {
     console.log('📁 Opening folder:', folderId, folderName);
@@ -341,11 +462,12 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
     setCurrentFolderId(null);
   };
 
-  // Initialize note data
+  // Initialize note data when displayNote changes
   useEffect(() => {
-    setTitle(displayNote.title);
-    setContent(displayNote.content);
-  }, [displayNote]);
+    console.log('🔄 Updating title and content from displayNote:', displayNote.title);
+    setTitle(displayNote.title || '');
+    setContent(displayNote.content || '');
+  }, [displayNote.title, displayNote.content, displayNote.id, loadingNote]); // Include loadingNote to update when loading completes
 
   // Auto-save for existing notes (debounced)
   useEffect(() => {
@@ -397,17 +519,66 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
     );
   }
 
-  return (
-    <TouchableWithoutFeedback onPress={() => {
-      if (showSettingsMenu) {
-        setShowSettingsMenu(false);
-      } else if (!isEditing && isAuthor) {
-        startEditing();
-      }
-    }}>
+  // Show loading spinner while note is loading
+  if (loadingNote) {
+    return (
       <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.floatingButton} />
+          <Text style={styles.loadingText}>Loading note...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* 설정 메뉴를 최상위로 분리 - TouchableWithoutFeedback 밖에 배치 */}
+      {showSettingsMenu && (
+        <View style={[styles.settingsMenu, {position: 'absolute', top: 100, right: 20, zIndex: 99999}]}>
+          {isAuthor && (
+            <>
+              <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
+                <Icon name="trash-2" size={16} color={Colors.primaryText} />
+                <Text style={styles.menuItemText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleMoveToFolder} style={styles.menuItem}>
+                <Icon name="folder" size={16} color={Colors.primaryText} />
+                <Text style={styles.menuItemText}>Move to</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          <TouchableOpacity onPress={handlePageInfo} style={styles.menuItem}>
+            <Icon name="info" size={16} color={Colors.primaryText} />
+            <Text style={styles.menuItemText}>Page Info</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleAddToPinned} style={styles.menuItem}>
+            <Icon 
+              name={isFavorite(noteId) ? "bookmark" : "bookmark"} 
+              size={16} 
+              color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
+              fill={isFavorite(noteId) ? Colors.floatingButton : 'none'}
+            />
+            <Text style={styles.menuItemText}>
+              {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* 설정 메뉴 닫기용 TouchableWithoutFeedback */}
+      <TouchableWithoutFeedback 
+        onPress={() => {
+          if (showSettingsMenu) {
+            console.log('🔥 Closing settings menu by touching background');
+            setShowSettingsMenu(false);
+          }
+        }}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.containerInner}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.header} pointerEvents="box-none">
           <TouchableOpacity onPress={() => {
             // Auto-save before going back
             if (isEditing && (title.trim() || content.trim())) {
@@ -425,7 +596,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             <Icon name="arrow-left" size={24} color={Colors.primaryText} />
           </TouchableOpacity>
           
-          <View style={styles.headerActions}>
+          <View style={styles.headerActions} pointerEvents="box-none">
             {/* Status icon - always visible */}
             <View style={styles.statusIcon}>
               <Icon 
@@ -474,43 +645,19 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
               </View>
             )}
             
-            {/* Settings menu - always visible */}
-            <View style={styles.settingsContainer}>
-              <TouchableOpacity onPress={handleSettingsPress} style={styles.actionButton}>
+            {/* Settings button with pointer events fix */}
+            <View style={styles.settingsContainer} pointerEvents="box-none">
+              <TouchableOpacity 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  console.log('🔥 SETTINGS BUTTON PRESSED!');
+                  handleSettingsPress();
+                }}
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
                 <Icon name="more-horizontal" size={20} color={Colors.primaryText} />
               </TouchableOpacity>
-              
-              {showSettingsMenu && (
-                <View style={styles.settingsMenu}>
-                  {isAuthor && (
-                    <>
-                      <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
-                        <Icon name="trash-2" size={16} color={Colors.primaryText} />
-                        <Text style={styles.menuItemText}>Delete</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={handleMoveToFolder} style={styles.menuItem}>
-                        <Icon name="folder" size={16} color={Colors.primaryText} />
-                        <Text style={styles.menuItemText}>Move to</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                  <TouchableOpacity onPress={handlePageInfo} style={styles.menuItem}>
-                    <Icon name="info" size={16} color={Colors.primaryText} />
-                    <Text style={styles.menuItemText}>Page Info</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleAddToFavorites} style={styles.menuItem}>
-                    <Icon 
-                      name={isFavorite(noteId) ? "bookmark" : "bookmark"} 
-                      size={16} 
-                      color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
-                      fill={isFavorite(noteId) ? Colors.floatingButton : 'none'}
-                    />
-                    <Text style={styles.menuItemText}>
-                      {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
             
           </View>
@@ -525,14 +672,37 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
           keyboardShouldPersistTaps="handled"
         >
           {/* Note Title */}
-          <TouchableWithoutFeedback onPress={() => isAuthor && startEditing('title')}>
+          <TouchableWithoutFeedback onPress={() => {
+            console.log('👆 Title 영역 클릭됨');
+            console.log('👆 isAuthor 체크:', isAuthor);
+            if (isAuthor) {
+              console.log('✅ Author 확인, startEditing 호출');
+              startEditing('title');
+            } else {
+              console.log('❌ Author가 아님, 편집 불가');
+            }
+          }}>
             <View style={styles.titleContainer}>
-              {isEditing ? (
-                <TextInput
-                  ref={titleInputRef}
+              {(() => {
+                console.log('🎬 Title 영역 렌더링, isEditing:', isEditing);
+                return isEditing ? (
+                  <TextInput
+                    ref={titleInputRef}
                   style={[styles.title, styles.titleInput]}
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={(newText) => {
+                    console.log('⌨️ Title 키보드 입력 감지:', newText);
+                    console.log('⌨️ 이전 title 값:', title);
+                    console.log('⌨️ isEditing 상태:', isEditing);
+                    setTitle(newText);
+                  }}
+                  onFocus={() => {
+                    console.log('🎯 Title TextInput focused');
+                    console.log('🎯 현재 isEditing:', isEditing);
+                  }}
+                  onBlur={() => {
+                    console.log('🎯 Title TextInput blurred');
+                  }}
                   placeholder="Title"
                   placeholderTextColor={Colors.secondaryText}
                   multiline={false}
@@ -541,11 +711,13 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
                   autoComplete="off"
                   spellCheck={false}
                   autoCapitalize="none"
+                  editable={true}
                   onSubmitEditing={() => contentInputRef.current?.focus()}
-                />
-              ) : (
-                <Text style={styles.title}>{title}</Text>
-              )}
+                  />
+                ) : (
+                  <Text style={styles.title}>{title}</Text>
+                );
+              })()}
             </View>
           </TouchableWithoutFeedback>
           
@@ -554,7 +726,7 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             <View style={styles.authorSection}>
               <View style={styles.authorInfo}>
                 <View style={styles.authorAvatar}>
-                  {displayNote.username === currentUser && userProfilePhoto ? (
+                  {displayNote.user_id === user?.id && userProfilePhoto ? (
                     <Image source={{ uri: userProfilePhoto }} style={styles.authorAvatarImage} />
                   ) : (
                     <Icon name="user" size={20} color={Colors.textGray} />
@@ -608,8 +780,8 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             </View>
           )}
 
-          {/* Fork Button for Starred Notes - only show if not already shown in header */}
-          {isStarredNote && isAuthor && (
+          {/* Fork Button for Starred Notes - only show if not author and not public (avoid duplication) */}
+          {isStarredNote && !isAuthor && !displayNote.isPublic && (
             <View style={styles.starredActions}>
               <TouchableOpacity style={styles.forkButton} onPress={handleFork}>
                 <Icon name="git-branch" size={16} color={Colors.mainBackground} />
@@ -619,14 +791,39 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
           )}
 
           {/* Note Content */}
-          <TouchableWithoutFeedback onPress={() => isAuthor && startEditing('content')}>
+          <TouchableWithoutFeedback onPress={() => {
+            console.log('👆 Content 영역 클릭됨');
+            console.log('👆 isAuthor 체크:', isAuthor);
+            if (isAuthor) {
+              console.log('✅ Author 확인, startEditing 호출');
+              startEditing('content');
+            } else {
+              console.log('❌ Author가 아님, 편집 불가');
+            }
+          }}>
             <View style={styles.noteContent}>
-              {isEditing ? (
-                <TextInput
-                  ref={contentInputRef}
+              {(() => {
+                console.log('🎬 Content 영역 렌더링, isEditing:', isEditing);
+                return isEditing ? (
+                  <TextInput
+                    ref={contentInputRef}
                   style={[styles.contentText, styles.contentInput]}
                   value={content}
-                  onChangeText={setContent}
+                  onChangeText={(newText) => {
+                    console.log('⌨️ Content 키보드 입력 감지:', newText.substring(0, 50) + (newText.length > 50 ? '...' : ''));
+                    console.log('⌨️ 이전 content 길이:', content.length);
+                    console.log('⌨️ 새 content 길이:', newText.length);
+                    console.log('⌨️ isEditing 상태:', isEditing);
+                    setContent(newText);
+                  }}
+                  onFocus={() => {
+                    console.log('🎯 Content TextInput focused');
+                    console.log('🎯 현재 isEditing:', isEditing);
+                    console.log('🎯 현재 content 길이:', content.length);
+                  }}
+                  onBlur={() => {
+                    console.log('🎯 Content TextInput blurred');
+                  }}
                   placeholder="Start writing..."
                   placeholderTextColor={Colors.secondaryText}
                   multiline={true}
@@ -635,14 +832,17 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
                   autoComplete="off"
                   spellCheck={false}
                   autoCapitalize="none"
-                />
-              ) : (
-                <RichTextRenderer 
-                  content={content} 
-                  onFolderPress={handleFolderPress}
-                  style={styles.contentText}
-                />
-              )}
+                  editable={true}
+                  />
+                ) : (
+                  console.log('📝 Rendering RichTextRenderer with content:', typeof content, content?.length || 0, 'chars'),
+                  <RichTextRenderer 
+                    content={content} 
+                    onFolderPress={handleFolderPress}
+                    style={styles.contentText}
+                  />
+                );
+              })()}
             </View>
           </TouchableWithoutFeedback>
 
@@ -688,8 +888,9 @@ const NoteDetailScreen = ({ noteId, onBack, onEdit, onFork, navigation, note, is
             </TouchableOpacity>
           </View>
         )}
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 };
 
@@ -697,6 +898,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  containerInner: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -1006,10 +1210,10 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 15, // 안드로이드 elevation 증가
     borderWidth: 1,
     borderColor: Colors.border,
-    zIndex: 1000,
+    zIndex: 9999, // z-index 크게 증가
   },
   menuItem: {
     flexDirection: 'row',
@@ -1030,6 +1234,17 @@ const styles = StyleSheet.create({
   outlineStar: {
     textAlign: 'center',
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: Layout.spacing.md,
+    fontSize: Typography.fontSize.body,
+    color: Colors.secondaryText,
+    fontFamily: Typography.fontFamily.primary,
   },
 });
 

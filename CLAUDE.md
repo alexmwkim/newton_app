@@ -285,3 +285,8 @@ Since this is a mobile-first React Native + Expo project:
 - **CLI Command Guideline:**
   - Do not run `npx expo start --ios --port 8082` without explicit request
   - Manage development server commands carefully to avoid port conflicts
+
+## Supabase Configuration Notes
+
+- **Strict Supabase Policy:**
+  - 절대 비활성화 시키지마 supabase

@@ -1,28 +1,37 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import TabNavigator from './src/navigation/TabNavigator';
 import AuthNavigator from './src/navigation/AuthNavigator';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+function AppContent() {
+  const { user, loading, initialized } = useAuth();
 
-  const handleAuthComplete = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-  };
+  if (!initialized || loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <>
-      {isAuthenticated ? (
-        <TabNavigator logout={handleLogout} />
+      {user ? (
+        <TabNavigator />
       ) : (
-        <AuthNavigator onAuthComplete={handleAuthComplete} />
+        <AuthNavigator />
       )}
       <StatusBar style="auto" />
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

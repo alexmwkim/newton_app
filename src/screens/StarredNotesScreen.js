@@ -12,13 +12,13 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import StarredNoteCard from '../components/StarredNoteCard';
+import SwipeableNoteItem from '../components/SwipeableNoteItem';
 import { useNotesStore } from '../store/NotesStore';
 
 const StarredNotesScreen = ({ navigation }) => {
   const [starredNotes, setStarredNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { toggleStarred, isStarred, getStarredNotes, debugStarredState, clearAllStarredNotes } = useNotesStore();
+  const { toggleStarred, isStarred, getStarredNotes } = useNotesStore();
 
   useEffect(() => {
     console.log('📱 StarredNotesScreen mounted, loading starred notes');
@@ -26,48 +26,45 @@ const StarredNotesScreen = ({ navigation }) => {
   }, []);
 
   const loadStarredNotes = async () => {
-    console.log('📱 StarredNotesScreen: Starting to load starred notes...');
+    console.log('⭐ 📱 StarredNotesScreen: Starting to load starred notes...');
     setLoading(true);
     
-    // Get starred notes from the global store
-    const actualStarredNotes = getStarredNotes();
-    console.log('📱 Raw starred notes from store:', actualStarredNotes);
-    console.log('📱 Number of starred notes:', actualStarredNotes.length);
-    
-    if (actualStarredNotes.length > 0) {
-      console.log('📱 First starred note:', actualStarredNotes[0]);
-    }
-    
-    // Transform notes to match the expected format
-    const transformedNotes = actualStarredNotes.map(note => {
-      console.log('📱 Transforming note:', note.id, note.title);
-      return {
-        id: note.id,
-        title: note.title,
-        content: note.content || 'No content available...',
-        author: {
-          id: note.username || note.author,
-          name: note.username || note.author,
-          avatar: '👤'
-        },
-        createdAt: note.createdAt || new Date().toISOString(),
-        updatedAt: note.updatedAt || new Date().toISOString(),
-        isPublic: note.isPublic,
-        forkCount: note.forkCount || note.forksCount || 0,
-        starCount: note.starCount || 0,
-        tags: note.tags || ['note'],
-        starredAt: new Date().toISOString()
-      };
-    });
+    try {
+      // Get starred notes from the global store
+      const actualStarredNotes = getStarredNotes();
+      console.log('⭐ 📱 Raw starred notes from store:', actualStarredNotes?.length || 0, 'notes');
+      console.log('⭐ 📱 Starred notes details:', actualStarredNotes?.map(n => `${n.title}(${n.id})`));
+      
+      if (actualStarredNotes.length > 0) {
+        console.log('⭐ 📱 First starred note sample:', actualStarredNotes[0]);
+      }
+      
+      // Transform notes to match SwipeableNoteItem format (keep original structure)
+      const transformedNotes = actualStarredNotes.map(note => {
+        console.log('⭐ 📱 Transforming note for SwipeableNoteItem:', note.id, note.title);
+        return {
+          ...note,
+          // Ensure required fields for SwipeableNoteItem
+          isPublic: true, // Starred notes are typically public notes
+          is_public: true,
+          starCount: note.starCount || note.star_count || 0,
+          forkCount: note.forksCount || note.forkCount || note.fork_count || 0,
+          username: note.profiles?.username || note.username || 'Unknown',
+          timeAgo: note.starred_at ? 'Starred' : (note.timeAgo || 'Recently')
+        };
+      });
 
     console.log('📱 Transformed notes:', transformedNotes);
     console.log('📱 Setting starred notes state...');
 
-    setTimeout(() => {
       setStarredNotes(transformedNotes);
+      console.log('⭐ 📱 Starred notes state updated, loading complete');
+    } catch (error) {
+      console.error('⭐ 📱 Error loading starred notes:', error);
+      setStarredNotes([]);
+    } finally {
       setLoading(false);
-      console.log('📱 Starred notes state updated, loading complete');
-    }, 100);
+    }
   };
 
   const handleNotePress = (note) => {
@@ -193,30 +190,6 @@ const StarredNotesScreen = ({ navigation }) => {
           <View style={styles.headerRight} />
         </View>
 
-        {/* Debug Buttons */}
-        <View style={styles.debugContainer}>
-          <TouchableOpacity 
-            style={styles.debugButton}
-            onPress={() => {
-              console.log('🔍 Manual debug triggered');
-              debugStarredState();
-              loadStarredNotes();
-            }}
-          >
-            <Text style={styles.debugButtonText}>Debug & Refresh</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.debugButton, styles.clearButton]}
-            onPress={() => {
-              console.log('🗑️ Clear all starred notes triggered');
-              clearAllStarredNotes();
-              loadStarredNotes();
-            }}
-          >
-            <Text style={styles.debugButtonText}>Clear All</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Content */}
         {starredNotes.length === 0 ? (
@@ -229,12 +202,12 @@ const StarredNotesScreen = ({ navigation }) => {
           >
             <View style={styles.notesList}>
               {starredNotes.map((note) => (
-                <StarredNoteCard
+                <SwipeableNoteItem
                   key={note.id}
                   note={note}
                   onPress={() => handleNotePress(note)}
-                  onUnstar={() => handleUnstarNote(note.id)}
-                  showDate={false}
+                  onDelete={() => handleUnstarNote(note.id)} // Unstar when "delete"
+                  isPublic={true}
                 />
               ))}
             </View>
@@ -335,29 +308,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.white,
-  },
-  debugContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: Layout.screen.padding,
-    gap: Layout.spacing.sm,
-    marginBottom: Layout.spacing.md,
-  },
-  debugButton: {
-    backgroundColor: Colors.floatingButton,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
-    borderRadius: 8,
-    flex: 1,
-  },
-  clearButton: {
-    backgroundColor: '#ff4444',
-  },
-  debugButtonText: {
-    fontSize: Typography.fontSize.small,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.white,
-    textAlign: 'center',
   },
 });
 

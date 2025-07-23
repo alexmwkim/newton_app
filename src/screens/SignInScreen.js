@@ -15,8 +15,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { useAuth } from '../contexts/AuthContext';
 
 const SignInScreen = ({ navigation }) => {
+  const { signIn } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -61,11 +63,15 @@ const SignInScreen = ({ navigation }) => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { data, error } = await signIn(formData.email, formData.password);
       
-      // For now, just navigate to main app after successful signin
-      navigation.navigate('main');
+      if (error) {
+        Alert.alert('Sign In Failed', error);
+        return;
+      }
+      
+      // AuthContext will automatically handle navigation
+      console.log('Sign in successful:', data);
     } catch (error) {
       Alert.alert('Error', 'Invalid email or password. Please try again.');
     } finally {
@@ -105,7 +111,7 @@ const SignInScreen = ({ navigation }) => {
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
                 placeholder="Enter your email"
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor={Colors.secondaryText}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -123,7 +129,7 @@ const SignInScreen = ({ navigation }) => {
                   value={formData.password}
                   onChangeText={(value) => handleInputChange('password', value)}
                   placeholder="Enter your password"
-                  placeholderTextColor={Colors.textSecondary}
+                  placeholderTextColor={Colors.secondaryText}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoComplete="current-password"
@@ -136,7 +142,7 @@ const SignInScreen = ({ navigation }) => {
                   <Icon
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color={Colors.textSecondary}
+                    color={Colors.secondaryText}
                   />
                 </TouchableOpacity>
               </View>
@@ -180,7 +186,7 @@ const SignInScreen = ({ navigation }) => {
                 style={styles.socialButton}
                 onPress={() => handleSocialSignIn('Google')}
               >
-                <Icon name="globe" size={20} color={Colors.textPrimary} />
+                <Icon name="globe" size={20} color={Colors.primaryText} />
                 <Text style={styles.socialButtonText}>Continue with Google</Text>
               </TouchableOpacity>
 
@@ -188,7 +194,7 @@ const SignInScreen = ({ navigation }) => {
                 style={styles.socialButton}
                 onPress={() => handleSocialSignIn('Apple')}
               >
-                <Icon name="smartphone" size={20} color={Colors.textPrimary} />
+                <Icon name="smartphone" size={20} color={Colors.primaryText} />
                 <Text style={styles.socialButtonText}>Continue with Apple</Text>
               </TouchableOpacity>
             </View>
@@ -235,13 +241,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xxl,
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.bold,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     marginBottom: Layout.spacing.sm,
   },
   subtitle: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
     textAlign: 'center',
   },
   form: {
@@ -254,7 +260,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.medium,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     marginBottom: Layout.spacing.sm,
   },
   input: {
@@ -265,7 +271,7 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.md,
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     backgroundColor: Colors.white,
   },
   inputError: {
@@ -285,7 +291,7 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.md,
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
     borderWidth: 0,
   },
   eyeIcon: {
@@ -324,7 +330,7 @@ const styles = StyleSheet.create({
   rememberMeText: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
   },
   forgotPasswordText: {
     fontSize: Typography.fontSize.medium,
@@ -361,7 +367,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
     marginHorizontal: Layout.spacing.md,
   },
   socialButtons: {
@@ -382,7 +388,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.medium,
-    color: Colors.textPrimary,
+    color: Colors.primaryText,
   },
   footer: {
     alignItems: 'center',
@@ -391,7 +397,7 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: Typography.fontSize.medium,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.textSecondary,
+    color: Colors.secondaryText,
   },
   linkText: {
     color: Colors.floatingButton,

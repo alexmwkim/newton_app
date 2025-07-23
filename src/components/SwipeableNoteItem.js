@@ -15,7 +15,21 @@ const SwipeableNoteItem = ({
 }) => {
   const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
   const currentUser = 'alexnwkim'; // Current logged-in user
-  const { toggleFavorite, isFavorite, toggleStarred, isStarred } = useNotesStore();
+  const { toggleStarred, isStarred } = useNotesStore();
+  
+  // Local star count state for immediate UI updates
+  const [localStarCount, setLocalStarCount] = useState(
+    note.starCount || note.star_count || 0
+  );
+  
+  // Force re-render when star state changes
+  const [, forceUpdate] = useState({});
+  
+  // Normalize note data - ensure isPublic is set correctly
+  const normalizedNote = {
+    ...note,
+    isPublic: note.isPublic || note.is_public || false
+  };
   
   useEffect(() => {
     const unsubscribe = ProfileStore.subscribe(() => {
@@ -102,17 +116,45 @@ const SwipeableNoteItem = ({
     );
   };
 
-  const handleStarPress = (event) => {
+  const handleStarPress = async (event) => {
     event.stopPropagation(); // Prevent note opening
     
-    // For public notes, always use starred system (even for own notes)
-    if (note.isPublic) {
-      console.log('⭐ Public note star clicked - using starred system for note:', note.id);
-      toggleStarred(note.id);
+    console.log('⭐ ==========================================');
+    console.log('⭐ handleStarPress - note.title:', normalizedNote.title);
+    console.log('⭐ handleStarPress - note.id:', normalizedNote.id);
+    console.log('⭐ handleStarPress - normalizedNote.isPublic:', normalizedNote.isPublic);
+    console.log('⭐ handleStarPress - current starred state:', isStarred(normalizedNote.id));
+    console.log('⭐ handleStarPress - current localStarCount:', localStarCount);
+    
+    // Only for public notes, use starred system
+    if (normalizedNote.isPublic) {
+      console.log('⭐ ✅ Public note star clicked - using starred system for note:', normalizedNote.id);
+      
+      // Optimistic UI update - immediately update star count
+      const currentlyStarred = isStarred(normalizedNote.id);
+      const newStarCount = currentlyStarred ? localStarCount - 1 : localStarCount + 1;
+      setLocalStarCount(newStarCount);
+      console.log('⭐ 🔄 Optimistic UI update - star count changed from', localStarCount, 'to', newStarCount);
+      
+      try {
+        console.log('⭐ 🔄 Calling toggleStarred...');
+        const newStarredState = await toggleStarred(normalizedNote.id);
+        console.log('⭐ 🎉 toggleStarred completed successfully, new state:', newStarredState);
+        
+        // Force component re-render to reflect new star state
+        forceUpdate({});
+        console.log('⭐ 🔄 Forced component re-render to update star UI');
+        console.log('⭐ ==========================================');
+      } catch (error) {
+        console.error('⭐ ❌ toggleStarred failed:', error);
+        // Rollback optimistic update on failure
+        setLocalStarCount(localStarCount);
+        console.log('⭐ 🔄 Rolled back optimistic update to:', localStarCount);
+        console.log('⭐ ==========================================');
+      }
     } else {
-      // For private notes, use favorites (pinned)
-      console.log('📌 Private note star clicked - using favorites (pinned) system for note:', note.id);
-      toggleFavorite(note.id);
+      console.log('⭐ ❌ Private note - starred system not available');
+      console.log('⭐ ==========================================');
     }
   };
 
@@ -147,22 +189,86 @@ const SwipeableNoteItem = ({
           accessibilityRole="button"
           accessibilityLabel={`Note: ${note.title}, created ${note.timeAgo}`}
         >
-          {note.isPublic ? (
+          {/* Debug check for public/private logic */}
+          {console.log('🎨 SwipeableNoteItem render - note.title:', normalizedNote.title, 'normalizedNote.isPublic:', normalizedNote.isPublic, 'will show as:', normalizedNote.isPublic ? 'PUBLIC' : 'PRIVATE')}
+          {normalizedNote.isPublic ? (
             // Public note format (same as explore page)
             <View style={styles.publicContent}>
               <View style={styles.noteHeader}>
                 <View style={styles.userInfo}>
                   <View style={styles.avatar}>
-                    {note.username === currentUser && userProfilePhoto ? (
-                      <Image source={{ uri: userProfilePhoto }} style={styles.avatarImage} />
-                    ) : (
-                      <Icon name="user" size={16} color={Colors.textGray} />
-                    )}
+                    {(() => {
+                      // Debug note data for troubleshooting
+                      console.log('🏠 Home note debug:', {
+                        title: normalizedNote.title,
+                        username: normalizedNote.username,
+                        user_id: normalizedNote.user_id,
+                        currentUser: currentUser,
+                        hasProfiles: !!normalizedNote.profiles,
+                        profiles: normalizedNote.profiles
+                      });
+                      
+                      // Check if this is current user's note by multiple criteria
+                      const isCurrentUser = normalizedNote.username === currentUser || 
+                                          normalizedNote.user_id === currentUser ||
+                                          !normalizedNote.username; // If no username, assume current user for home screen
+                      
+                      // Get profile photo for the note author
+                      const authorAvatar = normalizedNote.profiles?.avatar_url;
+                      const currentUserAvatar = userProfilePhoto;
+                      
+                      // For current user's notes, prioritize their actual profile photo
+                      let displayAvatar;
+                      if (isCurrentUser) {
+                        displayAvatar = currentUserAvatar || 'https://i.pravatar.cc/150?img=3';
+                      } else {
+                        // For other users, use their profile or generate consistent avatar
+                        displayAvatar = authorAvatar;
+                        if (!displayAvatar && normalizedNote.username) {
+                          const userHash = normalizedNote.username.length % 70 + 1;
+                          displayAvatar = `https://i.pravatar.cc/150?img=${userHash}`;
+                        }
+                      }
+                      
+                      return displayAvatar ? (
+                        <Image 
+                          source={{ uri: displayAvatar }} 
+                          style={styles.avatarImage}
+                          onError={(error) => {
+                            console.log('🖼️ Avatar load failed for:', normalizedNote.username);
+                          }}
+                        />
+                      ) : (
+                        <Icon name="user" size={16} color={Colors.textGray} />
+                      );
+                    })()}
                   </View>
-                  <Text style={styles.userName}>{note.username || 'username'}</Text>
+                  <Text style={styles.userName}>
+                    {(() => {
+                      // Check if this is current user's note and display appropriate username
+                      const isCurrentUserNote = normalizedNote.username === currentUser || 
+                                              normalizedNote.user_id === currentUser ||
+                                              !normalizedNote.username; // If no username, assume current user for home screen
+                      
+                      if (isCurrentUserNote) {
+                        return '@Alex Kim'; // Show formatted username like in note detail page
+                      } else {
+                        const username = normalizedNote.username || normalizedNote.profiles?.username || 'unknown';
+                        return `@${username}`;
+                      }
+                    })()}
+                  </Text>
                 </View>
+                
+                {/* Trending/Popular badge for high star/fork counts */}
+                {(normalizedNote.starCount >= 5 || normalizedNote.forkCount >= 3) && (
+                  <View style={styles.trendingBadge}>
+                    <Icon name="trending-up" size={12} color={Colors.floatingButton} />
+                    <Text style={styles.trendingText}>Popular</Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.publicTitle}>{note.title}</Text>
+              <Text style={styles.publicTitle}>{normalizedNote.title}</Text>
               <View style={styles.noteFooter}>
                 <TouchableOpacity 
                   style={styles.statChip}
@@ -170,37 +276,38 @@ const SwipeableNoteItem = ({
                   activeOpacity={0.7}
                 >
                   <Icon 
-                    name="star" 
+                    name={isStarred(normalizedNote.id) ? "star" : "star"} 
                     size={12} 
-                    color={isStarred(note.id) ? Colors.floatingButton : Colors.secondaryText}
-                    fill={isStarred(note.id) ? Colors.floatingButton : 'none'}
+                    color={isStarred(normalizedNote.id) ? Colors.floatingButton : Colors.secondaryText}
+                    solid={isStarred(normalizedNote.id)} // Use solid for filled star
                   />
-                  <Text style={[styles.statText, isStarred(note.id) && styles.favoriteText]}>
-                    {note.starCount || 0}
+                  <Text style={[styles.statText, isStarred(normalizedNote.id) && styles.starredText]}>
+                    {localStarCount}
                   </Text>
                 </TouchableOpacity>
                 
                 {/* Fork count display for all public notes */}
                 <View style={styles.statChip}>
                   <Icon name="git-branch" size={12} color={Colors.secondaryText} />
-                  <Text style={styles.statText}>{note.forksCount || note.forkCount || 0}</Text>
+                  <Text style={styles.statText}>{normalizedNote.forksCount || normalizedNote.forkCount || normalizedNote.fork_count || 0}</Text>
                 </View>
               </View>
             </View>
           ) : (
-            // Private note format (original)
+            // Private note format (without star icon)
             <View style={styles.content}>
               <Text style={styles.title} numberOfLines={1}>
-                {note.title}
+                {normalizedNote.title}
               </Text>
-              {note.forkedFrom && (
+              {normalizedNote.forkedFrom && (
                 <View style={styles.forkIndicator}>
                   <Icon name="git-branch" size={12} color={Colors.floatingButton} />
                   <Text style={styles.forkIndicatorText}>
-                    from {note.forkedFrom.author.name}
+                    from {normalizedNote.forkedFrom.author.name}
                   </Text>
                 </View>
               )}
+              <Text style={styles.username}>{normalizedNote.username || normalizedNote.timeAgo}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -336,7 +443,25 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: Colors.textGray,
   },
-  favoriteText: {
+  starredText: {
+    color: Colors.floatingButton,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  // Trending badge styles
+  trendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.noteCard,
+    borderWidth: 1,
+    borderColor: Colors.floatingButton,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    gap: 3,
+  },
+  trendingText: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
     color: Colors.floatingButton,
     fontWeight: Typography.fontWeight.medium,
   },
