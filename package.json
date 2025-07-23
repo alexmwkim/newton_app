@@ -13,7 +13,17 @@
     "reset": "./scripts/reset-dev.sh",
     "clean": "rm -rf .expo && rm -rf node_modules/.cache && npm cache clean --force",
     "start-safe": "npx expo start --port 8082 --clear",
-    "dev": "npm run reset && npm run start-safe"
+    "dev": "npm run reset && npm run start-safe",
+    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
+    "lint-check": "npm run lint -- --max-warnings 5",
+    "lint-fix": "npm run lint -- --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json}\"",
+    "format-check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json}\"",
+    "type-check": "tsc --noEmit",
+    "pre-build": "npm run lint-check && npm run type-check",
+    "build": "npm run pre-build && expo build",
+    "security-audit": "npm audit --audit-level moderate",
+    "analyze-bundle": "npx expo-bundle-analyzer"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -36,7 +46,15 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@react-native-community/cli": "latest"
+    "@react-native-community/cli": "latest",
+    "@types/react": "~19.0.10",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-native": "^5.0.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3"
   },
   "private": true
 }

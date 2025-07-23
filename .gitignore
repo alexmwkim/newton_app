@@ -52,3 +52,15 @@ ios/Pods/
 
 # Environment variables
 .env
+.env.local
+.env.development
+.env.production
+
+# Development tool configurations
+mcp-settings.json
+.claudehooks.json
+
+# Security sensitive files
+*.pem
+*.key
+credentials.json

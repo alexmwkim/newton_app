@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Switch, Alert, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { useTranslation } from '../localization/i18n';
+import { useAuth } from '../contexts/AuthContext';
 
 const SettingsScreen = ({ navigation }) => {
+  const { t, currentLanguage, setLanguage, languages, languageNames } = useTranslation();
+  const { signOut } = useAuth();
+  
   // State for toggleable settings
   const [darkMode, setDarkMode] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -14,6 +19,7 @@ const SettingsScreen = ({ navigation }) => {
   const [defaultPrivate, setDefaultPrivate] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
   const [profileVisible, setProfileVisible] = useState(true);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
   const handleBackPress = () => {
     navigation.goBack();
@@ -69,19 +75,35 @@ const SettingsScreen = ({ navigation }) => {
     // TODO: Open app store rating
   };
 
+  const handleLanguagePress = () => {
+    console.log('🌐 Language settings pressed');
+    setLanguageModalVisible(true);
+  };
+
+  const handleLanguageSelect = (langCode) => {
+    console.log('🌐 Language selected:', langCode);
+    setLanguage(langCode);
+    setLanguageModalVisible(false);
+  };
+
   const handleLogout = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('profile.settings.logout'),
+      t('profile.settings.logoutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         { 
-          text: 'Sign Out', 
+          text: t('profile.settings.logout'), 
           style: 'destructive', 
-          onPress: () => {
-            // Call logout function passed from parent
-            if (navigation.logout) {
-              navigation.logout();
+          onPress: async () => {
+            try {
+              console.log('🚪 Signing out user...');
+              await signOut();
+              console.log('✅ User signed out successfully');
+              // Navigation will be handled by AuthContext
+            } catch (error) {
+              console.error('❌ Logout error:', error);
+              Alert.alert(t('common.error'), 'Failed to sign out. Please try again.');
             }
           }
         }
@@ -143,7 +165,7 @@ const SettingsScreen = ({ navigation }) => {
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <Icon name="arrow-left" size={24} color={Colors.primaryText} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerTitle}>{t('profile.settings.title')}</Text>
           <View style={styles.headerRight} />
         </View>
 
@@ -152,8 +174,14 @@ const SettingsScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Account & Profile Section */}
-          <SettingsSection title="Account & Profile">
+          {/* Language & Account Section */}
+          <SettingsSection title={t('profile.settings.account')}>
+            <SettingsItem
+              icon="globe"
+              title={t('profile.settings.language')}
+              onPress={handleLanguagePress}
+              rightElement={<Text style={styles.settingsValue}>{languageNames[currentLanguage]}</Text>}
+            />
             <SettingsItem
               icon="user"
               title="Profile Information"
@@ -161,19 +189,14 @@ const SettingsScreen = ({ navigation }) => {
             />
             <SettingsItem
               icon="shield"
-              title="Privacy Settings"
+              title={t('profile.settings.privacy')}
               onPress={handlePrivacySettings}
             />
             <ToggleItem
               icon="eye"
-              title="Profile Discoverable"
+              title={t('profile.settings.publicProfile')}
               value={profileVisible}
               onValueChange={setProfileVisible}
-            />
-            <SettingsItem
-              icon="settings"
-              title="Account Management"
-              onPress={handleAccountManagement}
             />
           </SettingsSection>
 
@@ -277,7 +300,7 @@ const SettingsScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
               <View style={styles.settingsItemLeft}>
                 <Icon name="log-out" size={20} color={Colors.floatingButton} />
-                <Text style={[styles.settingsItemText, { color: Colors.floatingButton }]}>Sign Out</Text>
+                <Text style={[styles.settingsItemText, { color: Colors.floatingButton }]}>{t('profile.settings.logout')}</Text>
               </View>
               <Icon name="chevron-right" size={16} color={Colors.floatingButton} />
             </TouchableOpacity>
@@ -295,6 +318,46 @@ const SettingsScreen = ({ navigation }) => {
           </SettingsSection>
         </ScrollView>
       </View>
+
+      {/* Language Selection Modal */}
+      <Modal
+        transparent={true}
+        visible={languageModalVisible}
+        animationType="fade"
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalOverlayTouch} 
+            activeOpacity={1} 
+            onPress={() => setLanguageModalVisible(false)}
+          />
+          
+          <View style={styles.languageModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('profile.settings.languageSelection')}</Text>
+              <TouchableOpacity onPress={() => setLanguageModalVisible(false)} style={styles.modalCloseButton}>
+                <Icon name="x" size={24} color={Colors.primaryText} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.languageList}>
+              {Object.entries(languages).map(([key, langCode]) => (
+                <TouchableOpacity
+                  key={langCode}
+                  style={styles.languageOption}
+                  onPress={() => handleLanguageSelect(langCode)}
+                >
+                  <Text style={styles.languageOptionText}>{languageNames[langCode]}</Text>
+                  {currentLanguage === langCode && (
+                    <Icon name="check" size={20} color={Colors.floatingButton} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -407,6 +470,59 @@ const styles = StyleSheet.create({
     marginHorizontal: Layout.screen.padding,
     marginBottom: 1,
     borderRadius: 0,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlayTouch: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  languageModal: {
+    backgroundColor: Colors.mainBackground,
+    borderRadius: 12,
+    marginHorizontal: 32,
+    maxWidth: 320,
+    width: '100%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.lg,
+    paddingVertical: Layout.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+  },
+  modalCloseButton: {
+    padding: Layout.spacing.xs,
+  },
+  languageList: {
+    paddingVertical: Layout.spacing.sm,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.lg,
+    paddingVertical: Layout.spacing.md,
+  },
+  languageOptionText: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
   },
 });
 

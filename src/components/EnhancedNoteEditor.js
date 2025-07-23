@@ -223,7 +223,7 @@ export const EnhancedNoteEditor = ({
             <Text style={styles.subpagesTitle}>Sub-pages</Text>
             <TouchableOpacity
               style={styles.addSubpageButton}
-              onPress={handleCreateSubpage}
+              onPress={() => console.log('Subpage creation not implemented')}
             >
               <Ionicons name="add" size={20} color={Colors.floatingButton} />
               <Text style={styles.addSubpageText}>New Page</Text>

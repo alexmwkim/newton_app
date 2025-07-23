@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
+import { View, ScrollView, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import Colors from '../constants/Colors';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from '../localization/i18n';
+import { useViewMode } from '../store/ViewModeStore';
 
 // Builder.io converted components
 import HeaderComponent from '../components/HeaderComponent';
@@ -11,14 +13,19 @@ import NotesListComponent from '../components/NotesListComponent';
 import CreateButtonComponent from '../components/CreateButtonComponent';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import PinnedNotesSection from '../components/PinnedNotesSection';
+import ViewModeModal from '../components/ViewModeModal';
 import AdminService from '../services/admin';
 
 
 const HomeScreenNew = ({ navigation, initialTab }) => {
   const [activeTab, setActiveTab] = useState(initialTab || 'private');
   const [activeNavTab, setActiveNavTab] = useState(0);
+  const [viewModeModalVisible, setViewModeModalVisible] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 80, right: 16 });
   const { privateNotes, publicNotes, deleteNote, getPinnedNotes, togglePinned, clearAllPinnedNotesFromDatabase } = useNotesStore();
   const { signOut, user } = useAuth();
+  const { t } = useTranslation();
+  const { currentViewMode } = useViewMode();
   
   // Get pinned notes
   const pinnedNotes = getPinnedNotes();
@@ -110,28 +117,20 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     navigation.navigate('notifications');
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      `User ID: ${user?.id}\nAre you sure you want to logout?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive', 
-          onPress: async () => {
-            console.log('🚪 Manual logout triggered');
-            await signOut();
-          }
-        }
-      ]
-    );
+  const handleMenuPress = () => {
+    console.log('👁️ View mode menu pressed - opening dropdown');
+    
+    // Calculate dropdown position based on header button position
+    // The more-horizontal button is typically at top-right of header
+    const calculatedPosition = {
+      top: 80, // Below the header (header height + status bar)
+      right: 16, // Standard margin from right edge
+    };
+    
+    setDropdownPosition(calculatedPosition);
+    setViewModeModalVisible(true);
   };
 
-  const handleMenuPress = () => {
-    console.log('📋 More menu pressed');
-    navigation.navigate('more');
-  };
 
   const handleLogoPress = () => {
     // Refresh the page by resetting state
@@ -233,7 +232,7 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
           <HeaderComponent
             onBackPress={handleBackPress}
             onNotificationsPress={handleNotificationsPress}
-            onMenuPress={handleLogout}
+            onMenuPress={handleMenuPress}
             onLogoPress={handleLogoPress}
           />
           
@@ -257,6 +256,7 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
                 onNoteClick={handleNoteClick}
                 onDeleteNote={handleDeleteNote}
                 isPublic={activeTab === 'public'}
+                viewMode={currentViewMode}
               />
             </ScrollView>
           </View>
@@ -271,6 +271,13 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
           />
         </View>
       </View>
+
+      {/* View Mode Dropdown Modal */}
+      <ViewModeModal
+        visible={viewModeModalVisible}
+        onClose={() => setViewModeModalVisible(false)}
+        position={dropdownPosition}
+      />
     </SafeAreaView>
   );
 };

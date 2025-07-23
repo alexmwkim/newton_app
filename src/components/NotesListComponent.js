@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import SwipeableNoteItem from './SwipeableNoteItem';
 import AuthorPublicNoteCard from './AuthorPublicNoteCard';
+import { useViewMode } from '../store/ViewModeStore';
 
 const NotesListComponent = ({ 
   notes = [
@@ -12,10 +13,18 @@ const NotesListComponent = ({
   ], 
   onNoteClick,
   onDeleteNote,
-  isPublic = false
+  isPublic = false,
+  viewMode
 }) => {
+  const { viewModes } = useViewMode();
+  const effectiveViewMode = viewMode || viewModes.TITLE_ONLY;
+  
+  console.log('📝 NotesListComponent: Effective view mode:', effectiveViewMode);
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      effectiveViewMode === viewModes.CONTENT_PREVIEW && styles.containerContentPreview
+    ]}>
       {notes.map((note) => (
         isPublic ? (
           <SwipeableNoteItem
@@ -24,6 +33,7 @@ const NotesListComponent = ({
             onPress={() => onNoteClick?.(note.id)}
             onDelete={onDeleteNote}
             isPublic={true}
+            viewMode={effectiveViewMode}
           />
         ) : (
           <SwipeableNoteItem
@@ -32,6 +42,7 @@ const NotesListComponent = ({
             onPress={() => onNoteClick?.(note.id)}
             onDelete={onDeleteNote}
             isPublic={false}
+            viewMode={effectiveViewMode}
           />
         )
       ))}
@@ -43,6 +54,9 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 24,
     width: '100%',
+  },
+  containerContentPreview: {
+    marginTop: 16, // Slightly less margin for content preview cards
   },
 });
 

@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Layout.spacing.md,
   },
-  clearButton: {
+  clearButtonSection: {
     paddingHorizontal: Layout.spacing.sm,
     paddingVertical: Layout.spacing.xs,
   },

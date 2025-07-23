@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import supabaseDebugger from '../utils/SupabaseDebugger';
 
 class NotesService {
   // 노트 생성
@@ -63,11 +64,14 @@ class NotesService {
       console.log('🔍 getUserNotes called with userId (auth user):', userId);
       
       // First get the profile ID for this user
-      let { data: profile, error: profileError } = await supabase
+      const profileResult = await supabase
         .from('profiles')
         .select('id, username')
         .eq('user_id', userId)
         .single();
+      
+      let profile = profileResult.data;
+      const profileError = profileResult.error;
       
       if (!profile || profileError) {
         console.log('❌ No profile found for user, creating profile:', userId);
@@ -427,36 +431,43 @@ class NotesService {
       console.log('⭐ 🔄 getStarredNotes called for userId:', userId);
       
       // First, get the profile ID for this user (stars table references profiles.id)
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
+      const profileResult = await supabaseDebugger.wrapQuery(
+        'profiles',
+        () => supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', userId)
+          .single(),
+        'getProfileForStarredNotes'
+      );
       
-      if (profileError) {
-        console.error('⭐ ❌ Profile lookup error:', profileError);
-        throw profileError;
-      }
-      
+      const profile = profileResult.data;
       if (!profile) {
         console.error('⭐ ❌ Profile not found for user:', userId);
+        supabaseDebugger.logRelationshipError(
+          'profiles', 
+          'user_id', 
+          new Error('Profile not found for starred notes query'),
+          `userId: ${userId}`
+        );
         throw new Error('User profile not found');
       }
       
       console.log('⭐ ✅ Profile found:', profile.id, 'for user:', userId);
       
       // STEP 1: Get starred note IDs from stars table
-      const { data: starredRecords, error: starsError } = await supabase
-        .from('stars')
-        .select('note_id, created_at')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+      const starsResult = await supabaseDebugger.wrapQuery(
+        'stars',
+        () => supabase
+          .from('stars')
+          .select('note_id, created_at')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1),
+        `getStarredNoteIds_profileId:${profile.id}`
+      );
 
-      if (starsError) {
-        console.error('⭐ ❌ Stars query error:', starsError);
-        throw starsError;
-      }
+      const starredRecords = starsResult.data;
 
       if (!starredRecords || starredRecords.length === 0) {
         console.log('⭐ ℹ️ No starred notes found for user');

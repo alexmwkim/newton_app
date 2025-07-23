@@ -12,6 +12,7 @@ export const Colors = {
   
   // Background Colors (from CSS)
   noteCard: 'rgba(248, 246, 243, 1)',  // rectangle-208-19 etc.
+  noteCardBackground: 'rgba(248, 246, 243, 1)',  // Same as noteCard for consistency
   cardBackground: '#F8F6F3',
   mainBackground: 'rgba(255, 255, 255, 1)',
   

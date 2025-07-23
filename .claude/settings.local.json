@@ -36,7 +36,18 @@
       "Bash(rg:*)",
       "Bash(npm start)",
       "Bash(npx supabase:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(claude mcp:*)",
+      "Bash(export:*)",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pip install:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(echo:*)",
+      "Bash(env)",
+      "Bash(npm run lint:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(npm audit:*)"
     ],
     "deny": []
   }

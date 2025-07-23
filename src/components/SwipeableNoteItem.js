@@ -6,13 +6,16 @@ import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import ProfileStore from '../store/ProfileStore';
 import { useNotesStore } from '../store/NotesStore';
+import { useViewMode } from '../store/ViewModeStore';
 
 const SwipeableNoteItem = ({ 
   note,
   onPress,
   onDelete,
-  isPublic = false
+  isPublic = false,
+  viewMode
 }) => {
+  const { viewModes } = useViewMode();
   const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
   const currentUser = 'alexnwkim'; // Current logged-in user
   const { toggleStarred, isStarred } = useNotesStore();
@@ -175,7 +178,31 @@ const SwipeableNoteItem = ({
       ]
     );
   };
-  
+
+  // Helper function to generate content preview from actual note content
+  const generateContentPreview = (note) => {
+    // Use actual note content if available
+    let content = note.content || note.body || '';
+    
+    // If no content, show placeholder
+    if (!content || content.trim() === '') {
+      return '(내용 없음)';
+    }
+    
+    // Remove markdown formatting and HTML tags
+    content = content
+      .replace(/[#*_`~]/g, '') // Remove markdown symbols
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/\n+/g, ' ') // Replace newlines with spaces
+      .trim();
+    
+    // Truncate to reasonable length (about 100 characters)
+    if (content.length > 100) {
+      content = content.substring(0, 100) + '...';
+    }
+    
+    return content;
+  };
 
   return (
     <View style={styles.container}>
@@ -184,92 +211,229 @@ const SwipeableNoteItem = ({
         {...panResponder.panHandlers}
       >
         <TouchableOpacity
-          style={styles.noteContent}
+          style={[
+            styles.noteContent,
+            viewMode === viewModes.CONTENT_PREVIEW && styles.noteContentPreview
+          ]}
           onPress={onPress}
           accessibilityRole="button"
           accessibilityLabel={`Note: ${note.title}, created ${note.timeAgo}`}
         >
           {/* Debug check for public/private logic */}
-          {console.log('🎨 SwipeableNoteItem render - note.title:', normalizedNote.title, 'normalizedNote.isPublic:', normalizedNote.isPublic, 'will show as:', normalizedNote.isPublic ? 'PUBLIC' : 'PRIVATE')}
-          {normalizedNote.isPublic ? (
-            // Public note format (same as explore page)
+          {console.log('🎨 SwipeableNoteItem render - note.title:', normalizedNote.title, 'viewMode:', viewMode, 'isPublic:', normalizedNote.isPublic)}
+          
+          {/* Render based on view mode */}
+          {viewMode === viewModes.CONTENT_PREVIEW && normalizedNote.isPublic ? (
+            // Content Preview Mode for Public Notes - Use same structure as Title Only
             <View style={styles.publicContent}>
-              <View style={styles.noteHeader}>
-                <View style={styles.userInfo}>
-                  <View style={styles.avatar}>
-                    {(() => {
-                      // Debug note data for troubleshooting
-                      console.log('🏠 Home note debug:', {
-                        title: normalizedNote.title,
-                        username: normalizedNote.username,
-                        user_id: normalizedNote.user_id,
-                        currentUser: currentUser,
-                        hasProfiles: !!normalizedNote.profiles,
-                        profiles: normalizedNote.profiles
-                      });
-                      
-                      // Check if this is current user's note by multiple criteria
-                      const isCurrentUser = normalizedNote.username === currentUser || 
-                                          normalizedNote.user_id === currentUser ||
-                                          !normalizedNote.username; // If no username, assume current user for home screen
-                      
-                      // Get profile photo for the note author
-                      const authorAvatar = normalizedNote.profiles?.avatar_url;
-                      const currentUserAvatar = userProfilePhoto;
-                      
-                      // For current user's notes, prioritize their actual profile photo
-                      let displayAvatar;
-                      if (isCurrentUser) {
-                        displayAvatar = currentUserAvatar || 'https://i.pravatar.cc/150?img=3';
-                      } else {
-                        // For other users, use their profile or generate consistent avatar
-                        displayAvatar = authorAvatar;
-                        if (!displayAvatar && normalizedNote.username) {
-                          const userHash = normalizedNote.username.length % 70 + 1;
-                          displayAvatar = `https://i.pravatar.cc/150?img=${userHash}`;
+              <View style={styles.publicTopSection}>
+                <View style={styles.noteHeader}>
+                  <View style={styles.userInfo}>
+                    <View style={styles.avatar}>
+                      {(() => {
+                        // Debug note data for troubleshooting
+                        console.log('🏠 Home note debug (Content Preview):', {
+                          title: normalizedNote.title,
+                          username: normalizedNote.username,
+                          user_id: normalizedNote.user_id,
+                          currentUser: currentUser,
+                          hasProfiles: !!normalizedNote.profiles,
+                          profiles: normalizedNote.profiles
+                        });
+                        
+                        // Check if this is current user's note by multiple criteria
+                        const isCurrentUser = normalizedNote.username === currentUser || 
+                                            normalizedNote.user_id === currentUser ||
+                                            !normalizedNote.username; // If no username, assume current user for home screen
+                        
+                        // Get profile photo for the note author
+                        const authorAvatar = normalizedNote.profiles?.avatar_url;
+                        const currentUserAvatar = userProfilePhoto;
+                        
+                        // For current user's notes, prioritize their actual profile photo
+                        let displayAvatar;
+                        if (isCurrentUser) {
+                          displayAvatar = currentUserAvatar || 'https://i.pravatar.cc/150?img=3';
+                        } else {
+                          // For other users, use their profile or generate consistent avatar
+                          displayAvatar = authorAvatar;
+                          if (!displayAvatar && normalizedNote.username) {
+                            const userHash = normalizedNote.username.length % 70 + 1;
+                            displayAvatar = `https://i.pravatar.cc/150?img=${userHash}`;
+                          }
                         }
-                      }
-                      
-                      return displayAvatar ? (
-                        <Image 
-                          source={{ uri: displayAvatar }} 
-                          style={styles.avatarImage}
-                          onError={(error) => {
-                            console.log('🖼️ Avatar load failed for:', normalizedNote.username);
-                          }}
-                        />
-                      ) : (
-                        <Icon name="user" size={16} color={Colors.textGray} />
-                      );
-                    })()}
+                        
+                        return displayAvatar ? (
+                          <Image 
+                            source={{ uri: displayAvatar }} 
+                            style={styles.avatarImage}
+                            onError={(error) => {
+                              console.log('🖼️ Avatar load failed for:', normalizedNote.username);
+                            }}
+                          />
+                        ) : (
+                          <Icon name="user" size={16} color={Colors.textGray} />
+                        );
+                      })()}
+                    </View>
+                    <Text style={styles.userName}>
+                      {(() => {
+                        // Check if this is current user's note and display appropriate username
+                        const isCurrentUserNote = normalizedNote.username === currentUser || 
+                                                normalizedNote.user_id === currentUser ||
+                                                !normalizedNote.username; // If no username, assume current user for home screen
+                        
+                        if (isCurrentUserNote) {
+                          return '@Alex Kim'; // Show formatted username like in note detail page
+                        } else {
+                          const username = normalizedNote.username || normalizedNote.profiles?.username || 'unknown';
+                          return `@${username}`;
+                        }
+                      })()}
+                    </Text>
                   </View>
-                  <Text style={styles.userName}>
-                    {(() => {
-                      // Check if this is current user's note and display appropriate username
-                      const isCurrentUserNote = normalizedNote.username === currentUser || 
-                                              normalizedNote.user_id === currentUser ||
-                                              !normalizedNote.username; // If no username, assume current user for home screen
-                      
-                      if (isCurrentUserNote) {
-                        return '@Alex Kim'; // Show formatted username like in note detail page
-                      } else {
-                        const username = normalizedNote.username || normalizedNote.profiles?.username || 'unknown';
-                        return `@${username}`;
-                      }
-                    })()}
-                  </Text>
+                  
+                  {/* Trending/Popular badge for high star/fork counts */}
+                  {(normalizedNote.starCount >= 5 || normalizedNote.forkCount >= 3) && (
+                    <View style={styles.trendingBadge}>
+                      <Icon name="trending-up" size={12} color={Colors.floatingButton} />
+                      <Text style={styles.trendingText}>Popular</Text>
+                    </View>
+                  )}
                 </View>
                 
-                {/* Trending/Popular badge for high star/fork counts */}
-                {(normalizedNote.starCount >= 5 || normalizedNote.forkCount >= 3) && (
-                  <View style={styles.trendingBadge}>
-                    <Icon name="trending-up" size={12} color={Colors.floatingButton} />
-                    <Text style={styles.trendingText}>Popular</Text>
-                  </View>
-                )}
+                <Text style={styles.publicTitle}>{normalizedNote.title}</Text>
+                
+                {/* Content Preview Text */}
+                <Text style={styles.contentPreviewText} numberOfLines={2}>
+                  {generateContentPreview(normalizedNote)}
+                </Text>
               </View>
-              <Text style={styles.publicTitle}>{normalizedNote.title}</Text>
-              <View style={styles.noteFooter}>
+              
+              {/* Social icons positioned absolutely to not affect centering */}
+              <View style={styles.socialIconsAbsolute}>
+                <TouchableOpacity 
+                  style={styles.statChip}
+                  onPress={handleStarPress}
+                  activeOpacity={0.7}
+                >
+                  <Icon 
+                    name={isStarred(normalizedNote.id) ? "star" : "star"} 
+                    size={12} 
+                    color={isStarred(normalizedNote.id) ? Colors.floatingButton : Colors.secondaryText}
+                    solid={isStarred(normalizedNote.id)} // Use solid for filled star
+                  />
+                  <Text style={[styles.statText, isStarred(normalizedNote.id) && styles.starredText]}>
+                    {localStarCount}
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Fork count display for all public notes */}
+                <View style={styles.statChip}>
+                  <Icon name="git-branch" size={12} color={Colors.secondaryText} />
+                  <Text style={styles.statText}>{normalizedNote.forksCount || normalizedNote.forkCount || normalizedNote.fork_count || 0}</Text>
+                </View>
+              </View>
+            </View>
+          ) : viewMode === viewModes.CONTENT_PREVIEW ? (
+            // Content Preview Mode for Private Notes
+            <View style={styles.contentPreviewContainer}>
+              <Text style={styles.contentPreviewTitle} numberOfLines={1}>
+                {normalizedNote.title}
+              </Text>
+              
+              <Text style={styles.contentPreviewText} numberOfLines={2}>
+                {generateContentPreview(normalizedNote)}
+              </Text>
+              
+              {/* Footer positioned absolutely to not affect centering */}
+              <Text style={styles.contentPreviewTime}>
+                {normalizedNote.timeAgo}
+              </Text>
+            </View>
+          ) : normalizedNote.isPublic ? (
+            // Public note format (same as explore page) - Title Only
+            <View style={styles.publicContent}>
+              <View style={styles.publicTopSection}>
+                <View style={styles.noteHeader}>
+                  <View style={styles.userInfo}>
+                    <View style={styles.avatar}>
+                      {(() => {
+                        // Debug note data for troubleshooting
+                        console.log('🏠 Home note debug:', {
+                          title: normalizedNote.title,
+                          username: normalizedNote.username,
+                          user_id: normalizedNote.user_id,
+                          currentUser: currentUser,
+                          hasProfiles: !!normalizedNote.profiles,
+                          profiles: normalizedNote.profiles
+                        });
+                        
+                        // Check if this is current user's note by multiple criteria
+                        const isCurrentUser = normalizedNote.username === currentUser || 
+                                            normalizedNote.user_id === currentUser ||
+                                            !normalizedNote.username; // If no username, assume current user for home screen
+                        
+                        // Get profile photo for the note author
+                        const authorAvatar = normalizedNote.profiles?.avatar_url;
+                        const currentUserAvatar = userProfilePhoto;
+                        
+                        // For current user's notes, prioritize their actual profile photo
+                        let displayAvatar;
+                        if (isCurrentUser) {
+                          displayAvatar = currentUserAvatar || 'https://i.pravatar.cc/150?img=3';
+                        } else {
+                          // For other users, use their profile or generate consistent avatar
+                          displayAvatar = authorAvatar;
+                          if (!displayAvatar && normalizedNote.username) {
+                            const userHash = normalizedNote.username.length % 70 + 1;
+                            displayAvatar = `https://i.pravatar.cc/150?img=${userHash}`;
+                          }
+                        }
+                        
+                        return displayAvatar ? (
+                          <Image 
+                            source={{ uri: displayAvatar }} 
+                            style={styles.avatarImage}
+                            onError={(error) => {
+                              console.log('🖼️ Avatar load failed for:', normalizedNote.username);
+                            }}
+                          />
+                        ) : (
+                          <Icon name="user" size={16} color={Colors.textGray} />
+                        );
+                      })()}
+                    </View>
+                    <Text style={styles.userName}>
+                      {(() => {
+                        // Check if this is current user's note and display appropriate username
+                        const isCurrentUserNote = normalizedNote.username === currentUser || 
+                                                normalizedNote.user_id === currentUser ||
+                                                !normalizedNote.username; // If no username, assume current user for home screen
+                        
+                        if (isCurrentUserNote) {
+                          return '@Alex Kim'; // Show formatted username like in note detail page
+                        } else {
+                          const username = normalizedNote.username || normalizedNote.profiles?.username || 'unknown';
+                          return `@${username}`;
+                        }
+                      })()}
+                    </Text>
+                  </View>
+                  
+                  {/* Trending/Popular badge for high star/fork counts */}
+                  {(normalizedNote.starCount >= 5 || normalizedNote.forkCount >= 3) && (
+                    <View style={styles.trendingBadge}>
+                      <Icon name="trending-up" size={12} color={Colors.floatingButton} />
+                      <Text style={styles.trendingText}>Popular</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.publicTitle}>{normalizedNote.title}</Text>
+              </View>
+              
+              {/* Social icons positioned absolutely to not affect centering */}
+              <View style={styles.socialIconsAbsolute}>
                 <TouchableOpacity 
                   style={styles.statChip}
                   onPress={handleStarPress}
@@ -332,21 +496,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   noteContent: {
-    padding: 16,
+    padding: 16, // Consistent 16px padding on all sides
     minHeight: 72,
-    justifyContent: 'center',
+    justifyContent: 'center', // Center content vertically
+    position: 'relative', // For absolute positioning of username
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center', // Center title vertically in Title Only mode
+    alignItems: 'flex-start', // Keep text left-aligned
+    paddingVertical: 0, // Remove any extra vertical padding for perfect centering
   },
   title: {
     fontFamily: Typography.fontFamily.primary,
-    fontSize: 16,
+    fontSize: 18, // Increased by 2px for better hierarchy
     fontWeight: Typography.fontWeight.medium,
     color: Colors.textBlack,
     textAlign: 'left',
-    marginBottom: 4,
+    width: '100%', // Full width for proper text alignment
+    lineHeight: 24, // Ensure consistent line height for centering
   },
   forkIndicator: {
     flexDirection: 'row',
@@ -365,6 +533,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textGray,
     fontStyle: 'italic',
+    position: 'absolute', // Position absolutely to not affect title centering
+    bottom: 4, // Position at bottom of card
+    left: 0,
+    right: 0,
   },
   deleteButton: {
     position: 'absolute',
@@ -386,11 +558,20 @@ const styles = StyleSheet.create({
   // Public note styles (same as explore page)
   publicContent: {
     flex: 1,
+    justifyContent: 'center', // Center all content vertically in the card
+    paddingVertical: 0, // Remove extra padding, rely on parent noteContent padding
+  },
+  
+  publicTopSection: {
+    // Groups header and title together for proper spacing
+    flex: 1, // Take up available space to center content
+    justifyContent: 'center', // Center content vertically in Content Preview mode
+    paddingBottom: 16, // Add padding to prevent overlap with social icons
   },
   noteHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Layout.spacing.sm,
+    marginBottom: 8, // Reduced spacing for tighter layout
   },
   userInfo: {
     flexDirection: 'row',
@@ -417,15 +598,17 @@ const styles = StyleSheet.create({
     color: Colors.textGray,
   },
   publicTitle: {
-    fontSize: 16,
+    fontSize: 18, // Increased by 2px for better hierarchy
     fontFamily: Typography.fontFamily.primary,
     color: Colors.textBlack,
     fontWeight: Typography.fontWeight.medium,
-    marginBottom: Layout.spacing.sm,
+    marginBottom: 8, // Reduced spacing for tighter layout
   },
   noteFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 0, // Remove auto margin for content preview centering
+    paddingTop: 0, // Remove extra padding
   },
   forkCount: {
     fontSize: Typography.fontSize.small,
@@ -464,6 +647,62 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: Colors.floatingButton,
     fontWeight: Typography.fontWeight.medium,
+  },
+  
+  // Content Preview Styles
+  noteContentPreview: {
+    backgroundColor: Colors.noteCardBackground,
+    borderRadius: 12,
+    padding: 16, // Consistent 16px padding on all sides
+    marginBottom: Layout.spacing.sm,
+    minHeight: 100,
+    justifyContent: 'center', // Center content vertically
+  },
+  
+  contentPreviewContainer: {
+    flex: 1,
+    justifyContent: 'center', // Center the title+preview group vertically
+    alignItems: 'flex-start', // Keep text left-aligned
+    paddingBottom: 16, // Add padding to prevent overlap with time info
+  },
+  
+  contentPreviewTitle: {
+    fontSize: 18, // Increased by 2px for better hierarchy, consistent with other titles
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.primaryText,
+    marginBottom: 6, // Reduced for tighter, more balanced layout
+  },
+  
+  contentPreviewText: {
+    fontSize: 16, // Increased from small to 16px for better readability
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    lineHeight: 22, // Increased line height for better readability
+    marginBottom: 8, // Remove margin since footer is now absolute positioned
+  },
+  
+  contentPreviewFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
+  contentPreviewTime: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    position: 'absolute', // Position absolutely to not affect title+content centering
+    bottom: 16, // Position 16px from bottom of card
+    left: 0,
+    right: 0,
+  },
+  
+  socialIconsAbsolute: {
+    position: 'absolute', // Position absolutely to not affect content centering
+    bottom: 0, // Position 16px from bottom of card
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

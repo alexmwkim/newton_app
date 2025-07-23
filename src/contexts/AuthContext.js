@@ -23,43 +23,62 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
+        console.log('🚀 AuthContext: Starting initialization...');
+        setLoading(true);
+        setInitialized(false);
+
         // Get current session
-        const { session } = await AuthService.getSession();
-        console.log('🚀 Initial session check:', session?.user?.id);
+        console.log('🔍 AuthContext: Checking initial session...');
+        const { session, error: sessionError } = await AuthService.getSession();
+        
+        if (sessionError) {
+          console.error('❌ AuthContext: Session error:', sessionError);
+          setLoading(false);
+          setInitialized(true);
+          return;
+        }
+
+        console.log('🚀 AuthContext: Session result:', session?.user?.id || 'No session');
         
         if (session?.user) {
-          console.log('🔐 Initial user found, loading profile...');
+          console.log('🔐 AuthContext: Initial user found, setting user state...');
           setUser(session.user);
-          await loadUserProfile(session.user.id);
+          // Skip profile loading for now to speed up initialization
+          console.log('⏭️ AuthContext: Skipping profile loading for faster startup');
         } else {
-          console.log('❌ No initial session found');
+          console.log('❌ AuthContext: No initial session found');
+          setUser(null);
+          setProfile(null);
         }
 
         // Set up auth state listener
-        const { data: authListener } = AuthService.onAuthStateChange(
+        console.log('🔄 AuthContext: Setting up auth state listener...');
+        const { data: listener } = AuthService.onAuthStateChange(
           async (event, session) => {
-            console.log('Auth state changed:', event, session?.user?.id);
+            console.log('🔄 AuthContext: Auth state changed:', event, session?.user?.id || 'No user');
             
             if (session?.user) {
-              console.log('🔐 Setting user:', session.user.id);
+              console.log('🔐 AuthContext: Setting user from auth change:', session.user.id);
               setUser(session.user);
-              await loadUserProfile(session.user.id);
+              // Load profile in background
+              loadUserProfile(session.user.id).catch(err => 
+                console.error('Background profile load error:', err)
+              );
             } else {
-              console.log('🚪 Auth state: No user, clearing state');
+              console.log('🚪 AuthContext: Clearing user state');
               setUser(null);
               setProfile(null);
             }
-            
-            // Always clear loading state after handling auth change
-            setLoading(false);
-            console.log('🔄 Auth state change handled, loading set to false');
           }
         );
 
+        authListener = listener;
+
+        console.log('✅ AuthContext: Initialization complete');
         setInitialized(true);
         setLoading(false);
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('❌ AuthContext: Initialization error:', error);
         setLoading(false);
         setInitialized(true);
       }
@@ -69,6 +88,7 @@ export const AuthProvider = ({ children }) => {
 
     // Cleanup listener on unmount
     return () => {
+      console.log('🧹 AuthContext: Cleaning up auth listener');
       if (authListener?.subscription) {
         authListener.subscription.unsubscribe();
       }
