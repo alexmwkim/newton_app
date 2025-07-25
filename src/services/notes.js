@@ -27,6 +27,8 @@ class NotesService {
         is_public: noteData.isPublic || false,
         slug: noteData.slug || this.generateSlug(noteData.title),
         user_id: noteData.userId,  // Use auth user ID directly, not profile ID
+        parent_note_id: noteData.parentNoteId || null, // Support parent-child relationship
+        is_subpage: noteData.isSubpage || false, // Flag for subpages
       };
       console.log('📝 Inserting note data:', insertData);
       

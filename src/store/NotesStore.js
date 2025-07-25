@@ -78,7 +78,7 @@ export const useNotesStore = () => {
             console.log('💾 ✅ Synced Supabase pinned notes to AsyncStorage:', supabasePinned);
             
           } catch (pinnedError) {
-            console.error('⚠️ Supabase pinned notes error, falling back to AsyncStorage:', pinnedError);
+            console.warn('⚠️ Supabase pinned notes temporarily unavailable, using AsyncStorage:', pinnedError.message || 'Connection issue');
             
             // Fallback to AsyncStorage
             const savedPinned = await AsyncStorage.getItem(`pinnedNotes_${user.id}`);
@@ -182,10 +182,15 @@ export const useNotesStore = () => {
     }
   }, [user?.id]);
 
-  // Use real Supabase data (not mock data) - Stabilize with useMemo
-  const allUserNotes = React.useMemo(() => stableSupabaseData.notes || [], [stableSupabaseData.notes]);
+  // Use real Supabase data (not mock data) - Stabilize with useMemo and filter out subpages
+  const allUserNotes = React.useMemo(() => {
+    const notes = stableSupabaseData.notes || [];
+    // Filter out subpages from main notes list to prevent duplicate display on home screen
+    return notes.filter(note => !note.is_subpage && !note.parent_note_id);
+  }, [stableSupabaseData.notes]);
+  
   const privateNotes = React.useMemo(() => allUserNotes.filter(note => !note.is_public), [allUserNotes]);
-  const userPublicNotes = React.useMemo(() => allUserNotes.filter(note => note.is_public), [allUserNotes]); // User's own public notes
+  const userPublicNotes = React.useMemo(() => allUserNotes.filter(note => note.is_public), [allUserNotes]); // User's own public notes (excluding subpages)
   
   console.log('🔀 Using REAL SUPABASE DATA - User notes:', allUserNotes.length, 'Private:', privateNotes.length, 'User public:', userPublicNotes.length);
 
@@ -567,10 +572,11 @@ export const useNotesStore = () => {
     getNoteById: async (noteId) => {
       console.log('🔍 getNoteById 호출됨, noteId:', noteId);
       
-      // First check if note exists in current store data
-      const localNote = allUserNotes.find(note => note.id === noteId);
+      // First check if note exists in current store data (including subpages)
+      const allRawNotes = stableSupabaseData.notes || [];
+      const localNote = allRawNotes.find(note => note.id === noteId);
       if (localNote) {
-        console.log('✅ 로컬 스토어에서 노트 발견:', localNote.title);
+        console.log('✅ 로컬 스토어에서 노트 발견 (subpage 포함):', localNote.title);
         return localNote;
       }
       

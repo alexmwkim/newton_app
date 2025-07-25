@@ -99,7 +99,7 @@ export const useNotesStore = create()(
               // Folders first, then notes
               if (a.type === 'folder' && b.type === 'note') return -1;
               if (a.type === 'note' && b.type === 'folder') return 1;
-              return a.title.localeCompare(b.title);
+              return (a.title || '').localeCompare(b.title || '');
             });
         };
         return buildTree(null);
@@ -117,7 +117,7 @@ export const useNotesStore = create()(
           .sort((a, b) => {
             if (a.type === 'folder' && b.type === 'note') return -1;
             if (a.type === 'note' && b.type === 'folder') return 1;
-            return a.title.localeCompare(b.title);
+            return (a.title || '').localeCompare(b.title || '');
           });
       },
 

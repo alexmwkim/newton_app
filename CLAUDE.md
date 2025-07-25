@@ -290,3 +290,7 @@ Since this is a mobile-first React Native + Expo project:
 
 - **Strict Supabase Policy:**
   - 절대 비활성화 시키지마 supabase
+
+## Development Server Guidelines
+- Don't start new Expo servers. Use my existing running server instead.
+- Just modify files - don't run expo commands.

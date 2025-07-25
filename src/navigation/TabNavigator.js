@@ -82,8 +82,24 @@ const TabNavigator = ({ logout }) => {
       case 'profile':
         return <ProfileScreen key="profile-screen" navigation={navigationProps} />;
       case 'noteDetail':
-        console.log('📄 Rendering NoteDetailScreen with screenProps:', screenProps);
-        return <NoteDetailScreen key="note-detail" {...screenProps} onBack={goBack} navigation={navigationProps} />;
+        console.log('🔍 DEBUG - screenProps:', JSON.stringify(screenProps, null, 2));
+        console.log('🔍 DEBUG - screenProps.noteId:', screenProps?.noteId);
+        console.log('🔍 DEBUG - typeof screenProps:', typeof screenProps);
+        console.log('🔍 DEBUG - screenProps is null?', screenProps === null);
+        console.log('🔍 DEBUG - screenProps is undefined?', screenProps === undefined);
+        
+        return <NoteDetailScreen 
+          key="note-detail" 
+          noteId={screenProps?.noteId || 'MISSING_NOTE_ID'}
+          note={screenProps?.note || null}
+          isStarredNote={screenProps?.isStarredNote || false}
+          returnToScreen={screenProps?.returnToScreen}
+          returnToTab={screenProps?.returnToTab}
+          onStarredRemove={screenProps?.onStarredRemove}
+          onBack={goBack} 
+          navigation={navigationProps}
+          route={{ params: screenProps }}
+        />;
       case 'createNote':
         console.log('🎭 Rendering CreateNoteScreen with screenProps:', screenProps);
         return <CreateNoteScreen key="create-note" {...screenProps} onBack={goBack} navigation={navigationProps} />;
