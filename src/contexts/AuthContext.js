@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AuthService from '../services/auth';
 import ProfileService from '../services/profiles';
+import { testSupabaseConnection } from '../services/supabase';
 
 const AuthContext = createContext({});
 
@@ -98,6 +99,14 @@ export const AuthProvider = ({ children }) => {
   const loadUserProfile = async (userId) => {
     try {
       console.log('👤 Loading profile for user:', userId);
+      
+      // Test network connection first
+      const isConnected = await testSupabaseConnection();
+      if (!isConnected) {
+        console.warn('⚠️ Network connection failed, skipping profile load');
+        return;
+      }
+      
       const { data: profileData, error } = await ProfileService.getProfile(userId);
       
       if (error || !profileData) {

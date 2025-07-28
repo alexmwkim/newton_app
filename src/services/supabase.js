@@ -31,6 +31,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       'X-Client-Info': 'newton-app-react-native',
       'X-Client-Version': '1.0.0',
     },
+    // Add timeout and retry configuration
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        timeout: 10000, // 10 second timeout
+      });
+    },
   },
   db: {
     schema: 'public',
@@ -52,5 +59,27 @@ if (__DEV__) {
   
   console.log('🔒 Supabase client initialized securely with anon key + RLS');
 }
+
+// 🔍 Network connectivity test function
+export const testSupabaseConnection = async () => {
+  try {
+    console.log('🌐 Testing Supabase connection...');
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('count')
+      .limit(1);
+    
+    if (error) {
+      console.error('❌ Supabase connection test failed:', error.message);
+      return false;
+    }
+    
+    console.log('✅ Supabase connection test successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Network connection failed:', error.message);
+    return false;
+  }
+};
 
 export default supabase;

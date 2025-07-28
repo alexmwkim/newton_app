@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Keyboard
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
@@ -87,10 +88,19 @@ const CardBlock = ({ card, onContentChange, onDelete, isEditing, style }) => {
   );
 };
 
+
 const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen, route }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading, initialized } = useAuth();
   const notesStore = useNotesStore();
   const noteData = note || initialNote;
+  
+  // Debug user state
+  console.log('🔍 CreateNoteScreen - Auth state:', {
+    user: !!user,
+    userId: user?.id,
+    authLoading,
+    initialized
+  });
   
   // Get initial values from route params if available
   const routeParams = route?.params || {};
@@ -105,6 +115,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [activeInput, setActiveInput] = useState(null);
+  const [textInputLayout, setTextInputLayout] = useState({ y: 0, height: 0 });
   
   const titleInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -153,36 +164,150 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     console.log('🗑️ Deleted visual card block:', cardId);
   };
 
-  // Render content with visual card blocks (NO markdown parsing)
+  // Calculate cursor position based on touch location
+  const calculateCursorPosition = (touchY, textInputY) => {
+    const fontSize = 16;
+    const lineHeight = 24;
+    const padding = 16;
+    
+    // Calculate relative Y position within the text input
+    const relativeY = touchY - textInputY - padding;
+    
+    if (relativeY < 0) {
+      // Touched above text, place cursor at start
+      return 0;
+    }
+    
+    // Estimate which line was touched
+    const lineNumber = Math.floor(relativeY / lineHeight);
+    const lines = content.split('\n');
+    
+    if (lineNumber >= lines.length) {
+      // Touched below all text, place cursor at end
+      return content.length;
+    }
+    
+    // Calculate character index for the touched line
+    let characterIndex = 0;
+    for (let i = 0; i < lineNumber; i++) {
+      characterIndex += lines[i].length + 1; // +1 for newline
+    }
+    
+    // For now, place cursor at end of the touched line
+    // Could be enhanced to handle X position as well
+    characterIndex += lines[lineNumber].length;
+    
+    return Math.min(characterIndex, content.length);
+  };
+
+  // Focus the main content input with touch position
+  const focusMainContentAtPosition = useCallback((touchEvent = null) => {
+    console.log('🎯 focusMainContentAtPosition called');
+    console.log('📊 Debug info:', {
+      contentInputRefCurrent: !!contentInputRef.current,
+      contentLength: content.length,
+      hasTouchEvent: !!touchEvent
+    });
+    
+    setTimeout(() => {
+      console.log('🎯 Attempting to focus main TextInput');
+      
+      if (contentInputRef.current) {
+        contentInputRef.current.focus();
+        
+        // Calculate cursor position based on touch location
+        setTimeout(() => {
+          if (contentInputRef.current) {
+            let cursorPosition = content.length; // Default to end
+            
+            if (touchEvent && touchEvent.nativeEvent && typeof touchEvent.nativeEvent.pageY === 'number') {
+              // Get touch coordinates
+              const { pageY } = touchEvent.nativeEvent;
+              
+              // Use actual text input position from layout
+              const textInputY = textInputLayout.y || 200; // Fallback to estimation
+              cursorPosition = calculateCursorPosition(pageY, textInputY);
+              
+              console.log('🎯 Touch Y:', pageY, 'TextInput Y:', textInputY, 'Calculated cursor position:', cursorPosition);
+            } else {
+              console.log('⚠️ No valid touch event, using default cursor position');
+            }
+            
+            contentInputRef.current.setSelection(cursorPosition, cursorPosition);
+            console.log('🎯 Cursor set to position:', cursorPosition);
+          }
+        }, 50);
+        
+        setActiveInput('content');
+        console.log('✅ Main TextInput focus called');
+      } else {
+        console.log('❌ Main TextInput ref is null');
+      }
+    }, 100);
+  }, [content]);
+
+  // Legacy function for backward compatibility
+  const focusMainContent = useCallback(() => {
+    focusMainContentAtPosition(null);
+  }, [focusMainContentAtPosition]);
+
+  // Render content with visual card blocks and full touch coverage
   const renderContentWithCards = () => {
     return (
       <View style={styles.contentWithCards}>
-        {/* Main text input */}
-        <TextInput
-          ref={contentInputRef}
-          style={[styles.contentText, styles.contentInput]}
-          value={content}
-          onChangeText={setContent}
-          onSelectionChange={(event) => {
-            const { start, end } = event.nativeEvent.selection;
-            setContentSelection({ start, end });
-            setCursorPosition(start);
+        {/* Main text input - flows with content */}
+        <View
+          style={{ marginBottom: 0, paddingBottom: 0 }}
+          onLayout={(event) => {
+            const { y, height } = event.nativeEvent.layout;
+            setTextInputLayout({ y, height });
+            console.log('📐 TextInput layout:', { y, height });
           }}
-          onFocus={() => setActiveInput('content')}
-          placeholder="Write your note..."
-          placeholderTextColor={Colors.secondaryText}
-          multiline={true}
-          textAlignVertical="top"
-          autoComplete="off"
-          autoCorrect={false}
-          spellCheck={false}
-          autoCapitalize="sentences"
-        />
+        >
+          <TextInput
+            ref={contentInputRef}
+            style={[
+              styles.contentText, 
+              styles.contentInput,
+              {
+                fontSize: 16,
+                lineHeight: 24,
+                paddingHorizontal: 16,
+                paddingTop: 16,
+                paddingBottom: 0, // Remove bottom padding
+                textAlignVertical: 'top',
+                minHeight: 50, // Much smaller minimum height
+                marginBottom: 0, // Remove any margin
+              }
+            ]}
+            value={content}
+            onChangeText={setContent}
+            onSelectionChange={(event) => {
+              const { start, end } = event.nativeEvent.selection;
+              setContentSelection({ start, end });
+              setCursorPosition(start);
+            }}
+            onFocus={() => {
+              console.log('🎯 CreateNote Content focused - ref exists:', !!contentInputRef.current);
+              setActiveInput('content');
+            }}
+            placeholder="Write your note..."
+            placeholderTextColor={Colors.secondaryText}
+            multiline={true}
+            editable={true}
+            focusable={true}
+            textAlignVertical="top"
+            autoComplete="off"
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="sentences"
+          />
+        </View>
         
-        {/* Visual card blocks below text input */}
+        {/* Visual card blocks immediately after text */}
         <View style={styles.cardsContainer}>
           {cardBlocks.map((card, index) => (
-            <View key={card.id} style={styles.cardWrapper}>
+            <View key={card.id} style={[styles.cardWrapper, { pointerEvents: 'auto', zIndex: 1 }]}>
               <CardBlock
                 card={card}
                 onContentChange={handleCardContentChange}
@@ -192,29 +317,67 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
             </View>
           ))}
         </View>
+
+        {/* Clickable area below cards */}
+        <TouchableWithoutFeedback onPress={(event) => {
+          // Extract touch coordinates immediately to avoid event pooling issues
+          const touchY = event.nativeEvent.pageY;
+          console.log('🎯 Touch captured, Y:', touchY);
+          
+          // Create a persistent event object
+          const persistentEvent = {
+            nativeEvent: {
+              pageY: touchY
+            }
+          };
+          
+          focusMainContentAtPosition(persistentEvent);
+        }}>
+          <View style={{ minHeight: 300, width: '100%', backgroundColor: 'transparent' }} />
+        </TouchableWithoutFeedback>
       </View>
     );
   };
 
   const handleSave = async () => {
-    if (!user) {
-      Alert.alert('Error', 'You must be logged in to save notes');
+    console.log('💾 CreateNoteScreen handleSave called');
+    console.log('👤 User full object:', user);
+    console.log('👤 User ID:', user?.id);
+    console.log('👤 User email:', user?.email);
+    console.log('📝 Title:', title.trim(), 'Content length:', content.trim().length);
+    
+    if (authLoading || !initialized) {
+      console.log('⏳ Auth still loading, please wait...');
+      Alert.alert('Please wait', 'Authentication is still loading. Please try again in a moment.');
+      return;
+    }
+
+    if (!user || !user.id) {
+      console.log('❌ No user or user ID available');
+      console.log('❌ User object:', user);
+      console.log('❌ Auth loading:', authLoading);
+      console.log('❌ Auth initialized:', initialized);
+      Alert.alert('Error', 'You must be logged in to save notes. Please try logging out and back in.');
       return;
     }
 
     const titleText = title.trim();
     const contentText = cleanLegacyContent(content.trim());
     
-    if (!titleText) {
-      Alert.alert('Error', 'Please enter a title for your note');
+    console.log('📝 Processed data:', { titleText, contentLength: contentText.length, isPublic });
+    
+    if (!titleText && !contentText) {
+      console.log('❌ No title or content provided');
+      Alert.alert('Error', 'Please enter a title or content for your note');
       return;
     }
 
+    console.log('⏳ Starting save process...');
     setIsLoading(true);
     
     try {
       const newNoteData = {
-        title: titleText,
+        title: titleText || 'Untitled',
         content: contentText,
         isPublic: isPublic,
         // TODO: Add cardBlocks when Supabase schema is updated
@@ -226,7 +389,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
       if (isEditing && noteData?.id) {
         // Update existing note
         await notesStore.updateNote(noteData.id, {
-          title: titleText,
+          title: titleText || 'Untitled',
           content: contentText,
           is_public: isPublic,
           // TODO: Add cardBlocks when Supabase schema is updated
@@ -239,10 +402,13 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
         Alert.alert('Success', 'Note updated successfully');
       } else {
         // Create new note
+        console.log('🆕 Creating new note with data:', newNoteData);
         const createdNote = await notesStore.createNote(newNoteData);
+        console.log('✅ Note created:', createdNote);
         
         // Save card blocks to local storage for new note
         if (cardBlocks.length > 0 && createdNote?.id) {
+          console.log('💾 Saving card blocks for note:', createdNote.id);
           AsyncStorage.setItem(`cardBlocks_${createdNote.id}`, JSON.stringify(cardBlocks));
         }
         
@@ -250,10 +416,12 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
       }
       
       if (onSave) {
+        console.log('🔄 Calling onSave callback');
         onSave(newNoteData);
       }
       
       // Navigate back
+      console.log('🔙 Navigating back');
       if (navigation) {
         navigation.goBack();
       } else if (onBack) {
@@ -261,8 +429,9 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
       }
       
     } catch (error) {
-      console.error('Failed to save note:', error);
-      Alert.alert('Error', 'Failed to save note. Please try again.');
+      console.error('❌ Failed to save note:', error);
+      console.error('❌ Error details:', error.message);
+      Alert.alert('Error', `Failed to save note: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -305,13 +474,15 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
 
   const hasContent = title.trim().length > 0 || content.trim().length > 0;
 
+  console.log('🔍 CreateNote render - keyboardVisible:', keyboardVisible, 'keyboardHeight:', keyboardHeight);
+
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-      >
+        <KeyboardAvoidingView 
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        >
         {/* Header */}
         <View style={styles.header}>
           <SingleToggleComponent
@@ -343,6 +514,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
         {/* Content */}
         <ScrollView 
           style={styles.content} 
+          contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustContentInsets={true}
@@ -367,7 +539,10 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
             autoCorrect={false}
             spellCheck={false}
             autoCapitalize="sentences"
-            onFocus={() => setActiveInput('title')}
+            onFocus={() => {
+              console.log('🎯 CreateNote Title focused');
+              setActiveInput('title');
+            }}
             onSubmitEditing={() => {
               contentInputRef.current?.focus();
               setActiveInput('content');
@@ -377,34 +552,101 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           {/* Content Input with Cards */}
           {renderContentWithCards()}
         </ScrollView>
-
-        {/* Keyboard Toolbar - shows above keyboard when active */}
-        {keyboardVisible && (
-          <View style={[styles.keyboardToolbar, { bottom: 0 }]}>
-            <TouchableOpacity onPress={handleAddCard} style={styles.toolbarIconButton}>
-              <Icon name="file-plus" size={24} color={Colors.primaryText} />
-            </TouchableOpacity>
-            
-            {/* Future toolbar options */}
-            <TouchableOpacity style={styles.toolbarIconButton}>
-              <Icon name="image" size={24} color={Colors.secondaryText} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.toolbarIconButton}>
-              <Icon name="link" size={24} color={Colors.secondaryText} />
-            </TouchableOpacity>
-            
-            <View style={styles.toolbarSpacer} />
-            
-            <TouchableOpacity 
-              onPress={() => Keyboard.dismiss()}
-              style={styles.toolbarDoneButton}
-            >
-              <Text style={styles.toolbarDoneText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </KeyboardAvoidingView>
+
+      {/* Keyboard Toolbar - positioned ABOVE keyboard */}
+      {keyboardVisible && (
+        <View style={{
+          position: 'absolute',
+          bottom: keyboardHeight, // This positions it ABOVE the keyboard
+          left: 0,
+          right: 0,
+          backgroundColor: '#f8f9fa',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 16,
+          zIndex: 1000,
+        }}>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('📎 CreateNote toolbar - Add card pressed');
+              handleAddCard();
+            }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              backgroundColor: '#ffffff',
+              justifyContent: 'center',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              elevation: 4,
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="file-plus" size={24} color={Colors.primaryText} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            backgroundColor: '#ffffff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 4,
+            elevation: 4,
+          }}>
+            <Icon name="image" size={24} color={Colors.secondaryText} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            backgroundColor: '#ffffff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 4,
+            elevation: 4,
+          }}>
+            <Icon name="link" size={24} color={Colors.secondaryText} />
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1 }} />
+          
+          <TouchableOpacity 
+            onPress={() => Keyboard.dismiss()}
+            style={{
+              backgroundColor: Colors.floatingButton,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 6,
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              color: '#ffffff',
+              fontSize: 14,
+              fontWeight: '600',
+            }}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -515,18 +757,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   contentArea: {
-    flex: 1,
-    minHeight: 400,
+    minHeight: 50,
   },
   contentInput: {
     fontSize: 16,
     fontFamily: 'System',
     color: Colors.primaryText,
     lineHeight: 24,
-    padding: 16,
-    minHeight: 300,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
+    minHeight: 50,
     backgroundColor: 'transparent',
     borderWidth: 0,
+    margin: 0,
   },
   quickActions: {
     flexDirection: 'row',
@@ -556,10 +800,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
   },
   keyboardToolbar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#f8f9fa',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
@@ -568,7 +808,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Layout.spacing.md,
-    zIndex: 1000,
+    minHeight: 50,
   },
   toolbarIconButton: {
     width: 40,
@@ -602,22 +842,21 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
   },
   contentWithCards: {
-    flex: 1,
-    minHeight: 400,
+    minHeight: 50,
   },
   cardsContainer: {
-    paddingTop: Layout.spacing.md,
-    gap: Layout.spacing.md,
+    paddingTop: 0,
+    gap: Layout.spacing.sm,
   },
   cardWrapper: {
-    marginBottom: Layout.spacing.sm,
+    marginBottom: 0,
   },
 });
 
 // Styles for CardBlock component (identical to NoteDetailScreen)
 const cardBlockStyles = StyleSheet.create({
   container: {
-    marginBottom: Layout.spacing.md,
+    marginBottom: 0,
   },
   card: {
     backgroundColor: Colors.noteCard,

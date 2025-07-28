@@ -13,7 +13,8 @@ import {
   Image,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  InputAccessoryView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
@@ -57,6 +58,7 @@ const normalizeNote = (noteData) => {
     content: cleanLegacyContent(noteData.content)
   };
 };
+
 
 // CardBlock component for draggable cards within notes
 const CardBlock = ({ card, onContentChange, onDelete, isEditing, style }) => {
@@ -127,25 +129,52 @@ const NoteDetailScreen = ({
   const [loadingNote, setLoadingNote] = useState(true);
   const [storeNote, setStoreNote] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [cardBlocks, setCardBlocks] = useState([]);
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const [contentSelection, setContentSelection] = useState({ start: 0, end: 0 });
-  const [contentBlocks, setContentBlocks] = useState([]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [activeInput, setActiveInput] = useState(null);
   
   // Refs
   const titleInputRef = useRef(null);
   const scrollViewRef = useRef(null);
   const contentInputRef = useRef(null);
+
+  // Card blocks state
+  const [cardBlocks, setCardBlocks] = useState([]);
+
+  // Add card functionality (matching CreateNoteScreen)
+  const handleAddCard = () => {
+    const cardId = `card-${Date.now()}`;
+    const newCard = {
+      id: cardId,
+      content: '',
+      layout: 'single',
+      position: cardBlocks.length
+    };
+    
+    setCardBlocks(prev => [...prev, newCard]);
+    console.log('✅ Added visual card block:', cardId);
+    Keyboard.dismiss();
+  };
+
+  // Card management functions (matching CreateNoteScreen)
+  const handleCardContentChange = (cardId, content) => {
+    setCardBlocks(prev => 
+      prev.map(card => 
+        card.id === cardId ? { ...card, content } : card
+      )
+    );
+  };
+
+  const handleDeleteCard = (cardId) => {
+    setCardBlocks(prev => prev.filter(card => card.id !== cardId));
+    console.log('🗑️ Deleted visual card block:', cardId);
+  };
   
   // Store and auth
   const notesStore = useNotesStore();
   const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite, toggleStarred, isStarred } = notesStore;
   const { user } = useAuth();
   
-  // Load note data
+  // Load note data and card blocks
   useEffect(() => {
     const loadNote = async () => {
       console.log('🔍 Loading note for ID:', noteId);
@@ -169,9 +198,25 @@ const NoteDetailScreen = ({
         setLoadingNote(false);
       }
     };
+
+    const loadCardBlocks = async () => {
+      if (!noteId) return;
+      
+      try {
+        const savedCards = await AsyncStorage.getItem(`cardBlocks_${noteId}`);
+        if (savedCards) {
+          const parsedCards = JSON.parse(savedCards);
+          setCardBlocks(parsedCards);
+          console.log('📋 Loaded saved card blocks:', parsedCards.length);
+        }
+      } catch (error) {
+        console.log('❌ Error loading card blocks:', error);
+      }
+    };
     
     if (noteId) {
       loadNote();
+      loadCardBlocks();
     } else {
       console.warn('⚠️ NoteDetailScreen: noteId is missing');
       setLoadingNote(false);
@@ -195,36 +240,11 @@ const NoteDetailScreen = ({
     return displayNote.user_id === user.id || !displayNote.user_id; // Allow editing if no user_id set
   }, [displayNote?.user_id, user?.id]); // More specific dependencies
   
-  // Initialize content blocks from note data
+  // Initialize content from note data
   useEffect(() => {
     if (displayNote && !loadingNote) {
       setTitle(prev => prev !== displayNote.title ? (displayNote.title || '') : prev);
-      
-      // Initialize content blocks - start with single text block
-      const initialContent = displayNote.content || '';
-      if (initialContent && contentBlocks.length === 0) {
-        setContentBlocks([{
-          id: 'text-0',
-          type: 'text',
-          content: initialContent
-        }]);
-      }
-      
-      // Load and integrate saved card blocks
-      const loadCardBlocks = async () => {
-        try {
-          const savedCards = await AsyncStorage.getItem(`cardBlocks_${displayNote.id}`);
-          if (savedCards) {
-            const parsedCards = JSON.parse(savedCards);
-            // TODO: Integrate saved cards into block structure
-            console.log('🔄 Found saved card blocks:', parsedCards.length);
-          }
-        } catch (error) {
-          console.log('❌ Error loading card blocks:', error);
-        }
-      };
-      
-      loadCardBlocks();
+      setContent(prev => prev !== displayNote.content ? (displayNote.content || '') : prev);
     }
   }, [displayNote?.id, loadingNote]);
   
@@ -240,7 +260,6 @@ const NoteDetailScreen = ({
       console.log('🎹 Keyboard hidden');
       setKeyboardVisible(false);
       setKeyboardHeight(0);
-      setActiveInput(null);
     });
 
     return () => {
@@ -249,31 +268,28 @@ const NoteDetailScreen = ({
     };
   }, []);
   
-  // Auto-save changes (debounced) - content blocks system
+  // Auto-save changes (debounced) - including card blocks
   useEffect(() => {
     if (!isAuthor || loadingNote || !noteId) return;
     
     const timer = setTimeout(() => {
-      if (title.trim() || contentBlocks.length > 0) {
-        // Reconstruct content from text blocks for saving
-        const reconstructedContent = contentBlocks
-          .filter(block => block.type === 'text')
-          .map(block => block.content)
-          .join('\n');
-        
-        console.log('💾 Auto-saving changes (block-based content)');
+      if (title.trim() || content.trim()) {
+        console.log('💾 Auto-saving changes');
         updateNote(noteId, {
           title: title || displayNote.title,
-          content: cleanLegacyContent(reconstructedContent)
+          content: cleanLegacyContent(content)
         });
         
-        // Save content blocks structure to local storage
-        AsyncStorage.setItem(`contentBlocks_${noteId}`, JSON.stringify(contentBlocks));
+        // Save card blocks to AsyncStorage
+        if (cardBlocks.length > 0) {
+          AsyncStorage.setItem(`cardBlocks_${noteId}`, JSON.stringify(cardBlocks));
+          console.log('💾 Auto-saved card blocks:', cardBlocks.length);
+        }
       }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [title, contentBlocks, isAuthor, noteId, loadingNote]);
+  }, [title, content, cardBlocks, isAuthor, noteId, loadingNote]);
   
   // Handlers
   const handleBack = useCallback(() => {
@@ -285,11 +301,14 @@ const NoteDetailScreen = ({
     updateNote(noteId, {
       title: title.trim(),
       content: cleanLegacyContent(content.trim())
-      // TODO: Add cardBlocks when Supabase schema is updated
     });
     
-    // Save card blocks to local storage for now
-    AsyncStorage.setItem(`cardBlocks_${noteId}`, JSON.stringify(cardBlocks));
+    // Save card blocks to AsyncStorage
+    if (cardBlocks.length > 0) {
+      AsyncStorage.setItem(`cardBlocks_${noteId}`, JSON.stringify(cardBlocks));
+      console.log('💾 Manual saved card blocks:', cardBlocks.length);
+    }
+    
     setIsEditing(false);
   }, [noteId, title, content, cardBlocks, updateNote]);
   
@@ -300,6 +319,8 @@ const NoteDetailScreen = ({
     setTimeout(() => {
       if (field === 'title' && titleInputRef.current) {
         titleInputRef.current.focus();
+      } else if (field === 'content' && contentInputRef.current) {
+        contentInputRef.current.focus();
       }
     }, 100);
   }, [isAuthor]);
@@ -355,181 +376,46 @@ const NoteDetailScreen = ({
     );
   }, [noteId, isFavorite, toggleFavorite]);
 
-  // Handle add card button - insert at current cursor position
-  const handleAddCard = useCallback(() => {
-    if (typeof activeInput === 'object' && activeInput.blockIndex !== undefined) {
-      insertCardAtCursor(activeInput.blockIndex, activeInput.cursorPos || 0);
-    } else {
-      // Fallback: add card at end
-      const cardId = `card-${Date.now()}`;
-      setContentBlocks(prev => [...prev, {
-        id: cardId,
-        type: 'card',
-        content: ''
-      }]);
-      Keyboard.dismiss();
-    }
-  }, [activeInput, insertCardAtCursor]);
-
-  const handleCardContentChange = useCallback((cardId, content) => {
-    setCardBlocks(prev => 
-      prev.map(card => 
-        card.id === cardId ? { ...card, content } : card
-      )
-    );
-  }, []);
-
-  const handleDeleteCard = useCallback((cardId) => {
-    setCardBlocks(prev => prev.filter(card => card.id !== cardId));
-    console.log('🗑️ Deleted visual card block:', cardId);
-  }, []);
-
-  // Insert card at current cursor position
-  const insertCardAtCursor = useCallback((focusedBlockIndex, cursorPos) => {
-    const cardId = `card-${Date.now()}`;
-    
-    setContentBlocks(prev => {
-      const newBlocks = [...prev];
-      const focusedBlock = newBlocks[focusedBlockIndex];
-      
-      if (focusedBlock && focusedBlock.type === 'text') {
-        const beforeCursor = focusedBlock.content.substring(0, cursorPos);
-        const afterCursor = focusedBlock.content.substring(cursorPos);
-        
-        // Replace focused block with split content and new card
-        const replacementBlocks = [];
-        
-        // Add text before cursor (if any)
-        if (beforeCursor.trim() || beforeCursor.length > 0) {
-          replacementBlocks.push({
-            id: `text-${Date.now()}-before`,
-            type: 'text',
-            content: beforeCursor
-          });
-        }
-        
-        // Add new card
-        replacementBlocks.push({
-          id: cardId,
-          type: 'card',
-          content: ''
-        });
-        
-        // Add text after cursor (if any)
-        if (afterCursor.trim() || afterCursor.length > 0) {
-          replacementBlocks.push({
-            id: `text-${Date.now()}-after`,
-            type: 'text',
-            content: afterCursor
-          });
-        }
-        
-        // Replace the focused block with the new blocks
-        newBlocks.splice(focusedBlockIndex, 1, ...replacementBlocks);
-        
-        console.log('✅ Inserted card at cursor position:', cursorPos);
-      }
-      
-      return newBlocks;
-    });
-    
-    // Dismiss keyboard
-    Keyboard.dismiss();
-  }, []);
   
-  // Focus the last text block for editing
-  const focusLastTextBlock = useCallback(() => {
+  // Focus content input
+  const focusContent = () => {
     if (!isAuthor) return;
     
-    // Find the last text block
-    const lastTextBlockIndex = contentBlocks.map(b => b.type).lastIndexOf('text');
-    
-    if (lastTextBlockIndex >= 0) {
-      setActiveInput({ blockIndex: lastTextBlockIndex, cursorPos: contentBlocks[lastTextBlockIndex].content.length });
-      // Focus will be handled by the TextInput component
-    } else if (contentBlocks.length === 0) {
-      // Create initial text block if none exist
-      setContentBlocks([{
-        id: 'text-0',
-        type: 'text',
-        content: ''
-      }]);
-      setTimeout(() => {
-        setActiveInput({ blockIndex: 0, cursorPos: 0 });
-      }, 100);
-    }
-  }, [contentBlocks, isAuthor]);
+    setTimeout(() => {
+      if (contentInputRef.current) {
+        contentInputRef.current.focus();
+        console.log('✅ Content TextInput focused');
+      }
+    }, 100);
+  };
   
-  // Render block-based content system with full-screen touch area
-  const renderBlockContent = useCallback(() => {
+  // Simple full-page content input
+  const renderContent = useCallback(() => {
     return (
-      <TouchableWithoutFeedback onPress={focusLastTextBlock}>
-        <View style={[styles.contentWithCards, { minHeight: 400 }]}>
-          {contentBlocks.map((block, index) => {
-            if (block.type === 'text') {
-              return (
-                <TextInput
-                  key={block.id}
-                  ref={activeInput?.blockIndex === index ? contentInputRef : null}
-                  style={[styles.contentText, styles.textBlockInput]}
-                  value={block.content}
-                  onChangeText={(newText) => {
-                    setContentBlocks(prev => 
-                      prev.map(b => 
-                        b.id === block.id ? { ...b, content: newText } : b
-                      )
-                    );
-                  }}
-                  onSelectionChange={(event) => {
-                    const { start } = event.nativeEvent.selection;
-                    setCursorPosition(start);
-                    setActiveInput({ blockIndex: index, cursorPos: start });
-                  }}
-                  onFocus={() => {
-                    setActiveInput({ blockIndex: index, cursorPos: block.content.length });
-                  }}
-                  placeholder={index === 0 ? "Start writing..." : "Continue writing..."}
-                  placeholderTextColor={Colors.secondaryText}
-                  multiline={true}
-                  editable={isAuthor}
-                  textAlignVertical="top"
-                  autoComplete="off"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoCapitalize="sentences"
-                />
-              );
-            } else if (block.type === 'card') {
-              return (
-                <View key={block.id} style={[styles.cardWrapper, { pointerEvents: 'box-none' }]}>
-                  <View style={{ pointerEvents: 'auto' }}>
-                    <CardBlock
-                      card={block}
-                      onContentChange={(cardId, content) => {
-                        setContentBlocks(prev => 
-                          prev.map(b => 
-                            b.id === cardId ? { ...b, content } : b
-                          )
-                        );
-                      }}
-                      onDelete={(cardId) => {
-                        setContentBlocks(prev => prev.filter(b => b.id !== cardId));
-                      }}
-                      isEditing={isAuthor}
-                    />
-                  </View>
-                </View>
-              );
-            }
-            return null;
-          })}
-          
-          {/* Empty space at bottom to ensure full area is clickable */}
-          <View style={{ minHeight: 200, width: '100%' }} />
+      <TouchableWithoutFeedback onPress={focusContent}>
+        <View style={styles.contentArea}>
+          <TextInput
+            ref={contentInputRef}
+            style={styles.fullPageTextInput}
+            value={content}
+            onChangeText={setContent}
+            placeholder="Start writing..."
+            placeholderTextColor={Colors.secondaryText}
+            multiline={true}
+            editable={isAuthor}
+            focusable={true}
+            textAlignVertical="top"
+            autoComplete="off"
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="sentences"
+            onFocus={() => console.log('🎯 Content TextInput focused')}
+          />
         </View>
       </TouchableWithoutFeedback>
     );
-  }, [contentBlocks, isAuthor, focusLastTextBlock, activeInput]);
+  }, [content, isAuthor, focusContent]);
+
   
   // Show loading spinner
   if (loadingNote) {
@@ -543,13 +429,16 @@ const NoteDetailScreen = ({
     );
   }
 
+  console.log('🔍 NoteDetail render - keyboardVisible:', keyboardVisible, 'keyboardHeight:', keyboardHeight);
+
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-        style={{ flex: 1 }}
-      >
+      <>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+          style={{ flex: 1 }}
+        >
       {/* Settings menu */}
       {showSettingsMenu && (
         <View style={styles.settingsMenu}>
@@ -644,8 +533,8 @@ const NoteDetailScreen = ({
         ref={scrollViewRef}
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.contentContainer, { minHeight: '100%' }]}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.contentContainer, { flexGrow: 1, minHeight: '100%', paddingBottom: 100 }]}
+        keyboardShouldPersistTaps="always"
         automaticallyAdjustContentInsets={true}
         contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="interactive"
@@ -659,7 +548,9 @@ const NoteDetailScreen = ({
                 style={[styles.title, styles.titleInput]}
                 value={title}
                 onChangeText={setTitle}
-                onFocus={() => setActiveInput('title')}
+                onFocus={() => {
+                  console.log('🎯 Title TextInput focused');
+                }}
                 placeholder="Title"
                 placeholderTextColor={Colors.secondaryText}
                 multiline={false}
@@ -710,45 +601,124 @@ const NoteDetailScreen = ({
           </View>
         )}
 
-        {/* Note Content with Inline Cards */}
+        {/* Note Content - Full Page Text Input */}
         <View style={styles.noteContent}>
-          <View style={styles.contentContainer}>
-            {/* Render block-based content system */}
-            {renderBlockContent()}
-          </View>
+          {renderContent()}
+        </View>
+
+        {/* Visual card blocks immediately after text */}
+        <View style={styles.cardsContainer}>
+          {cardBlocks.map((card, index) => (
+            <View key={card.id} style={[styles.cardWrapper, { pointerEvents: 'auto', zIndex: 1 }]}>
+              <CardBlock
+                card={card}
+                onContentChange={handleCardContentChange}
+                onDelete={handleDeleteCard}
+                isEditing={isAuthor}
+              />
+            </View>
+          ))}
         </View>
 
           </ScrollView>
-          
-      {/* Keyboard Toolbar - shows above keyboard when active */}
-      {keyboardVisible && isAuthor && (
-        <View style={[styles.keyboardToolbar, { bottom: 0 }]}>
-          <TouchableOpacity onPress={handleAddCard} style={styles.toolbarIconButton}>
-            <Icon name="file-plus" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          
-          {/* Future toolbar options */}
-          <TouchableOpacity style={styles.toolbarIconButton}>
-            <Icon name="image" size={24} color={Colors.secondaryText} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.toolbarIconButton}>
-            <Icon name="link" size={24} color={Colors.secondaryText} />
-          </TouchableOpacity>
-          
-          <View style={styles.toolbarSpacer} />
-          
-          <TouchableOpacity 
-            onPress={() => Keyboard.dismiss()}
-            style={styles.toolbarDoneButton}
-          >
-            <Text style={styles.toolbarDoneText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      )}
         </View>
       </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      {/* Unified Keyboard Toolbar - matching CreateNoteScreen exactly */}
+      {keyboardVisible && (
+        <View style={{
+          position: 'absolute',
+          bottom: keyboardHeight, // This positions it ABOVE the keyboard
+          left: 0,
+          right: 0,
+          backgroundColor: '#f8f9fa',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 16,
+          zIndex: 1000,
+        }}>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('📎 NoteDetail toolbar - Add card pressed');
+              handleAddCard();
+            }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              backgroundColor: '#ffffff',
+              justifyContent: 'center',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              elevation: 4,
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="file-plus" size={24} color={Colors.primaryText} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            backgroundColor: '#ffffff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 4,
+            elevation: 4,
+          }}>
+            <Icon name="image" size={24} color={Colors.secondaryText} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            backgroundColor: '#ffffff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 4,
+            elevation: 4,
+          }}>
+            <Icon name="link" size={24} color={Colors.secondaryText} />
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1 }} />
+          
+          <TouchableOpacity 
+            onPress={() => Keyboard.dismiss()}
+            style={{
+              backgroundColor: Colors.floatingButton,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 6,
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              color: '#ffffff',
+              fontSize: 14,
+              fontWeight: '600',
+            }}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      </>
     </SafeAreaView>
   );
 };
@@ -957,10 +927,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   keyboardToolbar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#f8f9fa',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
@@ -969,7 +935,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Layout.spacing.md,
-    zIndex: 1000,
+    minHeight: 50,
   },
   toolbarIconButton: {
     width: 40,
@@ -1006,16 +972,26 @@ const styles = StyleSheet.create({
     marginTop: Layout.spacing.lg,
     paddingHorizontal: Layout.screen.padding,
   },
-  contentWithCards: {
-    flex: 1,
-    minHeight: 400,
+  contentArea: {
+    minHeight: 50,
+    position: 'relative',
+  },
+  fullPageTextInput: {
+    fontSize: 16,
+    lineHeight: 24,
+    padding: 16,
+    minHeight: 50, // Much smaller minimum height
+    width: '100%',
+    textAlignVertical: 'top',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   cardsContainer: {
-    paddingTop: Layout.spacing.md,
-    gap: Layout.spacing.md,
+    paddingTop: 0,
+    gap: Layout.spacing.sm,
   },
   cardWrapper: {
-    marginBottom: Layout.spacing.sm,
+    marginBottom: 0,
     zIndex: 1,
   },
 });
@@ -1082,6 +1058,92 @@ const cardBlockStyles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
+    padding: Layout.spacing.xs,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    shadowColor: Colors.primaryText,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  // Native keyboard toolbar styles (Apple Notes style)
+  nativeKeyboardToolbar: {
+    backgroundColor: '#f8f9fa',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingHorizontal: Layout.screen.padding,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.md,
+    minHeight: 50,
+  },
+  nativeToolbarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primaryText,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  nativeToolbarDoneButton: {
+    backgroundColor: Colors.floatingButton,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.xs,
+    borderRadius: 6,
+  },
+  nativeToolbarDoneText: {
+    color: Colors.white,
+    fontSize: Typography.fontSize.small,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.primary,
+  },
+  // Block type styles
+  imageBlock: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: Layout.borderRadius,
+    padding: Layout.spacing.md,
+    marginVertical: Layout.spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    position: 'relative',
+    minHeight: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  linkBlock: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: Layout.borderRadius,
+    padding: Layout.spacing.md,
+    marginVertical: Layout.spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    position: 'relative',
+    minHeight: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: Typography.fontSize.body,
+    color: Colors.secondaryText,
+    fontFamily: Typography.fontFamily.primary,
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
     padding: Layout.spacing.xs,
     backgroundColor: Colors.white,
     borderRadius: 12,

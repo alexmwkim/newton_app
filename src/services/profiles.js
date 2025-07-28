@@ -19,8 +19,19 @@ class ProfileService {
       console.log('✅ Profile found:', data);
       return { data, error: null };
     } catch (error) {
-      console.error('Get profile error:', error);
-      return { data: null, error: error.message };
+      console.error('Get profile error:', {
+        code: error.code || '',
+        message: error.message || 'Unknown error',
+        details: error.details || 'No details available',
+        hint: error.hint || 'Check network connection'
+      });
+      
+      // Return a more user-friendly error for network issues
+      if (error.message && error.message.includes('Network request failed')) {
+        return { data: null, error: 'Network connection failed. Please check your internet connection.' };
+      }
+      
+      return { data: null, error: error.message || 'Failed to load profile' };
     }
   }
 

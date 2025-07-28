@@ -126,49 +126,25 @@ npm run clear
 npx expo start --clear
 ```
 
-**🔧 Development Server Connection Issues - SOLUTION:**
+**🔧 Development Server Guidelines - CRITICAL:**
 
-**Problem:** "Could not connect to development server" error
-**Root Causes:** 
-- Multiple Expo processes running simultaneously
-- Port conflicts (8081/8082)
-- Metro bundler cache corruption
-- Network connectivity issues
+**NEVER RESTART THE EXPO SERVER WITHOUT EXPLICIT PERMISSION**
+- The user has explicitly instructed to NOT kill or restart the expo server
+- Use existing running server instead of starting new ones
+- Only modify files - do NOT run expo commands unless specifically requested
 
-**SOLUTION STEPS (memorized for future use):**
-1. **Stop all processes:** `pkill -f "expo start" && pkill -f "metro"`
-2. **Clear caches:** `npm cache clean --force`
-3. **Remove Metro cache:** `rm -rf node_modules/.cache`
-4. **Restart with clear cache:** `npx expo start --clear --ios`
+**If Development Issues Occur:**
+- Debug within the existing server session
+- Modify files only, let Hot Reload handle updates
+- If absolutely necessary to restart (server crash), ask for permission first
 
-**Quick Fix Script:**
+**Emergency Only Commands (USE ONLY WITH PERMISSION):**
 ```bash
-# Run the automated fix script
-./scripts/dev-server-fix.sh
-```
-
-**Prevention (metro.config.js configured):**
-- Fixed port: 8081
-- Enhanced stability settings
-- Disabled problematic symlinks
-- Proper cache management
-
-**Troubleshooting Commands:**
-```bash
-# If Metro bundler timeout occurs
-npm cache clean --force
-rm -rf node_modules/.cache
-npx expo start --clear
-
-# If npm cache permission issues
-export NPM_CONFIG_CACHE=/tmp/npm-cache && npm install
-
-# Check for running processes
+# Check for running processes (investigation only)
 ps aux | grep -E "(expo|metro|node)" | grep -v grep
 
-# Manual process cleanup
-pkill -f "expo start"
-pkill -f "metro"
+# If npm cache permission issues (files only)
+export NPM_CONFIG_CACHE=/tmp/npm-cache && npm install
 ```
 
 ## Development Approach (When Started)
@@ -291,6 +267,9 @@ Since this is a mobile-first React Native + Expo project:
 - **Strict Supabase Policy:**
   - 절대 비활성화 시키지마 supabase
 
-## Development Server Guidelines
+## Development Server Guidelines - CRITICAL RULE
+- **NEVER KILL, RESTART, OR START NEW EXPO SERVERS WITHOUT EXPLICIT PERMISSION**
 - Don't start new Expo servers. Use my existing running server instead.
 - Just modify files - don't run expo commands.
+- **Only modify files and let Hot Reload handle updates**
+- **If the server crashes or needs restart, ASK FOR PERMISSION FIRST**
