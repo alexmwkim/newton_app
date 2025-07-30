@@ -11,7 +11,8 @@ import {
   ScrollView,
   Alert,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  InputAccessoryView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
@@ -73,6 +74,13 @@ const CardBlock = ({ card, onContentChange, onDelete, isEditing, style }) => {
             placeholderTextColor={Colors.secondaryText}
             multiline={true}
             editable={isEditing && !isDragging}
+            autoComplete="off"
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="none"
+            textContentType="none"
+            clearButtonMode="never"
+            enablesReturnKeyAutomatically={false}
           />
           {isEditing && (
             <TouchableOpacity 
@@ -276,7 +284,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                 paddingTop: 16,
                 paddingBottom: 0, // Remove bottom padding
                 textAlignVertical: 'top',
-                minHeight: 50, // Much smaller minimum height
+                minHeight: 100, // Reasonable minimum height for touch area
                 marginBottom: 0, // Remove any margin
               }
             ]}
@@ -300,7 +308,13 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
             autoComplete="off"
             autoCorrect={false}
             spellCheck={false}
-            autoCapitalize="sentences"
+            autoCapitalize="none"
+            textContentType="none"
+            clearButtonMode="never"
+            enablesReturnKeyAutomatically={false}
+            keyboardType="default"
+            returnKeyType="default"
+            inputAccessoryViewID="emptyAccessory"
           />
         </View>
         
@@ -318,7 +332,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           ))}
         </View>
 
-        {/* Clickable area below cards */}
+        {/* Larger clickable area below cards for better touch coverage */}
         <TouchableWithoutFeedback onPress={(event) => {
           // Extract touch coordinates immediately to avoid event pooling issues
           const touchY = event.nativeEvent.pageY;
@@ -333,7 +347,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           
           focusMainContentAtPosition(persistentEvent);
         }}>
-          <View style={{ minHeight: 300, width: '100%', backgroundColor: 'transparent' }} />
+          <View style={{ minHeight: 200, width: '100%', backgroundColor: 'transparent' }} />
         </TouchableWithoutFeedback>
       </View>
     );
@@ -439,18 +453,24 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
 
   // Handle keyboard events
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
-      console.log('🎹 CreateNoteScreen keyboard shown, height:', event.endCoordinates.height);
-      setKeyboardVisible(true);
-      setKeyboardHeight(event.endCoordinates.height);
-    });
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        console.log('🎹 CreateNoteScreen keyboard shown, height:', event.endCoordinates.height);
+        setKeyboardVisible(true);
+        setKeyboardHeight(event.endCoordinates.height);
+      }
+    );
 
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      console.log('🎹 CreateNoteScreen keyboard hidden');
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-      setActiveInput(null);
-    });
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        console.log('🎹 CreateNoteScreen keyboard hidden');
+        setKeyboardVisible(false);
+        setKeyboardHeight(0);
+        setActiveInput(null);
+      }
+    );
 
     return () => {
       keyboardDidShowListener.remove();
@@ -480,8 +500,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView 
           style={styles.keyboardContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+          behavior={Platform.OS === 'ios' ? 'height' : 'height'}
+          keyboardVerticalOffset={0}
         >
         {/* Header */}
         <View style={styles.header}>
@@ -538,7 +558,13 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
             autoComplete="off"
             autoCorrect={false}
             spellCheck={false}
-            autoCapitalize="sentences"
+            autoCapitalize="none"
+            textContentType="none"
+            clearButtonMode="never"
+            enablesReturnKeyAutomatically={false}
+            keyboardType="default"
+            returnKeyType="default"
+            inputAccessoryViewID="emptyAccessory"
             onFocus={() => {
               console.log('🎯 CreateNote Title focused');
               setActiveInput('title');
@@ -556,21 +582,21 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
 
       {/* Keyboard Toolbar - positioned ABOVE keyboard */}
       {keyboardVisible && (
-        <View style={{
-          position: 'absolute',
-          bottom: keyboardHeight, // This positions it ABOVE the keyboard
-          left: 0,
-          right: 0,
-          backgroundColor: '#f8f9fa',
-          borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 16,
-          zIndex: 1000,
-        }}>
+      <View style={{
+        position: 'absolute',
+        bottom: keyboardHeight, // Position directly above keyboard
+        left: 0,
+        right: 0,
+        backgroundColor: '#f8f9fa',
+        borderTopWidth: 1,
+        borderTopColor: '#e0e0e0',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+        zIndex: 1000,
+      }}>
           <TouchableOpacity 
             onPress={() => {
               console.log('📎 CreateNote toolbar - Add card pressed');
@@ -647,6 +673,11 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           </TouchableOpacity>
         </View>
       )}
+      
+      {/* Empty InputAccessoryView to suppress prediction bar */}
+      <InputAccessoryView nativeID="emptyAccessory">
+        <View style={{ height: 0 }} />
+      </InputAccessoryView>
     </SafeAreaView>
   );
 };

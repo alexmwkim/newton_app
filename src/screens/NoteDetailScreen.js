@@ -1,29 +1,41 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  SafeAreaView, 
-  TouchableOpacity, 
+import {
+  View,
   TextInput,
-  TouchableWithoutFeedback,
-  Keyboard,
-  Alert,
-  Image,
-  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  InputAccessoryView
+  TouchableWithoutFeedback,
+  Keyboard,
+  Image,
+  TouchableOpacity,
+  SafeAreaView,
+  InputAccessoryView,
+  Alert,
+  Text,
+  ActivityIndicator,
+  Dimensions
 } from 'react-native';
+// SafeArea fallback for projects without safe-area-context
+let useSafeAreaInsets;
+try {
+  useSafeAreaInsets = require('react-native-safe-area-context').useSafeAreaInsets;
+} catch (e) {
+  useSafeAreaInsets = () => ({ bottom: 34, top: 44, left: 0, right: 0 });
+}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
+import * as ImagePicker from 'expo-image-picker';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 
+let blockId = 0;
+const generateId = () => `block-${blockId++}`;
+const TOOLBAR_ID = 'newton-toolbar';
 
 // Clean legacy markdown placeholders from note content
 const cleanLegacyContent = (content) => {
@@ -59,53 +71,6 @@ const normalizeNote = (noteData) => {
   };
 };
 
-
-// CardBlock component for draggable cards within notes
-const CardBlock = ({ card, onContentChange, onDelete, isEditing, style }) => {
-  const [localContent, setLocalContent] = useState(card.content || '');
-  const [isDragging, setIsDragging] = useState(false);
-
-  useEffect(() => {
-    setLocalContent(card.content || '');
-  }, [card.content]);
-
-  const handleContentChange = (text) => {
-    setLocalContent(text);
-    onContentChange(card.id, text);
-  };
-
-  return (
-    <View style={[cardBlockStyles.container, style, isDragging && cardBlockStyles.dragging]}>
-      <View style={cardBlockStyles.card}>
-        {/* Drag handle */}
-        <View style={cardBlockStyles.dragHandle}>
-          <Icon name="move" size={12} color={Colors.secondaryText} />
-        </View>
-        
-        <View style={cardBlockStyles.cardContent}>
-          <TextInput
-            style={cardBlockStyles.cardInput}
-            value={localContent}
-            onChangeText={handleContentChange}
-            placeholder="Enter card content..."
-            placeholderTextColor={Colors.secondaryText}
-            multiline={true}
-            editable={isEditing && !isDragging}
-          />
-          {isEditing && (
-            <TouchableOpacity 
-              style={cardBlockStyles.deleteButton}
-              onPress={() => onDelete(card.id)}
-            >
-              <Icon name="x" size={16} color={Colors.secondaryText} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-};
-
 const NoteDetailScreen = ({ 
   noteId, 
   note = null, 
@@ -123,58 +88,37 @@ const NoteDetailScreen = ({
   console.log('🔍 NoteDetailScreen loaded with noteId:', noteId);
   
   // Component state
-  const [isEditing, setIsEditing] = useState(false);
+  const scrollRef = useRef(null);
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [blocks, setBlocks] = useState([
+    { id: generateId(), type: 'text', content: '', ref: React.createRef() },
+  ]);
+  const [focusedIndex, setFocusedIndex] = useState(0);
   const [loadingNote, setLoadingNote] = useState(true);
   const [storeNote, setStoreNote] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  
-  // Refs
-  const titleInputRef = useRef(null);
-  const scrollViewRef = useRef(null);
-  const contentInputRef = useRef(null);
-
-  // Card blocks state
-  const [cardBlocks, setCardBlocks] = useState([]);
-
-  // Add card functionality (matching CreateNoteScreen)
-  const handleAddCard = () => {
-    const cardId = `card-${Date.now()}`;
-    const newCard = {
-      id: cardId,
-      content: '',
-      layout: 'single',
-      position: cardBlocks.length
-    };
-    
-    setCardBlocks(prev => [...prev, newCard]);
-    console.log('✅ Added visual card block:', cardId);
-    Keyboard.dismiss();
-  };
-
-  // Card management functions (matching CreateNoteScreen)
-  const handleCardContentChange = (cardId, content) => {
-    setCardBlocks(prev => 
-      prev.map(card => 
-        card.id === cardId ? { ...card, content } : card
-      )
-    );
-  };
-
-  const handleDeleteCard = (cardId) => {
-    setCardBlocks(prev => prev.filter(card => card.id !== cardId));
-    console.log('🗑️ Deleted visual card block:', cardId);
-  };
+  const [keyboardScreenY, setKeyboardScreenY] = useState(0);
   
   // Store and auth
   const notesStore = useNotesStore();
   const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite, toggleStarred, isStarred } = notesStore;
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   
-  // Load note data and card blocks
+  // Test updateNote function on component mount
+  useEffect(() => {
+    if (updateNote && noteId) {
+      console.log('🧪 Testing updateNote function availability:', {
+        updateNoteExists: typeof updateNote === 'function',
+        noteId,
+        notesStoreKeys: Object.keys(notesStore)
+      });
+    }
+  }, [updateNote, noteId, notesStore]);
+  
+  // Load note data
   useEffect(() => {
     const loadNote = async () => {
       console.log('🔍 Loading note for ID:', noteId);
@@ -199,29 +143,13 @@ const NoteDetailScreen = ({
       }
     };
 
-    const loadCardBlocks = async () => {
-      if (!noteId) return;
-      
-      try {
-        const savedCards = await AsyncStorage.getItem(`cardBlocks_${noteId}`);
-        if (savedCards) {
-          const parsedCards = JSON.parse(savedCards);
-          setCardBlocks(parsedCards);
-          console.log('📋 Loaded saved card blocks:', parsedCards.length);
-        }
-      } catch (error) {
-        console.log('❌ Error loading card blocks:', error);
-      }
-    };
-    
     if (noteId) {
       loadNote();
-      loadCardBlocks();
     } else {
       console.warn('⚠️ NoteDetailScreen: noteId is missing');
       setLoadingNote(false);
     }
-  }, [noteId]); // Removed note and getNoteById to prevent loop
+  }, [noteId]);
   
   // Get display note with fallback
   const displayNote = normalizeNote(storeNote) || {
@@ -238,93 +166,396 @@ const NoteDetailScreen = ({
   const isAuthor = useMemo(() => {
     if (!displayNote || !user) return false;
     return displayNote.user_id === user.id || !displayNote.user_id; // Allow editing if no user_id set
-  }, [displayNote?.user_id, user?.id]); // More specific dependencies
+  }, [displayNote?.user_id, user?.id]);
   
   // Initialize content from note data
   useEffect(() => {
     if (displayNote && !loadingNote) {
       setTitle(prev => prev !== displayNote.title ? (displayNote.title || '') : prev);
-      setContent(prev => prev !== displayNote.content ? (displayNote.content || '') : prev);
+      
+      // Convert existing content to blocks
+      if (displayNote.content && displayNote.content.trim()) {
+        console.log('🔄 Loading note content:', displayNote.content);
+        
+        const newBlocks = [];
+        const content = displayNote.content;
+        
+        // Split by double newlines first (as saved), then process each part
+        const parts = content.split('\n\n');
+        
+        console.log('📋 Content parts:', parts);
+        
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i].trim();
+          
+          if (!part) continue; // Skip empty parts
+          
+          console.log('📋 Processing part:', part);
+          
+          if (part.startsWith('📋 Card:')) {
+            // Card block - include all content after "📋 Card:" as card content
+            const cardContent = part.replace('📋 Card:', '').trim();
+            console.log('📋 Found card with multiline content:', cardContent);
+            newBlocks.push({
+              id: generateId(),
+              type: 'card',
+              content: cardContent, // Keep all the multiline content within the card
+              ref: React.createRef()
+            });
+          } else if (part.startsWith('🖼️ Image:')) {
+            // Image block
+            const imageUri = part.replace('🖼️ Image:', '').trim();
+            console.log('🖼️ Found image with URI:', imageUri);
+            newBlocks.push({
+              id: generateId(),
+              type: 'image',
+              content: imageUri
+            });
+          } else {
+            // Text part - could be multiple lines, split and create text blocks
+            const lines = part.split('\n');
+            console.log('📝 Found text part with lines:', lines);
+            
+            lines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (trimmedLine) {
+                newBlocks.push({
+                  id: generateId(),
+                  type: 'text',
+                  content: trimmedLine,
+                  ref: React.createRef()
+                });
+              }
+            });
+          }
+        }
+        
+        // Ensure at least one empty block at the end
+        if (newBlocks.length === 0 || newBlocks[newBlocks.length - 1].type !== 'text' || newBlocks[newBlocks.length - 1].content.trim() !== '') {
+          newBlocks.push({
+            id: generateId(),
+            type: 'text',
+            content: '',
+            ref: React.createRef()
+          });
+        }
+        
+        console.log('🔄 Created blocks from content:', newBlocks.map(b => ({ type: b.type, content: b.content?.substring(0, 50) || 'empty' })));
+        setBlocks(newBlocks);
+      }
     }
   }, [displayNote?.id, loadingNote]);
-  
-  // Handle keyboard events
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
-      console.log('🎹 Keyboard shown, height:', event.endCoordinates.height);
-      setKeyboardVisible(true);
-      setKeyboardHeight(event.endCoordinates.height);
-    });
 
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      console.log('🎹 Keyboard hidden');
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    });
+  // Handle keyboard events and auto-scroll
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', 
+      (event) => {
+        const keyboardHeight = event.endCoordinates.height;
+        const screenHeight = event.endCoordinates.screenY;
+        console.log('🎹 Keyboard event details:', {
+          keyboardHeight,
+          screenHeight,
+          screenY: event.endCoordinates.screenY,
+          endCoordinates: event.endCoordinates
+        });
+        setKeyboardVisible(true);
+        setKeyboardHeight(keyboardHeight);
+        setKeyboardScreenY(event.endCoordinates.screenY);
+        
+        // Auto-scroll to focused input after keyboard appears
+        setTimeout(() => {
+          scrollToFocusedInput(keyboardHeight);
+        }, 300); // Increased delay to ensure keyboard is fully shown
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        console.log('🎹 Keyboard hidden');
+        setKeyboardVisible(false);
+        setKeyboardHeight(0);
+        setKeyboardScreenY(0);
+      }
+    );
 
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
-  }, []);
-  
-  // Auto-save changes (debounced) - including card blocks
+  }, [focusedIndex, blocks]);
+
+  // Enhanced auto-save with proper content conversion
   useEffect(() => {
-    if (!isAuthor || loadingNote || !noteId) return;
+    console.log('🔄 Auto-save useEffect triggered:', {
+      isAuthor,
+      loadingNote,
+      noteId,
+      titleLength: title?.length || 0,
+      blocksLength: blocks?.length || 0
+    });
     
-    const timer = setTimeout(() => {
-      if (title.trim() || content.trim()) {
-        console.log('💾 Auto-saving changes');
-        updateNote(noteId, {
-          title: title || displayNote.title,
-          content: cleanLegacyContent(content)
-        });
-        
-        // Save card blocks to AsyncStorage
-        if (cardBlocks.length > 0) {
-          AsyncStorage.setItem(`cardBlocks_${noteId}`, JSON.stringify(cardBlocks));
-          console.log('💾 Auto-saved card blocks:', cardBlocks.length);
+    if (!isAuthor) {
+      console.log('🚫 Auto-save blocked: not author');
+      return;
+    }
+    
+    if (loadingNote) {
+      console.log('🚫 Auto-save blocked: still loading');
+      return;
+    }
+    
+    if (!noteId) {
+      console.log('🚫 Auto-save blocked: no noteId');
+      return;
+    }
+    
+    const timer = setTimeout(async () => {
+      console.log('💾 Auto-save timer triggered after 1 second');
+      
+      // Get all content from blocks (including cards)
+      console.log('🔍 All blocks before filtering:', blocks.map(b => ({ type: b.type, content: b.content?.substring(0, 50) || 'empty' })));
+      
+      const contentParts = [];
+      
+      blocks.forEach(block => {
+        if (block.type === 'text' && block.content?.trim()) {
+          contentParts.push(block.content);
+        } else if (block.type === 'card') {
+          // Save card even if empty
+          const cardContent = block.content?.trim() || '';
+          contentParts.push(`📋 Card: ${cardContent}`);
+        } else if (block.type === 'image' && block.content) {
+          contentParts.push(`🖼️ Image: ${block.content}`);
         }
+      });
+      
+      const blockContent = contentParts.join('\n\n');
+      const finalTitle = title?.trim() || displayNote?.title || '';
+      const finalContent = cleanLegacyContent(blockContent.trim());
+      
+      console.log('💾 Content conversion details:', {
+        totalBlocks: blocks.length,
+        contentParts: contentParts.length,
+        rawBlockContent: blockContent.substring(0, 200) + '...',
+        finalContent: finalContent.substring(0, 200) + '...',
+        contentLength: finalContent.length
+      });
+      
+      console.log('💾 Preparing to save:', {
+        noteId,
+        finalTitle: finalTitle.substring(0, 50) + '...',
+        titleLength: finalTitle.length,
+        contentLength: finalContent.length
+      });
+      
+      if (finalTitle.trim() || finalContent.trim()) {
+        console.log('💾 Calling updateNote function...');
+        try {
+          const result = await updateNote(noteId, {
+            title: finalTitle,
+            content: finalContent
+          });
+          console.log('✅ Auto-save SUCCESS:', result);
+        } catch (error) {
+          console.error('❌ Auto-save ERROR:', error);
+          console.error('❌ Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          });
+        }
+      } else {
+        console.log('💾 Auto-save skipped: no content to save');
       }
     }, 1000);
 
-    return () => clearTimeout(timer);
-  }, [title, content, cardBlocks, isAuthor, noteId, loadingNote]);
-  
-  // Handlers
+    return () => {
+      console.log('🗚 Clearing auto-save timer');
+      clearTimeout(timer);
+    };
+  }, [title, blocks, isAuthor, noteId, loadingNote]);
+
+  // Auto-scroll to focused input when keyboard appears
+  const scrollToFocusedInput = useCallback((keyboardHeight) => {
+    if (!scrollRef.current || focusedIndex < -1) return;
+    
+    console.log('📜 Auto-scrolling to focused input, index:', focusedIndex, 'keyboard height:', keyboardHeight);
+    
+    // Calculate position of focused input more accurately
+    let estimatedY = 0;
+    
+    if (focusedIndex === -1) {
+      // Title input - at the top
+      estimatedY = 150; // Header (60) + title position
+    } else {
+      // Calculate position based on all previous elements
+      const headerHeight = 60;
+      const titleHeight = 80;
+      const authorSectionHeight = displayNote.isPublic ? 100 : 0;
+      const statsHeight = displayNote.isPublic ? 60 : 0;
+      const paddingTop = 20;
+      
+      // Calculate height of all blocks before focused index
+      let blocksBeforeHeight = 0;
+      for (let i = 0; i < focusedIndex; i++) {
+        const block = blocks[i];
+        if (block) {
+          if (block.type === 'text') {
+            blocksBeforeHeight += 60;
+          } else if (block.type === 'card') {
+            blocksBeforeHeight += 100;
+          } else if (block.type === 'image') {
+            blocksBeforeHeight += 220;
+          }
+        }
+      }
+      
+      estimatedY = headerHeight + titleHeight + authorSectionHeight + statsHeight + paddingTop + blocksBeforeHeight;
+    }
+    
+    // Get screen dimensions
+    const screenHeight = Dimensions.get('window').height;
+    const safeAreaTop = 50; // Status bar + safe area
+    const toolbarHeight = 50; // Toolbar height
+    const availableScreenHeight = screenHeight - safeAreaTop - keyboardHeight - toolbarHeight;
+    
+    // Calculate target scroll position to center the focused input in visible area
+    const targetY = Math.max(0, estimatedY - (availableScreenHeight / 3)); // Position in upper third
+    
+    console.log('📜 Enhanced scroll calculation:', {
+      focusedIndex,
+      estimatedY,
+      keyboardHeight,
+      screenHeight,
+      availableScreenHeight,
+      targetY,
+      blocksCount: blocks.length
+    });
+    
+    scrollRef.current.scrollTo({
+      y: targetY,
+      animated: true
+    });
+  }, [focusedIndex, displayNote, blocks, scrollRef]);
+
+  // Block management functions
+  const handleTextChange = (id, text) => {
+    console.log('✏️ Text changed in block:', id, 'New text length:', text.length);
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: text } : b));
+  };
+
+  const insertBlockSet = (index, blockSet, focusIndex) => {
+    const updated = [...blocks];
+    // Replace current block instead of inserting after it
+    updated.splice(index, 1, ...blockSet);
+    setBlocks(updated);
+    
+    console.log('🔧 Block set inserted, triggering auto-save');
+    
+    setTimeout(() => {
+      const targetRef = updated[focusIndex]?.ref;
+      if (targetRef?.current?.focus) {
+        targetRef.current.focus();
+        setFocusedIndex(focusIndex);
+        // Auto-scroll to the focused element
+        if (keyboardVisible) {
+          setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+        }
+      }
+    }, 100);
+  };
+
+  const handleAddCard = (index) => {
+    const card = {
+      id: generateId(),
+      type: 'card',
+      content: '',
+      ref: React.createRef(),
+    };
+    const trailingText = {
+      id: generateId(),
+      type: 'text',
+      content: '',
+      ref: React.createRef(),
+    };
+    // Focus on the card (first element in the set)
+    insertBlockSet(index, [card, trailingText], index);
+  };
+
+  const handleAddImage = async (index) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 1,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      const uri = result.assets[0].uri;
+      const image = {
+        id: generateId(),
+        type: 'image',
+        content: uri,
+      };
+      const trailingText = {
+        id: generateId(),
+        type: 'text',
+        content: '',
+        ref: React.createRef(),
+      };
+      // Focus on the trailing text after image (second element in the set)
+      insertBlockSet(index, [image, trailingText], index + 1);
+    }
+  };
+
+  const handleDeleteBlock = (index) => {
+    Alert.alert('삭제 확인', '이 블록을 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제', style: 'destructive', onPress: () => {
+          const updated = [...blocks];
+          updated.splice(index, 1);
+          setBlocks(updated);
+        }
+      }
+    ]);
+  };
+
+  const handleKeyPress = (block, index, key) => {
+    if (key === 'Backspace') {
+      if (block.content === '' && index > 0) {
+        const updated = [...blocks];
+        const prevBlock = updated[index - 1];
+        
+        if (prevBlock.type === 'text') {
+          updated.splice(index, 1);
+          setBlocks(updated);
+          
+          setTimeout(() => {
+            prevBlock.ref.current?.focus();
+            const textLength = prevBlock.content.length;
+            prevBlock.ref.current?.setSelection(textLength, textLength);
+          }, 50);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    // 항상 마지막에 빈 텍스트 블록 유지
+    if (blocks.length === 0 || blocks[blocks.length - 1].type !== 'text') {
+      setBlocks(prev => ([
+        ...prev,
+        { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+      ]));
+    }
+  }, [blocks]);
+
+  // Header handlers
   const handleBack = useCallback(() => {
     if (onBack) onBack();
   }, [onBack]);
-  
-  const handleSave = useCallback(() => {
-    console.log('💾 Manual save triggered');
-    updateNote(noteId, {
-      title: title.trim(),
-      content: cleanLegacyContent(content.trim())
-    });
-    
-    // Save card blocks to AsyncStorage
-    if (cardBlocks.length > 0) {
-      AsyncStorage.setItem(`cardBlocks_${noteId}`, JSON.stringify(cardBlocks));
-      console.log('💾 Manual saved card blocks:', cardBlocks.length);
-    }
-    
-    setIsEditing(false);
-  }, [noteId, title, content, cardBlocks, updateNote]);
-  
-  const startEditing = useCallback((field = 'content') => {
-    if (!isAuthor) return;
-    
-    setIsEditing(true);
-    setTimeout(() => {
-      if (field === 'title' && titleInputRef.current) {
-        titleInputRef.current.focus();
-      } else if (field === 'content' && contentInputRef.current) {
-        contentInputRef.current.focus();
-      }
-    }, 100);
-  }, [isAuthor]);
-  
+
   const handleSettingsPress = useCallback(() => {
     setShowSettingsMenu(!showSettingsMenu);
   }, [showSettingsMenu]);
@@ -354,15 +585,19 @@ const NoteDetailScreen = ({
       ? new Date(displayNote.createdAt).toLocaleDateString()
       : 'Unknown';
     
-    const contentLength = (displayNote.content || '').length;
-    const wordCount = (displayNote.content || '').split(/\s+/).filter(word => word.length > 0).length;
+    const allContent = blocks
+      .filter(block => block.type === 'text')
+      .map(block => block.content)
+      .join('\n');
+    const contentLength = allContent.length;
+    const wordCount = allContent.split(/\s+/).filter(word => word.length > 0).length;
     
     Alert.alert(
       'Page Info',
       `Created: ${createdDate}\nCharacters: ${contentLength}\nWords: ${wordCount}`,
       [{ text: 'OK' }]
     );
-  }, [displayNote]);
+  }, [displayNote, blocks]);
 
   const handleAddToPinned = useCallback(() => {
     setShowSettingsMenu(false);
@@ -375,48 +610,82 @@ const NoteDetailScreen = ({
       [{ text: 'OK' }]
     );
   }, [noteId, isFavorite, toggleFavorite]);
+  
 
-  
-  // Focus content input
-  const focusContent = () => {
-    if (!isAuthor) return;
-    
-    setTimeout(() => {
-      if (contentInputRef.current) {
-        contentInputRef.current.focus();
-        console.log('✅ Content TextInput focused');
-      }
-    }, 100);
-  };
-  
-  // Simple full-page content input
-  const renderContent = useCallback(() => {
-    return (
-      <TouchableWithoutFeedback onPress={focusContent}>
-        <View style={styles.contentArea}>
-          <TextInput
-            ref={contentInputRef}
-            style={styles.fullPageTextInput}
-            value={content}
-            onChangeText={setContent}
-            placeholder="Start writing..."
-            placeholderTextColor={Colors.secondaryText}
-            multiline={true}
-            editable={isAuthor}
-            focusable={true}
-            textAlignVertical="top"
-            autoComplete="off"
-            autoCorrect={false}
-            spellCheck={false}
-            autoCapitalize="sentences"
-            onFocus={() => console.log('🎯 Content TextInput focused')}
-          />
+  const renderBlock = (block, index) => {
+    if (block.type === 'text') {
+      return (
+        <TextInput
+          key={block.id}
+          ref={block.ref}
+          style={styles.textInput}
+          multiline
+          placeholder=" "
+          value={block.content}
+          onChangeText={(text) => handleTextChange(block.id, text)}
+          onFocus={() => {
+            console.log('🎯 Text/Card block focused, index:', index, 'type:', block.type);
+            setFocusedIndex(index);
+            if (keyboardVisible) {
+              setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+            }
+          }}
+          onKeyPress={({ nativeEvent }) => handleKeyPress(block, index, nativeEvent.key)}
+          autoCorrect={false}
+          autoComplete="off"
+          spellCheck={false}
+          textAlignVertical="top"
+          editable={isAuthor}
+          inputAccessoryViewID={TOOLBAR_ID}
+        />
+      );
+    } else if (block.type === 'card') {
+      return (
+        <View key={block.id} style={styles.cardBlock}>
+          <View style={styles.cardHeader}>
+            <TextInput
+              ref={block.ref}
+              style={styles.cardTitleInput}
+              placeholder="Write something"
+              multiline
+              value={block.content}
+              onChangeText={(text) => handleTextChange(block.id, text)}
+              onFocus={() => {
+                console.log('🎯 Text/Card block focused, index:', index, 'type:', block.type);
+                setFocusedIndex(index);
+                if (keyboardVisible) {
+                  setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+                }
+              }}
+              onKeyPress={({ nativeEvent }) => handleKeyPress(block, index, nativeEvent.key)}
+                  autoCorrect={false}
+              autoComplete="off"
+              spellCheck={false}
+              editable={isAuthor}
+          inputAccessoryViewID={TOOLBAR_ID}
+              placeholderTextColor={Colors.secondaryText}
+            />
+            <TouchableOpacity onPress={() => handleDeleteBlock(index)}>
+              <Icon name="x" size={20} color="#888" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
-    );
-  }, [content, isAuthor, focusContent]);
+      );
+    } else if (block.type === 'image') {
+      return (
+        <View key={block.id} style={styles.imageBlock}>
+          <Image source={{ uri: block.content }} style={styles.image} />
+          {isAuthor && (
+            <TouchableOpacity style={styles.deleteImageBtn} onPress={() => handleDeleteBlock(index)}>
+              <Icon name="trash" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+    return null;
+  };
 
-  
   // Show loading spinner
   if (loadingNote) {
     return (
@@ -429,296 +698,225 @@ const NoteDetailScreen = ({
     );
   }
 
-  console.log('🔍 NoteDetail render - keyboardVisible:', keyboardVisible, 'keyboardHeight:', keyboardHeight);
-
   return (
     <SafeAreaView style={styles.container}>
-      <>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'height' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        {/* Settings menu */}
+        {showSettingsMenu && (
+          <View style={styles.settingsMenu}>
+            {isAuthor && (
+              <>
+                <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
+                  <Icon name="trash-2" size={16} color={Colors.primaryText} />
+                  <Text style={styles.menuItemText}>Delete</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity onPress={handlePageInfo} style={styles.menuItem}>
+              <Icon name="info" size={16} color={Colors.primaryText} />
+              <Text style={styles.menuItemText}>Page Info</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleAddToPinned} style={styles.menuItem}>
+              <Icon 
+                name="bookmark" 
+                size={16} 
+                color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
+              />
+              <Text style={styles.menuItemText}>
+                {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Background touch to close menu */}
+        <TouchableWithoutFeedback 
+          onPress={() => {
+            if (showSettingsMenu) {
+              setShowSettingsMenu(false);
+            }
+            // Don't call Keyboard.dismiss() here to prevent interference with TextInput focus
+          }}
           style={{ flex: 1 }}
         >
-      {/* Settings menu */}
-      {showSettingsMenu && (
-        <View style={styles.settingsMenu}>
-          {isAuthor && (
-            <>
-              <TouchableOpacity onPress={handleDeleteNote} style={styles.menuItem}>
-                <Icon name="trash-2" size={16} color={Colors.primaryText} />
-                <Text style={styles.menuItemText}>Delete</Text>
+          <View style={{ flex: 1 }}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                <Icon name="arrow-left" size={24} color={Colors.primaryText} />
               </TouchableOpacity>
-            </>
-          )}
-          <TouchableOpacity onPress={handlePageInfo} style={styles.menuItem}>
-            <Icon name="info" size={16} color={Colors.primaryText} />
-            <Text style={styles.menuItemText}>Page Info</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleAddToPinned} style={styles.menuItem}>
-            <Icon 
-              name="bookmark" 
-              size={16} 
-              color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
-            />
-            <Text style={styles.menuItemText}>
-              {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-      {/* Background touch to close menu */}
-      <TouchableWithoutFeedback 
-        onPress={() => {
-          if (showSettingsMenu) {
-            setShowSettingsMenu(false);
-          }
-        }}
-        style={{ flex: 1 }}
-      >
-        <View style={{ flex: 1 }}>
-          {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-        </TouchableOpacity>
-        
-        <View style={styles.headerActions}>
-          {/* Status icon */}
-          <View style={styles.statusIcon}>
-            <Icon 
-              name={displayNote.isPublic ? "globe" : "lock"} 
-              size={16} 
-              color={Colors.secondaryText} 
-            />
-          </View>
-          
-          {/* Action buttons for public notes */}
-          {displayNote.isPublic && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => toggleStarred(noteId)}
-              >
-                {isStarred(noteId) ? (
-                  <Text style={[styles.solidStar, { color: Colors.floatingButton, fontSize: 20 }]}>★</Text>
-                ) : (
-                  <Text style={[styles.outlineStar, { color: Colors.secondaryText, fontSize: 20 }]}>☆</Text>
+              
+              <View style={styles.headerActions}>
+                {/* Status icon */}
+                <View style={styles.statusIcon}>
+                  <Icon 
+                    name={displayNote.isPublic ? "globe" : "lock"} 
+                    size={16} 
+                    color={Colors.secondaryText} 
+                  />
+                </View>
+                
+                {/* Action buttons for public notes */}
+                {displayNote.isPublic && (
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity 
+                      style={styles.actionButton} 
+                      onPress={() => toggleStarred(noteId)}
+                    >
+                      {isStarred(noteId) ? (
+                        <Text style={[styles.solidStar, { color: Colors.floatingButton, fontSize: 20 }]}>★</Text>
+                      ) : (
+                        <Text style={[styles.outlineStar, { color: Colors.secondaryText, fontSize: 20 }]}>☆</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.actionButton} 
+                      onPress={() => {
+                        console.log('Fork button pressed');
+                      }}
+                    >
+                      <Icon name="git-branch" size={20} color={Colors.secondaryText} />
+                    </TouchableOpacity>
+                  </View>
                 )}
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.actionButton} 
+                
+                {/* Settings button */}
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={handleSettingsPress}
+                >
+                  <Icon name="more-horizontal" size={20} color={Colors.primaryText} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="always"
+              keyboardDismissMode="none"
+            >
+              {/* Title Input */}
+              <TextInput
+                style={styles.titleInput}
+                placeholder="제목을 입력하세요"
+                value={title}
+                onChangeText={(newTitle) => {
+                  console.log('🏷️ Title changed:', newTitle.length, 'characters');
+                  setTitle(newTitle);
+                }}
+                onFocus={() => {
+                  console.log('🎯 Title input focused');
+                  setFocusedIndex(-1);
+                  if (keyboardVisible) {
+                    setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+                  }
+                }} // Special index for title
+                multiline
+                autoCorrect={false}
+                autoComplete="off"
+                spellCheck={false}
+                editable={isAuthor}
+          inputAccessoryViewID={TOOLBAR_ID}
+                inputAccessoryViewID={TOOLBAR_ID}
+              />
+
+              {/* Author info for public notes */}
+              {displayNote.isPublic && (
+                <View style={styles.authorSection}>
+                  <View style={styles.authorInfo}>
+                    <View style={styles.authorAvatar}>
+                      <Icon name="user" size={20} color={Colors.secondaryText} />
+                    </View>
+                    <View style={styles.authorDetails}>
+                      <Text style={styles.authorName}>{displayNote.username || 'Unknown'}</Text>
+                      <Text style={styles.authorUserId}>@{displayNote.username || 'unknown'}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Stats for public notes */}
+              {displayNote.isPublic && (
+                <View style={styles.publicStats}>
+                  <Text style={styles.statCount}>
+                    {displayNote.starCount || 0} stars
+                  </Text>
+                  <Text style={styles.statCount}>
+                    {displayNote.forkCount || 0} forks
+                  </Text>
+                  {!isAuthor && (
+                    <View style={styles.readOnlyIndicator}>
+                      <Icon name="eye" size={16} color={Colors.secondaryText} />
+                      <Text style={styles.readOnlyText}>Read only</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Content Blocks */}
+              {blocks.map((block, index) => (
+                <View key={block.id}>{renderBlock(block, index)}</View>
+              ))}
+
+              <TouchableWithoutFeedback
                 onPress={() => {
-                  // Fork functionality - can be implemented later
-                  console.log('Fork button pressed');
+                  console.log('🎯 Empty space touched, focusing last text block');
+                  const lastTextBlock = blocks.filter(b => b.type === 'text').pop();
+                  if (lastTextBlock?.ref?.current) {
+                    lastTextBlock.ref.current.focus();
+                    setFocusedIndex(blocks.indexOf(lastTextBlock));
+                  }
                 }}
               >
-                <Icon name="git-branch" size={20} color={Colors.secondaryText} />
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          {/* Settings button */}
-          <TouchableOpacity 
-            style={styles.actionButton} 
-            onPress={handleSettingsPress}
-          >
-            <Icon name="more-horizontal" size={20} color={Colors.primaryText} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Content */}
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.contentContainer, { flexGrow: 1, minHeight: '100%', paddingBottom: 100 }]}
-        keyboardShouldPersistTaps="always"
-        automaticallyAdjustContentInsets={true}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardDismissMode="interactive"
-      >
-        {/* Note Title */}
-        <TouchableWithoutFeedback onPress={() => startEditing('title')}>
-          <View style={styles.titleContainer}>
-            {isEditing ? (
-              <TextInput
-                ref={titleInputRef}
-                style={[styles.title, styles.titleInput]}
-                value={title}
-                onChangeText={setTitle}
-                onFocus={() => {
-                  console.log('🎯 Title TextInput focused');
-                }}
-                placeholder="Title"
-                placeholderTextColor={Colors.secondaryText}
-                multiline={false}
-                returnKeyType="next"
-                editable={isAuthor}
-                autoComplete="off"
-                autoCorrect={false}
-                spellCheck={false}
-                autoCapitalize="sentences"
-                onBlur={() => setIsEditing(false)}
-              />
-            ) : (
-              <Text style={styles.title}>{title || 'Untitled'}</Text>
-            )}
+                <View style={styles.touchableSpacer} />
+              </TouchableWithoutFeedback>
+            </ScrollView>
           </View>
         </TouchableWithoutFeedback>
-        
-        {/* Author info for public notes */}
-        {displayNote.isPublic && (
-          <View style={styles.authorSection}>
-            <View style={styles.authorInfo}>
-              <View style={styles.authorAvatar}>
-                <Icon name="user" size={20} color={Colors.secondaryText} />
-              </View>
-              <View style={styles.authorDetails}>
-                <Text style={styles.authorName}>{displayNote.username || 'Unknown'}</Text>
-                <Text style={styles.authorUserId}>@{displayNote.username || 'unknown'}</Text>
-              </View>
+
+        {/* Native InputAccessoryView - properly attached to keyboard */}
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID={TOOLBAR_ID}>
+            <View style={[styles.nativeToolbar, {
+              paddingBottom: insets.bottom,
+              marginBottom: -insets.bottom,
+              height: 50 + insets.bottom,
+            }]}>
+              {isAuthor ? (
+                <>
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log('🔧 Adding card at current line, index:', focusedIndex);
+                      handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
+                    }}
+                    style={styles.toolbarBtn}
+                  >
+                    <Icon name="list" size={24} color="#333" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log('🔧 Adding image at current line, index:', focusedIndex);
+                      handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
+                    }}
+                    style={styles.toolbarBtn}
+                  >
+                    <Icon name="image" size={24} color="#333" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.readOnlyToolbar}>
+                  <Text style={styles.readOnlyToolbarText}>Read-only mode</Text>
+                </View>
+              )}
             </View>
-          </View>
+          </InputAccessoryView>
         )}
-
-        {/* Stats for public notes */}
-        {displayNote.isPublic && (
-          <View style={styles.publicStats}>
-            <Text style={styles.statCount}>
-              {displayNote.starCount || 0} stars
-            </Text>
-            <Text style={styles.statCount}>
-              {displayNote.forkCount || 0} forks
-            </Text>
-            {!isAuthor && (
-              <View style={styles.readOnlyIndicator}>
-                <Icon name="eye" size={16} color={Colors.secondaryText} />
-                <Text style={styles.readOnlyText}>Read only</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Note Content - Full Page Text Input */}
-        <View style={styles.noteContent}>
-          {renderContent()}
-        </View>
-
-        {/* Visual card blocks immediately after text */}
-        <View style={styles.cardsContainer}>
-          {cardBlocks.map((card, index) => (
-            <View key={card.id} style={[styles.cardWrapper, { pointerEvents: 'auto', zIndex: 1 }]}>
-              <CardBlock
-                card={card}
-                onContentChange={handleCardContentChange}
-                onDelete={handleDeleteCard}
-                isEditing={isAuthor}
-              />
-            </View>
-          ))}
-        </View>
-
-          </ScrollView>
-        </View>
-      </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
-
-      {/* Unified Keyboard Toolbar - matching CreateNoteScreen exactly */}
-      {keyboardVisible && (
-        <View style={{
-          position: 'absolute',
-          bottom: keyboardHeight, // This positions it ABOVE the keyboard
-          left: 0,
-          right: 0,
-          backgroundColor: '#f8f9fa',
-          borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 16,
-          zIndex: 1000,
-        }}>
-          <TouchableOpacity 
-            onPress={() => {
-              console.log('📎 NoteDetail toolbar - Add card pressed');
-              handleAddCard();
-            }}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              backgroundColor: '#ffffff',
-              justifyContent: 'center',
-              alignItems: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 4,
-              elevation: 4,
-            }}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Icon name="file-plus" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={{
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            backgroundColor: '#ffffff',
-            justifyContent: 'center',
-            alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.15,
-            shadowRadius: 4,
-            elevation: 4,
-          }}>
-            <Icon name="image" size={24} color={Colors.secondaryText} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={{
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            backgroundColor: '#ffffff',
-            justifyContent: 'center',
-            alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.15,
-            shadowRadius: 4,
-            elevation: 4,
-          }}>
-            <Icon name="link" size={24} color={Colors.secondaryText} />
-          </TouchableOpacity>
-          
-          <View style={{ flex: 1 }} />
-          
-          <TouchableOpacity 
-            onPress={() => Keyboard.dismiss()}
-            style={{
-              backgroundColor: Colors.floatingButton,
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 6,
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={{
-              color: '#ffffff',
-              fontSize: 14,
-              fontWeight: '600',
-            }}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      </>
     </SafeAreaView>
   );
 };
@@ -781,28 +979,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: Layout.screen.padding,
-    paddingVertical: Layout.spacing.lg,
-  },
-  titleContainer: {
-    marginBottom: Layout.spacing.md,
-  },
-  title: {
-    fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.primaryText,
-    lineHeight: 36,
-    marginBottom: Layout.spacing.md,
+  scrollContent: {
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 140,
   },
   titleInput: {
-    borderWidth: 0,
-    padding: 0,
-    margin: 0,
-    backgroundColor: 'transparent',
+    fontSize: 22,
+    fontWeight: 'bold',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    color: Colors.primaryText,
   },
   authorSection: {
     marginBottom: Layout.spacing.lg,
@@ -903,258 +1090,99 @@ const styles = StyleSheet.create({
     color: Colors.primaryText,
     fontFamily: Typography.fontFamily.primary,
   },
-  noteContent: {
-    marginTop: Layout.spacing.md,
-  },
-  contentText: {
-    fontSize: Typography.fontSize.body,
-    color: Colors.primaryText,
-    lineHeight: 24,
-  },
-  contentInput: {
-    borderWidth: 0,
-    padding: 0,
-    margin: 0,
-    backgroundColor: 'transparent',
-    minHeight: 200,
-  },
-  textBlockInput: {
-    borderWidth: 0,
-    padding: 8,
-    margin: 0,
-    backgroundColor: 'transparent',
-    minHeight: 40,
-    marginBottom: 8,
-  },
-  keyboardToolbar: {
-    backgroundColor: '#f8f9fa',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingHorizontal: Layout.screen.padding,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.md,
-    minHeight: 50,
-  },
-  toolbarIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.primaryText,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  toolbarSpacer: {
-    flex: 1,
-  },
-  toolbarDoneButton: {
-    backgroundColor: Colors.floatingButton,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.xs,
-    borderRadius: 6,
-  },
-  toolbarDoneText: {
-    color: Colors.white,
-    fontSize: Typography.fontSize.small,
-    fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.primary,
-  },
-  cardBlocksContainer: {
-    marginTop: Layout.spacing.lg,
-    paddingHorizontal: Layout.screen.padding,
-  },
-  contentArea: {
-    minHeight: 50,
-    position: 'relative',
-  },
-  fullPageTextInput: {
+  textInput: {
     fontSize: 16,
-    lineHeight: 24,
-    padding: 16,
-    minHeight: 50, // Much smaller minimum height
-    width: '100%',
-    textAlignVertical: 'top',
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  cardsContainer: {
-    paddingTop: 0,
-    gap: Layout.spacing.sm,
-  },
-  cardWrapper: {
-    marginBottom: 0,
-    zIndex: 1,
-  },
-});
-
-// Styles for CardBlock component
-const cardBlockStyles = StyleSheet.create({
-  container: {
-    marginBottom: Layout.spacing.md,
-  },
-  card: {
-    backgroundColor: Colors.noteCard,
-    borderRadius: Layout.borderRadius,
-    padding: Layout.spacing.md,
-    shadowColor: Colors.primaryText,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    position: 'relative',
-    minHeight: 100,
-  },
-  dragging: {
-    opacity: 0.8,
-    transform: [{ scale: 1.05 }],
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  dragHandle: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    padding: 4,
-    borderRadius: 4,
-    backgroundColor: Colors.white,
-    shadowColor: Colors.primaryText,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardContent: {
-    position: 'relative',
-    marginTop: 20, // Space for drag handle
-  },
-  cardInput: {
-    fontSize: Typography.fontSize.body,
-    color: Colors.primaryText,
-    lineHeight: 22,
-    fontFamily: Typography.fontFamily.primary,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingRight: 30, // Space for delete button
-  },
-  deleteButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    padding: Layout.spacing.xs,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    shadowColor: Colors.primaryText,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  // Native keyboard toolbar styles (Apple Notes style)
-  nativeKeyboardToolbar: {
-    backgroundColor: '#f8f9fa',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingHorizontal: Layout.screen.padding,
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    minHeight: 50,
+    marginBottom: 8,
+    backgroundColor: 'transparent',
+    color: Colors.primaryText,
+  },
+  cardBlock: {
+    backgroundColor: Colors.noteCard,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingTop: 4,
+  },
+  cardTitleInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.primaryText,
+    minHeight: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    textAlignVertical: 'top',
+  },
+  imageBlock: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  deleteImageBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#0006',
+    padding: 6,
+    borderRadius: 20,
+  },
+  touchableSpacer: {
+    height: 300,
+    backgroundColor: 'transparent',
+  },
+  inputAccessoryContainer: {
+    backgroundColor: 'transparent',
+    margin: 0,
+    padding: 0,
+  },
+  nativeToolbar: {
+    backgroundColor: '#f9f9f9',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Layout.spacing.md,
-    minHeight: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    // Dynamic padding and margin applied inline
   },
-  nativeToolbarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
+  toolbar: {
+    flexDirection: 'row',
+    backgroundColor: '#f9f9f9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 16,
+    borderTopWidth: 0, // Remove border to eliminate potential white line
+    justifyContent: 'flex-start',
+    height: 50,
+  },
+  toolbarBtn: {
+    padding: 6,
+  },
+  readOnlyToolbar: {
+    flex: 1,
     alignItems: 'center',
-    shadowColor: Colors.primaryText,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  nativeToolbarDoneButton: {
-    backgroundColor: Colors.floatingButton,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.xs,
-    borderRadius: 6,
-  },
-  nativeToolbarDoneText: {
-    color: Colors.white,
-    fontSize: Typography.fontSize.small,
-    fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.primary,
-  },
-  // Block type styles
-  imageBlock: {
-    backgroundColor: Colors.noteCard,
-    borderRadius: Layout.borderRadius,
-    padding: Layout.spacing.md,
-    marginVertical: Layout.spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    position: 'relative',
-    minHeight: 100,
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 8,
   },
-  linkBlock: {
-    backgroundColor: Colors.noteCard,
-    borderRadius: Layout.borderRadius,
-    padding: Layout.spacing.md,
-    marginVertical: Layout.spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    position: 'relative',
-    minHeight: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  readOnlyToolbarText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
-  placeholderText: {
-    fontSize: Typography.fontSize.body,
-    color: Colors.secondaryText,
-    fontFamily: Typography.fontFamily.primary,
-  },
-  deleteButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: Layout.spacing.xs,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    shadowColor: Colors.primaryText,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  savingButton: {
+    opacity: 0.7,
   },
 });
 

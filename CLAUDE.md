@@ -258,9 +258,7 @@ Since this is a mobile-first React Native + Expo project:
 
 ## Development Workflow Notes
 
-- **CLI Command Guideline:**
-  - Do not run `npx expo start --ios --port 8082` without explicit request
-  - Manage development server commands carefully to avoid port conflicts
+
 
 ## Supabase Configuration Notes
 
@@ -273,3 +271,13 @@ Since this is a mobile-first React Native + Expo project:
 - Just modify files - don't run expo commands.
 - **Only modify files and let Hot Reload handle updates**
 - **If the server crashes or needs restart, ASK FOR PERMISSION FIRST**
+```
+
+## Development Memory Logs
+
+### Apple Notes-style Inline Content Insertion System
+- Detailed technical investigation of implementing an Apple Notes-like content insertion system in React Native
+- Key challenges identified in cursor positioning, content block management, and touch area expansions
+- Explored unified content block system as a long-term solution
+- Identified specific technical limitations in React Native for precise cursor tracking
+- Proposed both short-term and long-term strategies for implementing a seamless content insertion experience
