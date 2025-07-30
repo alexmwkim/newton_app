@@ -65,7 +65,7 @@ const ViewModeModal = ({ visible, onClose, position }) => {
               >
                 <View style={styles.menuItemLeft}>
                   <Ionicons 
-                    name={mode === viewModes.TITLE_ONLY ? 'list-outline' : 'document-text-outline'} 
+                    name={mode === viewModes.TITLE_ONLY ? 'text-outline' : 'reader-outline'} 
                     size={18} 
                     color={Colors.primaryText} 
                   />
@@ -92,7 +92,6 @@ const ViewModeModal = ({ visible, onClose, position }) => {
             {/* Show body text */}
             <View style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
-                <Ionicons name="text-outline" size={18} color={Colors.primaryText} />
                 <Text style={styles.menuItemText}>Show body text</Text>
               </View>
               <Switch
@@ -108,7 +107,6 @@ const ViewModeModal = ({ visible, onClose, position }) => {
             {/* Show images (disabled) */}
             <View style={[styles.menuItem, styles.menuItemDisabled]}>
               <View style={styles.menuItemLeft}>
-                <Ionicons name="image-outline" size={18} color={Colors.secondaryText} />
                 <Text style={[styles.menuItemText, styles.menuItemTextDisabled]}>Show images</Text>
               </View>
               <Switch
@@ -125,7 +123,6 @@ const ViewModeModal = ({ visible, onClose, position }) => {
             {/* Show tags (disabled) */}
             <View style={[styles.menuItem, styles.menuItemDisabled]}>
               <View style={styles.menuItemLeft}>
-                <Ionicons name="pricetag-outline" size={18} color={Colors.secondaryText} />
                 <Text style={[styles.menuItemText, styles.menuItemTextDisabled]}>Show tags</Text>
               </View>
               <Switch

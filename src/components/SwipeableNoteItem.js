@@ -179,6 +179,30 @@ const SwipeableNoteItem = ({
     );
   };
 
+  // Helper function to extract images from note content
+  const extractImagesFromContent = (content) => {
+    const imageMatches = content.match(/🖼️\s*Image:\s*([^\n]*)/g);
+    if (!imageMatches) return [];
+    
+    return imageMatches.map(match => {
+      const url = match.replace(/🖼️\s*Image:\s*/, '').trim();
+      return url;
+    }).filter(url => url && url.length > 0);
+  };
+
+  // Helper function to extract cards from note content
+  const extractCardsFromContent = (content) => {
+    const cardMatches = content.match(/📋\s*Card:\s*([^\n]*(?:\n(?!📋|🖼️)[^\n]*)*)/g);
+    if (!cardMatches) return [];
+    
+    return cardMatches.map(match => {
+      const cardContent = match.replace(/📋\s*Card:\s*/, '').trim();
+      // Get first 3 lines only
+      const lines = cardContent.split('\n').slice(0, 3);
+      return lines.join('\n').trim();
+    }).filter(content => content && content.length > 0);
+  };
+
   // Helper function to generate content preview from actual note content
   const generateContentPreview = (note) => {
     // Use actual note content if available
@@ -186,22 +210,78 @@ const SwipeableNoteItem = ({
     
     // If no content, show placeholder
     if (!content || content.trim() === '') {
-      return '(내용 없음)';
+      return { text: '(내용 없음)', images: [] };
     }
     
-    // Remove markdown formatting and HTML tags
-    content = content
-      .replace(/[#*_`~]/g, '') // Remove markdown symbols
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/\n+/g, ' ') // Replace newlines with spaces
-      .trim();
+    // Parse content blocks in order to find the first content type
+    const parts = content.split(/\n\n/);
+    let firstContentImages = [];
+    let processedText = '';
     
-    // Truncate to reasonable length (about 100 characters)
-    if (content.length > 100) {
-      content = content.substring(0, 100) + '...';
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i].trim();
+      if (!part) continue;
+      
+      if (part.startsWith('🖼️ Image:')) {
+        // If first content is image, extract it for preview
+        if (firstContentImages.length === 0 && processedText === '') {
+          const imageUrl = part.replace('🖼️ Image:', '').trim();
+          if (imageUrl) {
+            firstContentImages.push(imageUrl);
+          }
+        }
+        // Skip adding to text since we show as thumbnail
+        continue;
+      } else if (part.startsWith('📋 Card:')) {
+        // If first content is card, show card content without icon
+        if (firstContentImages.length === 0 && processedText === '') {
+          const cardContent = part.replace('📋 Card:', '').trim();
+          if (cardContent) {
+            processedText = cardContent; // Show card content directly without icon
+          } else {
+            processedText = '(빈 카드)';
+          }
+        }
+        // Skip other cards since we only show first content
+        continue;
+      } else {
+        // Regular text content
+        if (firstContentImages.length === 0 && processedText === '') {
+          processedText = part;
+        }
+        // Skip other text if we already have first content
+        continue;
+      }
     }
     
-    return content;
+    // If we have first content as image, don't show text
+    if (firstContentImages.length > 0) {
+      processedText = '';
+    }
+    
+    // Clean up text content
+    if (processedText) {
+      processedText = processedText
+        .replace(/[#*_`~]/g, '') // Remove markdown symbols
+        .replace(/<[^>]*>/g, '') // Remove HTML tags
+        .replace(/\n+/g, ' ') // Replace newlines with spaces
+        .trim();
+      
+      // Truncate to reasonable length
+      if (processedText.length > 100) {
+        processedText = processedText.substring(0, 100) + '...';
+      }
+    }
+    
+    // If no content found, show placeholder
+    if (!processedText && firstContentImages.length === 0) {
+      processedText = '(내용 없음)';
+    }
+    
+    return { 
+      text: processedText, 
+      images: firstContentImages
+    };
   };
 
   return (
@@ -304,10 +384,31 @@ const SwipeableNoteItem = ({
                 
                 <Text style={styles.publicTitle}>{normalizedNote.title}</Text>
                 
-                {/* Content Preview Text */}
-                <Text style={styles.contentPreviewText} numberOfLines={2}>
-                  {generateContentPreview(normalizedNote)}
-                </Text>
+                {/* Content Preview Text and Images */}
+                {(() => {
+                  const contentPreview = generateContentPreview(normalizedNote);
+                  return (
+                    <View style={styles.contentPreviewContent}>
+                      {contentPreview.text && (
+                        <Text style={styles.contentPreviewText} numberOfLines={2}>
+                          {contentPreview.text}
+                        </Text>
+                      )}
+                      {contentPreview.images.length > 0 && (
+                        <View style={styles.thumbnailContainer}>
+                          {contentPreview.images.map((imageUrl, index) => (
+                            <Image
+                              key={index}
+                              source={{ uri: imageUrl }}
+                              style={styles.thumbnailImage}
+                              resizeMode="cover"
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
               </View>
               
               {/* Social icons positioned absolutely to not affect centering */}
@@ -342,9 +443,30 @@ const SwipeableNoteItem = ({
                 {normalizedNote.title}
               </Text>
               
-              <Text style={styles.contentPreviewText} numberOfLines={2}>
-                {generateContentPreview(normalizedNote)}
-              </Text>
+{(() => {
+                const contentPreview = generateContentPreview(normalizedNote);
+                return (
+                  <View style={styles.contentPreviewContent}>
+                    {contentPreview.text && (
+                      <Text style={styles.contentPreviewText} numberOfLines={2}>
+                        {contentPreview.text}
+                      </Text>
+                    )}
+                    {contentPreview.images.length > 0 && (
+                      <View style={styles.thumbnailContainer}>
+                        {contentPreview.images.map((imageUrl, index) => (
+                          <Image
+                            key={index}
+                            source={{ uri: imageUrl }}
+                            style={styles.thumbnailImage}
+                            resizeMode="cover"
+                          />
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
               
               {/* Footer positioned absolutely to not affect centering */}
               <Text style={styles.contentPreviewTime}>
@@ -703,6 +825,48 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  // Thumbnail styles for content preview
+  contentPreviewContent: {
+    flex: 1,
+  },
+  
+  thumbnailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  
+  thumbnailImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: Colors.noteCard,
+  },
+  
+  // Card preview styles
+  cardPreviewContainer: {
+    marginTop: 8,
+    gap: 6,
+  },
+  
+  cardPreviewBox: {
+    backgroundColor: Colors.noteCard,
+    borderRadius: 6,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: Colors.border || '#E5E5E5',
+    minHeight: 30,
+    maxWidth: 120, // Limit width for compact preview
+  },
+  
+  cardPreviewText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    lineHeight: 14,
   },
 });
 

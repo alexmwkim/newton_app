@@ -722,9 +722,10 @@ const NoteDetailScreen = ({
             </TouchableOpacity>
             <TouchableOpacity onPress={handleAddToPinned} style={styles.menuItem}>
               <Icon 
-                name="bookmark" 
+                name="paperclip" 
                 size={16} 
                 color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
+                style={{ transform: [{ rotate: '180deg' }] }}
               />
               <Text style={styles.menuItemText}>
                 {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
@@ -896,7 +897,16 @@ const NoteDetailScreen = ({
                     }}
                     style={styles.toolbarBtn}
                   >
-                    <Icon name="list" size={24} color="#333" />
+                    <Icon name="square" size={24} color="#333" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log('🔧 Adding grid at current line, index:', focusedIndex);
+                      // TODO: implement grid functionality
+                    }}
+                    style={styles.toolbarBtn}
+                  >
+                    <Icon name="grid" size={24} color="#333" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -1153,8 +1163,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopWidth: 0,
     // Dynamic padding and margin applied inline
   },
   toolbar: {
