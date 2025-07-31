@@ -199,7 +199,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
         // Auto-scroll to focused input after keyboard appears
         setTimeout(() => {
           scrollToFocusedInput(keyboardHeight);
-        }, Platform.OS === 'ios' ? 300 : 350); // Natural timing like Apple Notes
+        }, Platform.OS === 'ios' ? 200 : 250); // Reduced timing for more responsive feel
       }
     );
 
@@ -219,17 +219,17 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     };
   }, [focusedIndex, blocks]);
 
-  // Natural auto-scroll like Apple Notes - subtle and consistent
+  // Smart auto-scroll - only when input is actually blocked by keyboard/toolbar
   const scrollToFocusedInput = useCallback((keyboardHeight) => {
     if (!scrollRef.current || focusedIndex < -1 || keyboardHeight <= 0) return;
     
-    console.log('📜 Starting natural auto-scroll, focusedIndex:', focusedIndex, 'keyboardHeight:', keyboardHeight);
+    console.log('📜 Starting smart auto-scroll, focusedIndex:', focusedIndex, 'keyboardHeight:', keyboardHeight);
     
     // Get the focused input element
     let targetRef = null;
     if (focusedIndex === -1) {
-      // Title input case - likely doesn't need scroll
-      return; // Title is usually already visible
+      // Title input case - usually doesn't need scroll since it's at top
+      targetRef = titleInputRef.current;
     } else {
       // Get the focused block's ref
       const focusedBlock = blocks[focusedIndex];
@@ -237,52 +237,66 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
       targetRef = focusedBlock.ref.current;
     }
     
-    // Measure with shorter delay for responsiveness
+    if (!targetRef) return;
+    
+    // Measure with appropriate delay for layout settling
     setTimeout(() => {
       targetRef.measureInWindow((x, y, width, height) => {
         const screenHeight = Dimensions.get('window').height;
+        const inputTop = y;
         const inputBottom = y + height;
         
-        // Apple Notes style: only scroll if input is actually close to keyboard
+        // Calculate actual keyboard + toolbar boundaries
         const keyboardTop = screenHeight - keyboardHeight;
-        const comfortZone = 120; // 120px comfort zone above keyboard
-        const scrollTriggerPoint = keyboardTop - comfortZone;
+        const toolbarHeight = Platform.OS === 'ios' ? 50 : 60; // Native toolbar height
+        const keyboardWithToolbarTop = keyboardTop - toolbarHeight;
         
-        console.log('📐 Natural scroll check:', {
+        // Only scroll if input is actually being covered by keyboard or toolbar
+        const minClearance = 20; // Minimal clearance needed above keyboard+toolbar
+        const blockingPoint = keyboardWithToolbarTop - minClearance;
+        
+        console.log('📐 Smart scroll analysis:', {
           screenHeight,
           keyboardHeight,
           keyboardTop,
-          comfortZone,
-          scrollTriggerPoint,
-          inputY: y,
-          inputHeight: height,
+          toolbarHeight,
+          keyboardWithToolbarTop,
+          blockingPoint,
+          inputTop,
           inputBottom,
-          needsScroll: inputBottom > scrollTriggerPoint
+          inputHeight: height,
+          isBlocked: inputBottom > blockingPoint,
+          clearanceNeeded: inputBottom - blockingPoint
         });
         
-        // Only scroll if input would actually be in the discomfort zone
-        if (inputBottom > scrollTriggerPoint) {
-          // Move input to a consistent comfortable position - not too high
-          const targetComfortableY = scrollTriggerPoint - height - 20; // 20px buffer
-          const scrollOffset = Math.max(0, y - targetComfortableY);
+        // Only scroll if input is actually blocked by keyboard/toolbar area
+        if (inputBottom > blockingPoint) {
+          // Calculate minimal scroll to just clear the blocking area
+          const targetTop = blockingPoint - height - 30; // 30px comfortable buffer
+          const currentScrollOffset = y - 20; // Account for content padding
+          const neededScroll = Math.max(0, currentScrollOffset - targetTop);
           
-          console.log('📜 Applying natural scroll:', {
-            targetComfortableY,
-            currentInputY: y,
-            scrollOffset,
-            scrollDistance: scrollOffset
+          console.log('📜 Input is blocked - applying scroll:', {
+            targetTop,
+            currentScrollOffset,
+            neededScroll,
+            willScroll: neededScroll > 10 // Only scroll if significant movement needed
           });
           
-          scrollRef.current.scrollTo({
-            y: scrollOffset,
-            animated: true,
-            duration: 300 // Smooth animation duration
-          });
+          // Only scroll if we need significant movement (avoid tiny adjustments)
+          if (neededScroll > 10) {
+            scrollRef.current.scrollTo({
+              y: neededScroll,
+              animated: true
+            });
+          } else {
+            console.log('📜 Movement too small - no scroll needed');
+          }
         } else {
-          console.log('📜 Input is in comfort zone - no scroll needed');
+          console.log('📜 Input has plenty of space - no scroll needed');
         }
       });
-    }, 50); // Shorter delay for more responsive feel
+    }, 100);
   }, [focusedIndex, blocks, scrollRef, titleInputRef]);
 
   // Block management functions
@@ -417,7 +431,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
             console.log('🎯 Text block focused, index:', index, 'type:', block.type);
             setFocusedIndex(index);
             if (keyboardVisible) {
-              setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
+              setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
             }
           }}
           onKeyPress={({ nativeEvent }) => {
@@ -445,7 +459,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                 console.log('🎯 Card block focused, index:', index, 'type:', block.type);
                 setFocusedIndex(index);
                 if (keyboardVisible) {
-                  setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
+                  setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
                 }
               }}
               onKeyPress={({ nativeEvent }) => {
@@ -678,7 +692,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                   console.log('🎯 Title input focused');
                   setFocusedIndex(-1);
                   if (keyboardVisible) {
-                    setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
+                    setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
                   }
                 }} // Special index for title
                 multiline
