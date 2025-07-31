@@ -36,13 +36,49 @@ export const useNotesStore = () => {
     
     if (user) { // Remove the pinnedNotes.length === 0 condition that was blocking execution
       console.log('🔄 User exists, starting pinned/starred data load for:', user.id);
-      const loadData = async () => {
+      
+      // Load data synchronously from AsyncStorage first for instant display
+      const loadDataSynchronously = async () => {
         try {
-          console.log('🔄 Loading pinned/starred notes for user:', user.id);
+          // Load pinned notes from AsyncStorage immediately for instant display
+          const savedPinned = await AsyncStorage.getItem(`pinnedNotes_${user.id}`);
+          if (savedPinned) {
+            const parsedPinned = JSON.parse(savedPinned);
+            console.log('📌 ⚡ Instantly loaded pinned notes from AsyncStorage:', parsedPinned);
+            setPinnedNotes(parsedPinned);
+          } else {
+            console.log('📌 ⚡ No cached pinned notes, starting with empty array');
+            setPinnedNotes([]);
+          }
           
-          // Load pinned notes from Supabase first
+          // Load starred notes from AsyncStorage immediately for instant display
+          const savedStarred = await AsyncStorage.getItem(`starredNotes_${user.id}`);
+          if (savedStarred) {
+            const parsedStarred = JSON.parse(savedStarred);
+            console.log('⭐ ⚡ Instantly loaded starred notes from AsyncStorage:', parsedStarred);
+            setStarredNotes(parsedStarred);
+          } else {
+            console.log('⭐ ⚡ No cached starred notes, starting with empty array');
+            setStarredNotes([]);
+          }
+        } catch (error) {
+          console.error('❌ Error loading cached data:', error);
+          setPinnedNotes([]);
+          setStarredNotes([]);
+        }
+      };
+      
+      // Load from cache synchronously first
+      loadDataSynchronously();
+      
+      // Then load from Supabase in background to update data
+      const loadDataAsync = async () => {
+        try {
+          console.log('🔄 Loading pinned/starred notes from Supabase in background for:', user.id);
+          
+          // Load pinned notes from Supabase in background
           try {
-            console.log('📌 🔄 Loading pinned notes from Supabase for user:', user.id);
+            console.log('📌 🔄 Background loading pinned notes from Supabase for user:', user.id);
             
             // Pre-validate user authentication before calling service
             if (!user?.id) {
@@ -60,41 +96,30 @@ export const useNotesStore = () => {
             });
             
             if (error) {
-              console.error('📌 ❌ Supabase error, will fallback:', error);
+              console.error('📌 ❌ Supabase error, keeping cached data:', error);
               throw new Error(error);
             }
             
             if (!supabasePinned || !Array.isArray(supabasePinned)) {
-              console.error('📌 ❌ Invalid data format from Supabase:', supabasePinned);
+              console.error('📌 ❌ Invalid data format from Supabase, keeping cached data:', supabasePinned);
               throw new Error('Invalid data format from Supabase');
             }
             
-            console.log('📌 ✅ Successfully loaded pinned notes from Supabase:', supabasePinned);
+            console.log('📌 ✅ Successfully loaded pinned notes from Supabase (background):', supabasePinned);
             setPinnedNotes(supabasePinned);
-            console.log('📌 ✅ setPinnedNotes called with:', supabasePinned);
+            console.log('📌 ✅ setPinnedNotes updated with fresh data:', supabasePinned);
             
             // Sync to AsyncStorage as backup
             await AsyncStorage.setItem(`pinnedNotes_${user.id}`, JSON.stringify(supabasePinned));
-            console.log('💾 ✅ Synced Supabase pinned notes to AsyncStorage:', supabasePinned);
+            console.log('💾 ✅ Synced fresh Supabase pinned notes to AsyncStorage:', supabasePinned);
             
           } catch (pinnedError) {
-            console.warn('⚠️ Supabase pinned notes temporarily unavailable, using AsyncStorage:', pinnedError.message || 'Connection issue');
-            
-            // Fallback to AsyncStorage
-            const savedPinned = await AsyncStorage.getItem(`pinnedNotes_${user.id}`);
-            if (savedPinned) {
-              const parsedPinned = JSON.parse(savedPinned);
-              console.log('📌 Fallback: Loaded pinned notes from AsyncStorage:', parsedPinned);
-              setPinnedNotes(parsedPinned);
-            } else {
-              console.log('📌 No pinned notes found in AsyncStorage fallback, using empty array');
-              setPinnedNotes([]);
-            }
+            console.warn('⚠️ Supabase pinned notes temporarily unavailable, keeping cached data:', pinnedError.message || 'Connection issue');
           }
 
-          // Load starred notes from Supabase
+          // Load starred notes from Supabase in background
           try {
-            console.log('⭐ 🔄 Loading starred notes from Supabase for user:', user.id);
+            console.log('⭐ 🔄 Background loading starred notes from Supabase for user:', user.id);
             
             // Pre-validate user authentication before calling service
             if (!user?.id) {
@@ -105,31 +130,22 @@ export const useNotesStore = () => {
             await supabaseStore.fetchStarredNotes?.(user.id);
             const supabaseStarred = supabaseStore.starredNotes || [];
             const starredIds = supabaseStarred.map(note => note.id);
-            console.log('⭐ ✅ Successfully loaded starred notes from Supabase:', starredIds);
+            console.log('⭐ ✅ Successfully loaded starred notes from Supabase (background):', starredIds);
             setStarredNotes(starredIds);
             
             // Sync to AsyncStorage as backup
             await AsyncStorage.setItem(`starredNotes_${user.id}`, JSON.stringify(starredIds));
-            console.log('💾 ✅ Synced Supabase starred notes to AsyncStorage:', starredIds);
+            console.log('💾 ✅ Synced fresh Supabase starred notes to AsyncStorage:', starredIds);
           } catch (starredError) {
-            console.error('⭐ ❌ Supabase starred notes error, falling back to AsyncStorage:', starredError);
-            
-            // Fallback to AsyncStorage
-            const savedStarred = await AsyncStorage.getItem(`starredNotes_${user.id}`);
-            if (savedStarred) {
-              const parsedStarred = JSON.parse(savedStarred);
-              console.log('⭐ Fallback: Loaded starred notes from AsyncStorage:', parsedStarred);
-              setStarredNotes(parsedStarred);
-            } else {
-              console.log('⭐ No starred notes found in AsyncStorage fallback, using empty array');
-              setStarredNotes([]);
-            }
+            console.error('⭐ ❌ Supabase starred notes error, keeping cached data:', starredError);
           }
         } catch (error) {
-          console.log('Error loading pinned/starred notes:', error);
+          console.log('Error loading pinned/starred notes from Supabase:', error);
         }
       };
-      loadData();
+      
+      // Load fresh data in background without blocking UI
+      setTimeout(loadDataAsync, 100); // Small delay to ensure UI loads first
     } else {
       console.log('🔍 No user found, skipping pinned/starred data load');
     }
@@ -159,20 +175,27 @@ export const useNotesStore = () => {
     }
   }, [user?.id]);
 
-  // Initialize data loading
+  // Initialize data loading - Load all data in parallel for faster UI
   React.useEffect(() => {
     if (user) {
       console.log('🔄 Initializing notes store for user:', user.id);
-      // Load initial data
+      // Load all data in parallel for faster UI
       const loadData = async () => {
         try {
-          console.log('📥 Loading user notes...');
-          await supabaseStore.fetchUserNotes?.(user.id);
-          console.log('📥 Loading public notes...');
-          await supabaseStore.fetchPublicNotes?.();
-          console.log('⭐ Loading starred notes...');
-          await supabaseStore.fetchStarredNotes?.(user.id);
-          console.log('✅ All notes loaded (including starred notes)');
+          console.log('📥 Loading all data in parallel...');
+          
+          // Load all data concurrently for faster home screen display
+          const [userNotesResult, publicNotesResult, starredNotesResult] = await Promise.allSettled([
+            supabaseStore.fetchUserNotes?.(user.id),
+            supabaseStore.fetchPublicNotes?.(),
+            supabaseStore.fetchStarredNotes?.(user.id)
+          ]);
+          
+          console.log('📥 User notes result:', userNotesResult.status === 'fulfilled' ? '✅' : '❌');
+          console.log('📥 Public notes result:', publicNotesResult.status === 'fulfilled' ? '✅' : '❌');
+          console.log('⭐ Starred notes result:', starredNotesResult.status === 'fulfilled' ? '✅' : '❌');
+          
+          console.log('✅ All notes loaded in parallel');
         } catch (error) {
           console.error('❌ Error loading notes (continuing anyway):', error);
           // Continue anyway - schema cache issues are handled elsewhere

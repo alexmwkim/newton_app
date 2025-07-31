@@ -15,7 +15,8 @@ import {
   Alert,
   Text,
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  Modal
 } from 'react-native';
 // SafeArea fallback for projects without safe-area-context
 let useSafeAreaInsets;
@@ -94,9 +95,11 @@ const NoteDetailScreen = ({
     { id: generateId(), type: 'text', content: '', ref: React.createRef() },
   ]);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const blockRefs = useRef(new Map());
   const [loadingNote, setLoadingNote] = useState(true);
   const [storeNote, setStoreNote] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showPageInfoModal, setShowPageInfoModal] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardScreenY, setKeyboardScreenY] = useState(0);
@@ -202,6 +205,16 @@ const NoteDetailScreen = ({
               content: cardContent, // Keep all the multiline content within the card
               ref: React.createRef()
             });
+          } else if (part.startsWith('🔲 Grid:')) {
+            // Grid card block - include all content after "🔲 Grid:" as grid card content
+            const gridCardContent = part.replace('🔲 Grid:', '').trim();
+            console.log('🔲 Found grid card with content:', gridCardContent);
+            newBlocks.push({
+              id: generateId(),
+              type: 'grid-card',
+              content: gridCardContent,
+              ref: React.createRef()
+            });
           } else if (part.startsWith('🖼️ Image:')) {
             // Image block
             const imageUri = part.replace('🖼️ Image:', '').trim();
@@ -231,7 +244,7 @@ const NoteDetailScreen = ({
         }
         
         // Ensure at least one empty block at the end
-        if (newBlocks.length === 0 || newBlocks[newBlocks.length - 1].type !== 'text' || newBlocks[newBlocks.length - 1].content.trim() !== '') {
+        if (newBlocks.length === 0 || (newBlocks[newBlocks.length - 1].type !== 'text' || newBlocks[newBlocks.length - 1].content.trim() !== '')) {
           newBlocks.push({
             id: generateId(),
             type: 'text',
@@ -246,10 +259,10 @@ const NoteDetailScreen = ({
     }
   }, [displayNote?.id, loadingNote]);
 
-  // Handle keyboard events and auto-scroll
+  // Handle keyboard events and auto-scroll - Fast and synchronized
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', 
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (event) => {
         const keyboardHeight = event.endCoordinates.height;
         const screenHeight = event.endCoordinates.screenY;
@@ -263,10 +276,10 @@ const NoteDetailScreen = ({
         setKeyboardHeight(keyboardHeight);
         setKeyboardScreenY(event.endCoordinates.screenY);
         
-        // Auto-scroll to focused input after keyboard appears
+        // Fast scroll synchronized with keyboard animation
         setTimeout(() => {
           scrollToFocusedInput(keyboardHeight);
-        }, 300); // Increased delay to ensure keyboard is fully shown
+        }, Platform.OS === 'ios' ? 50 : 100); // Very fast on iOS, slightly slower on Android
       }
     );
 
@@ -281,7 +294,7 @@ const NoteDetailScreen = ({
     );
 
     return () => {
-      keyboardDidShowListener.remove();
+      keyboardWillShowListener.remove();
       keyboardDidHideListener.remove();
     };
   }, [focusedIndex, blocks]);
@@ -326,6 +339,10 @@ const NoteDetailScreen = ({
           // Save card even if empty
           const cardContent = block.content?.trim() || '';
           contentParts.push(`📋 Card: ${cardContent}`);
+        } else if (block.type === 'grid-card') {
+          // Save grid card even if empty
+          const gridCardContent = block.content?.trim() || '';
+          contentParts.push(`🔲 Grid: ${gridCardContent}`);
         } else if (block.type === 'image' && block.content) {
           contentParts.push(`🖼️ Image: ${block.content}`);
         }
@@ -377,37 +394,45 @@ const NoteDetailScreen = ({
     };
   }, [title, blocks, isAuthor, noteId, loadingNote]);
 
-  // Auto-scroll to focused input when keyboard appears
+  // Auto-scroll to focused input when keyboard appears - More conservative approach
   const scrollToFocusedInput = useCallback((keyboardHeight) => {
-    if (!scrollRef.current || focusedIndex < -1) return;
+    if (!scrollRef.current || focusedIndex < -1 || !keyboardHeight) return;
     
     console.log('📜 Auto-scrolling to focused input, index:', focusedIndex, 'keyboard height:', keyboardHeight);
     
-    // Calculate position of focused input more accurately
+    // Only scroll if keyboard height is significant (> 100px)
+    if (keyboardHeight < 100) {
+      console.log('📜 Keyboard height too small, skipping scroll');
+      return;
+    }
+    
+    // Calculate position of focused input more conservatively
     let estimatedY = 0;
     
     if (focusedIndex === -1) {
-      // Title input - at the top
-      estimatedY = 150; // Header (60) + title position
+      // Title input - minimal scroll, just ensure it's visible
+      estimatedY = 50; // Much less aggressive for title
     } else {
       // Calculate position based on all previous elements
       const headerHeight = 60;
       const titleHeight = 80;
-      const authorSectionHeight = displayNote.isPublic ? 100 : 0;
-      const statsHeight = displayNote.isPublic ? 60 : 0;
+      const authorSectionHeight = displayNote.isPublic ? 80 : 0; // Reduced estimate
+      const statsHeight = displayNote.isPublic ? 40 : 0; // Reduced estimate
       const paddingTop = 20;
       
-      // Calculate height of all blocks before focused index
+      // Calculate height of all blocks before focused index (more conservative estimates)
       let blocksBeforeHeight = 0;
       for (let i = 0; i < focusedIndex; i++) {
         const block = blocks[i];
         if (block) {
           if (block.type === 'text') {
-            blocksBeforeHeight += 60;
+            blocksBeforeHeight += 50; // Reduced from 60
           } else if (block.type === 'card') {
-            blocksBeforeHeight += 100;
+            blocksBeforeHeight += 80; // Reduced from 100
+          } else if (block.type === 'grid-card') {
+            blocksBeforeHeight += 60; // Half size of card
           } else if (block.type === 'image') {
-            blocksBeforeHeight += 220;
+            blocksBeforeHeight += 200; // Reduced from 220
           }
         }
       }
@@ -421,29 +446,43 @@ const NoteDetailScreen = ({
     const toolbarHeight = 50; // Toolbar height
     const availableScreenHeight = screenHeight - safeAreaTop - keyboardHeight - toolbarHeight;
     
-    // Calculate target scroll position to center the focused input in visible area
-    const targetY = Math.max(0, estimatedY - (availableScreenHeight / 3)); // Position in upper third
+    // Much more conservative scroll calculation - only scroll if really needed
+    const minScrollNeeded = estimatedY - (availableScreenHeight * 0.7); // Only scroll if input is below 70% of screen
+    const targetY = Math.max(0, minScrollNeeded);
     
-    console.log('📜 Enhanced scroll calculation:', {
+    // Don't scroll if the adjustment would be too small
+    if (targetY < 50) {
+      console.log('📜 Scroll adjustment too small, skipping');
+      return;
+    }
+    
+    console.log('📜 Conservative scroll calculation:', {
       focusedIndex,
       estimatedY,
       keyboardHeight,
       screenHeight,
       availableScreenHeight,
+      minScrollNeeded,
       targetY,
       blocksCount: blocks.length
     });
     
     scrollRef.current.scrollTo({
       y: targetY,
-      animated: true
+      animated: true,
+      duration: 150 // Even faster animation - 150ms
     });
   }, [focusedIndex, displayNote, blocks, scrollRef]);
 
   // Block management functions
   const handleTextChange = (id, text) => {
     console.log('✏️ Text changed in block:', id, 'New text length:', text.length);
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: text } : b));
+    setBlocks(prev => prev.map(block => {
+      if (block.id === id) {
+        return { ...block, content: text };
+      }
+      return block;
+    }));
   };
 
   const insertBlockSet = (index, blockSet, focusIndex) => {
@@ -459,9 +498,9 @@ const NoteDetailScreen = ({
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
         setFocusedIndex(focusIndex);
-        // Auto-scroll to the focused element
-        if (keyboardVisible) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+        // Fast scroll for new blocks when keyboard is visible
+        if (keyboardVisible && keyboardHeight > 100) {
+          setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
         }
       }
     }, 100);
@@ -482,6 +521,23 @@ const NoteDetailScreen = ({
     };
     // Focus on the card (first element in the set)
     insertBlockSet(index, [card, trailingText], index);
+  };
+
+  const handleAddGrid = (index) => {
+    const gridCard = {
+      id: generateId(),
+      type: 'grid-card',
+      content: '',
+      ref: React.createRef(),
+    };
+    const trailingText = {
+      id: generateId(),
+      type: 'text',
+      content: '',
+      ref: React.createRef(),
+    };
+    // Focus on the grid card (first element in the set)
+    insertBlockSet(index, [gridCard, trailingText], index);
   };
 
   const handleAddImage = async (index) => {
@@ -509,10 +565,10 @@ const NoteDetailScreen = ({
   };
 
   const handleDeleteBlock = (index) => {
-    Alert.alert('삭제 확인', '이 블록을 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
+    Alert.alert('Delete Block', 'Are you sure you want to delete this block?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: '삭제', style: 'destructive', onPress: () => {
+        text: 'Delete', style: 'destructive', onPress: () => {
           const updated = [...blocks];
           updated.splice(index, 1);
           setBlocks(updated);
@@ -581,23 +637,34 @@ const NoteDetailScreen = ({
 
   const handlePageInfo = useCallback(() => {
     setShowSettingsMenu(false);
-    const createdDate = displayNote.createdAt 
-      ? new Date(displayNote.createdAt).toLocaleDateString()
-      : 'Unknown';
-    
-    const allContent = blocks
-      .filter(block => block.type === 'text')
-      .map(block => block.content)
-      .join('\n');
-    const contentLength = allContent.length;
-    const wordCount = allContent.split(/\s+/).filter(word => word.length > 0).length;
-    
-    Alert.alert(
-      'Page Info',
-      `Created: ${createdDate}\nCharacters: ${contentLength}\nWords: ${wordCount}`,
-      [{ text: 'OK' }]
-    );
-  }, [displayNote, blocks]);
+    setShowPageInfoModal(true);
+  }, []);
+
+  // Format dates properly
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const createdDate = displayNote.created_at || displayNote.createdAt;
+  const updatedDate = displayNote.updated_at || displayNote.updatedAt;
+  const createdDateFormatted = formatDate(createdDate);
+  const lastModifiedFormatted = formatDate(updatedDate);
+  const isPublicNote = displayNote.isPublic || displayNote.is_public;
+  const authorName = displayNote.username || displayNote.author || 'Unknown';
+
+  // Dismiss all modals and menus
+  const dismissMenus = useCallback(() => {
+    if (showSettingsMenu) setShowSettingsMenu(false);
+    if (showPageInfoModal) setShowPageInfoModal(false);
+  }, [showSettingsMenu, showPageInfoModal]);
 
   const handleAddToPinned = useCallback(() => {
     setShowSettingsMenu(false);
@@ -613,6 +680,8 @@ const NoteDetailScreen = ({
   
 
   const renderBlock = (block, index) => {
+    console.log('🎨 Rendering block:', { index, type: block.type, hasContent: !!block.content });
+    
     if (block.type === 'text') {
       return (
         <TextInput
@@ -623,11 +692,17 @@ const NoteDetailScreen = ({
           placeholder=" "
           value={block.content}
           onChangeText={(text) => handleTextChange(block.id, text)}
+          onPressIn={() => {
+            console.log('🎯 Text block pressed, index:', index);
+            dismissMenus();
+          }}
           onFocus={() => {
             console.log('🎯 Text/Card block focused, index:', index, 'type:', block.type);
+            dismissMenus();
             setFocusedIndex(index);
-            if (keyboardVisible) {
-              setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+            // Immediate scroll for already visible keyboard
+            if (keyboardVisible && keyboardHeight > 100) {
+              setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
             }
           }}
           onKeyPress={({ nativeEvent }) => handleKeyPress(block, index, nativeEvent.key)}
@@ -641,33 +716,103 @@ const NoteDetailScreen = ({
       );
     } else if (block.type === 'card') {
       return (
-        <View key={block.id} style={styles.cardBlock}>
+        <View key={`card-${block.id}`} style={styles.cardBlock}>
           <View style={styles.cardHeader}>
             <TextInput
+              key={`card-input-${block.id}`}
               ref={block.ref}
               style={styles.cardTitleInput}
               placeholder="Write something"
               multiline
+              scrollEnabled={true}
               value={block.content}
               onChangeText={(text) => handleTextChange(block.id, text)}
+              onContentSizeChange={(event) => {
+                // Allow TextInput to grow naturally with content
+                console.log('📏 Card content size changed:', event.nativeEvent.contentSize);
+              }}
+              onPressIn={() => {
+                console.log('🎯 Card block pressed, index:', index);
+                dismissMenus();
+              }}
               onFocus={() => {
                 console.log('🎯 Text/Card block focused, index:', index, 'type:', block.type);
+                dismissMenus();
                 setFocusedIndex(index);
-                if (keyboardVisible) {
-                  setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+                // Immediate scroll for already visible keyboard
+                if (keyboardVisible && keyboardHeight > 100) {
+                  setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
                 }
               }}
               onKeyPress={({ nativeEvent }) => handleKeyPress(block, index, nativeEvent.key)}
-                  autoCorrect={false}
+              onSelectionChange={(event) => {
+                // Monitor cursor position
+                console.log('🎯 Card selection change:', event.nativeEvent.selection);
+              }}
+              autoCorrect={false}
               autoComplete="off"
               spellCheck={false}
               editable={isAuthor}
-          inputAccessoryViewID={TOOLBAR_ID}
+              inputAccessoryViewID={TOOLBAR_ID}
               placeholderTextColor={Colors.secondaryText}
+              selectTextOnFocus={false}
+              blurOnSubmit={false}
             />
             <TouchableOpacity onPress={() => handleDeleteBlock(index)}>
               <Icon name="x" size={20} color="#888" />
             </TouchableOpacity>
+          </View>
+        </View>
+      );
+    } else if (block.type === 'grid-card') {
+      return (
+        <View key={`grid-${block.id}`} style={styles.gridCardBlock}>
+          <View style={styles.gridCardHeader}>
+            <TextInput
+              key={`grid-input-${block.id}`}
+              ref={block.ref}
+              style={styles.gridCardTitleInput}
+              placeholder="Small note"
+              multiline
+              scrollEnabled={true}
+              value={block.content}
+              onChangeText={(text) => handleTextChange(block.id, text)}
+              onContentSizeChange={(event) => {
+                // Allow TextInput to grow naturally with content
+                console.log('📏 Grid card content size changed:', event.nativeEvent.contentSize);
+              }}
+              onPressIn={() => {
+                console.log('🎯 Grid card block pressed, index:', index);
+                dismissMenus();
+              }}
+              onFocus={() => {
+                console.log('🎯 Grid card block focused, index:', index, 'type:', block.type);
+                dismissMenus();
+                setFocusedIndex(index);
+                // Immediate scroll for already visible keyboard
+                if (keyboardVisible && keyboardHeight > 100) {
+                  setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
+                }
+              }}
+              onKeyPress={({ nativeEvent }) => handleKeyPress(block, index, nativeEvent.key)}
+              onSelectionChange={(event) => {
+                // Monitor cursor position
+                console.log('🎯 Grid card selection change:', event.nativeEvent.selection);
+              }}
+              autoCorrect={false}
+              autoComplete="off"
+              spellCheck={false}
+              editable={isAuthor}
+              inputAccessoryViewID={TOOLBAR_ID}
+              placeholderTextColor={Colors.secondaryText}
+              selectTextOnFocus={false}
+              blurOnSubmit={false}
+            />
+            {isAuthor && (
+              <TouchableOpacity onPress={() => handleDeleteBlock(index)}>
+                <Icon name="x" size={16} color="#888" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       );
@@ -722,10 +867,9 @@ const NoteDetailScreen = ({
             </TouchableOpacity>
             <TouchableOpacity onPress={handleAddToPinned} style={styles.menuItem}>
               <Icon 
-                name="paperclip" 
+                name="bookmark" 
                 size={16} 
                 color={isFavorite(noteId) ? Colors.floatingButton : Colors.primaryText}
-                style={{ transform: [{ rotate: '180deg' }] }}
               />
               <Text style={styles.menuItemText}>
                 {isFavorite(noteId) ? 'Remove from Pinned' : 'Add to Pinned'}
@@ -734,17 +878,25 @@ const NoteDetailScreen = ({
           </View>
         )}
 
-        {/* Background touch to close menu */}
+        {/* Background touch to close menu and page info modal */}
         <TouchableWithoutFeedback 
           onPress={() => {
             if (showSettingsMenu) {
               setShowSettingsMenu(false);
             }
+            if (showPageInfoModal) {
+              setShowPageInfoModal(false);
+            }
             // Don't call Keyboard.dismiss() here to prevent interference with TextInput focus
           }}
           style={{ flex: 1 }}
         >
-          <View style={{ flex: 1 }}>
+          <View 
+            style={{ flex: 1 }}
+            onTouchStart={() => {
+              dismissMenus();
+            }}
+          >
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -800,6 +952,9 @@ const NoteDetailScreen = ({
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="always"
               keyboardDismissMode="none"
+              onTouchStart={() => {
+                dismissMenus();
+              }}
             >
               {/* Title Input */}
               <TextInput
@@ -810,11 +965,17 @@ const NoteDetailScreen = ({
                   console.log('🏷️ Title changed:', newTitle.length, 'characters');
                   setTitle(newTitle);
                 }}
+                onPressIn={() => {
+                  console.log('🎯 Title input pressed');
+                  dismissMenus();
+                }}
                 onFocus={() => {
                   console.log('🎯 Title input focused');
+                  dismissMenus();
                   setFocusedIndex(-1);
-                  if (keyboardVisible) {
-                    setTimeout(() => scrollToFocusedInput(keyboardHeight), 200);
+                  // Immediate scroll for already visible keyboard
+                  if (keyboardVisible && keyboardHeight > 150) {
+                    setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
                   }
                 }} // Special index for title
                 multiline
@@ -867,6 +1028,11 @@ const NoteDetailScreen = ({
               <TouchableWithoutFeedback
                 onPress={() => {
                   console.log('🎯 Empty space touched, focusing last text block');
+                  // Close all modals/menus if open
+                  if (showPageInfoModal || showSettingsMenu) {
+                    dismissMenus();
+                    return; // Don't focus input if closing modal/menu
+                  }
                   const lastTextBlock = blocks.filter(b => b.type === 'text').pop();
                   if (lastTextBlock?.ref?.current) {
                     lastTextBlock.ref.current.focus();
@@ -902,7 +1068,7 @@ const NoteDetailScreen = ({
                   <TouchableOpacity
                     onPress={() => {
                       console.log('🔧 Adding grid at current line, index:', focusedIndex);
-                      // TODO: implement grid functionality
+                      handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
                     }}
                     style={styles.toolbarBtn}
                   >
@@ -927,6 +1093,67 @@ const NoteDetailScreen = ({
           </InputAccessoryView>
         )}
       </KeyboardAvoidingView>
+
+      {/* Page Info Modal */}
+      <Modal
+        visible={showPageInfoModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowPageInfoModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowPageInfoModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.pageInfoModal}>
+                <View style={styles.pageInfoHeader}>
+                  <Text style={styles.pageInfoTitle}>Page Information</Text>
+                  <TouchableOpacity 
+                    onPress={() => setShowPageInfoModal(false)}
+                    style={styles.pageInfoCloseButton}
+                  >
+                    <Icon name="x" size={20} color={Colors.primaryText} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.pageInfoContent}>
+                  <View style={styles.pageInfoRow}>
+                    <Text style={styles.pageInfoLabel}>Title</Text>
+                    <Text style={styles.pageInfoValue}>{displayNote.title || 'Untitled'}</Text>
+                  </View>
+                  
+                  <View style={styles.pageInfoRow}>
+                    <Text style={styles.pageInfoLabel}>Created</Text>
+                    <Text style={styles.pageInfoValue}>{createdDateFormatted}</Text>
+                  </View>
+                  
+                  <View style={styles.pageInfoRow}>
+                    <Text style={styles.pageInfoLabel}>Last Modified</Text>
+                    <Text style={styles.pageInfoValue}>{lastModifiedFormatted}</Text>
+                  </View>
+                  
+                  <View style={styles.pageInfoRow}>
+                    <Text style={styles.pageInfoLabel}>Author</Text>
+                    <Text style={styles.pageInfoValue}>{authorName}</Text>
+                  </View>
+                  
+                  <View style={styles.pageInfoRow}>
+                    <Text style={styles.pageInfoLabel}>Visibility</Text>
+                    <View style={styles.visibilityContainer}>
+                      <Icon 
+                        name={isPublicNote ? "globe" : "lock"} 
+                        size={14} 
+                        color={Colors.secondaryText} 
+                        style={styles.visibilityIcon}
+                      />
+                      <Text style={styles.pageInfoValue}>
+                        {isPublicNote ? 'Public' : 'Private'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1120,6 +1347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingTop: 4,
+    minHeight: 40, // Ensure minimum height for the delete button
   },
   cardTitleInput: {
     flex: 1,
@@ -1129,6 +1357,34 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 0,
     textAlignVertical: 'top',
+    lineHeight: 20,
+    // Allow natural height expansion
+  },
+  gridCardBlock: {
+    backgroundColor: Colors.noteCard,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    width: '48%', // Half screen width
+    alignSelf: 'flex-start', // Align to left side
+  },
+  gridCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingTop: 2,
+    minHeight: 30, // Ensure minimum height for the delete button
+  },
+  gridCardTitleInput: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.primaryText,
+    minHeight: 30,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    textAlignVertical: 'top',
+    lineHeight: 18,
+    // Allow natural height expansion
   },
   imageBlock: {
     position: 'relative',
@@ -1192,6 +1448,79 @@ const styles = StyleSheet.create({
   },
   savingButton: {
     opacity: 0.7,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Layout.spacing.lg,
+  },
+  pageInfoModal: {
+    backgroundColor: Colors.white,
+    borderRadius: Layout.borderRadius,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: Colors.primaryText,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 20,
+  },
+  pageInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.lg,
+    paddingVertical: Layout.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  pageInfoTitle: {
+    fontSize: Typography.fontSize.title,
+    fontFamily: Typography.fontFamily.primary,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.primaryText,
+  },
+  pageInfoCloseButton: {
+    padding: Layout.spacing.xs,
+  },
+  pageInfoContent: {
+    padding: Layout.spacing.lg,
+  },
+  pageInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Layout.spacing.md,
+    minHeight: 24,
+  },
+  pageInfoLabel: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.secondaryText,
+    width: 100,
+    flexShrink: 0,
+  },
+  pageInfoValue: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.primaryText,
+    flex: 1,
+    textAlign: 'left',
+    lineHeight: 20,
+  },
+  visibilityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  visibilityIcon: {
+    marginRight: Layout.spacing.xs,
   },
 });
 
