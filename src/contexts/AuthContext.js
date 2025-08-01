@@ -126,14 +126,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const createUserProfile = async (userId) => {
+  const createUserProfile = async (userId, providedUsername = null) => {
     try {
       console.log('🔨 Creating profile for user:', userId);
-      // Get the username from the user metadata
-      const { data: { user } } = await AuthService.getCurrentUser();
-      const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'user';
+      
+      let username = providedUsername;
+      
+      if (!username) {
+        // Get the username from the user metadata
+        const { data: { user } } = await AuthService.getCurrentUser();
+        username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'user';
+      }
       
       console.log('📝 Creating profile with username:', username);
+      
+      // Check if username is available before creating
+      const { isAvailable } = await ProfileService.checkUsernameAvailability(username);
+      if (!isAvailable) {
+        // Generate a unique username by appending a random number
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        username = `${username}_${randomSuffix}`;
+        console.log('⚠️ Username taken, using:', username);
+      }
+      
       const { data: profileData, error } = await ProfileService.createProfile(userId, username);
       
       if (error) {
@@ -162,6 +177,12 @@ export const AuthProvider = ({ children }) => {
       
       if (error) {
         throw new Error(error);
+      }
+
+      // If signup was successful and we have a user, create profile immediately
+      if (data?.user?.id) {
+        console.log('🔨 Creating profile immediately after signup for:', data.user.id);
+        await createUserProfile(data.user.id, username);
       }
 
       return { data, error: null };
