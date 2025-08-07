@@ -4,10 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 class FollowService {
   constructor() {
     // Service role client for admin operations (bypassing RLS)
-    this.serviceSupabase = createClient(
-      'https://kmhmoxzhsljtnztywfre.supabase.co',
-      '***REMOVED***'
-    );
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('🚨 SECURITY: Missing Supabase admin configuration in environment variables');
+    }
+    
+    this.serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
   }
 
   // Create follows table if it doesn't exist

@@ -1,10 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
+// 🔒 SECURITY: Service role client for admin operations
+// These should NEVER be exposed in client-side code
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('🚨 SECURITY: Missing Supabase admin configuration in environment variables');
+}
+
 // Service role client for admin operations
-const supabaseAdmin = createClient(
-  'https://kmhmoxzhsljtnztywfre.supabase.co',
-  '***REMOVED***'
-);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 class SupabaseAdminService {
   

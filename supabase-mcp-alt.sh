@@ -1,10 +1,28 @@
 #!/bin/bash
 
-# Supabase MCP Server
+# 🔒 Supabase MCP Server - SECURITY HARDENED
+# 🚨 CRITICAL: All JWT tokens have been removed from this file for security
 export SUPABASE_URL="https://kmhmoxzhsljtnztywfre.supabase.co"
-export SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttaG1veHpoc2xqdG56dHl3ZnJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTMwNTUsImV4cCI6MjA2ODY2OTA1NX0.suIJ6i0GFAyiSbq6a7foUK2LYSdZ9cAAkCrft4hgI64"
 
-# Use service role key for MCP server to allow migrations and RLS policy changes
-export SUPABASE_ACCESS_TOKEN="***REMOVED***"
+# 🔐 Load credentials from environment variables (required for security)
+if [ -z "$SUPABASE_ANON_KEY" ]; then
+    echo "🚨 SECURITY ERROR: SUPABASE_ANON_KEY environment variable not set"
+    echo "Please set it with: export SUPABASE_ANON_KEY='your_anon_key_here'"
+    exit 1
+fi
+
+if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+    echo "🚨 SECURITY ERROR: SUPABASE_ACCESS_TOKEN environment variable not set"
+    echo "Please set it with: export SUPABASE_ACCESS_TOKEN='your_service_role_key_here'"
+    exit 1
+fi
+
+# Export the loaded environment variables
+export SUPABASE_ANON_KEY
+export SUPABASE_ACCESS_TOKEN
+
+echo "🔒 Supabase MCP Server starting with secure environment variables..."
+echo "URL: $SUPABASE_URL"
+echo "Keys: [SECURED - loaded from environment]"
 
 exec npx @supabase/mcp-server-supabase "$@"

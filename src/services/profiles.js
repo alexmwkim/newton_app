@@ -102,10 +102,14 @@ class ProfileService {
       console.log('🔨 ProfileService.createProfile STRICT DUPLICATE PREVENTION - User:', userId, 'username:', username);
       
       // Use service role for profile creation to bypass RLS
-      const serviceSupabase = createClient(
-        'https://kmhmoxzhsljtnztywfre.supabase.co',
-        '***REMOVED***'
-      );
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('🚨 SECURITY: Missing Supabase admin configuration in environment variables');
+      }
+      
+      const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
       
       // STRICT CHECK: Always check if profile already exists first
       console.log('🛡️ STRICT: Checking if profile already exists for user:', userId);
@@ -254,10 +258,14 @@ class ProfileService {
       console.log('👤 User error:', userError?.message);
       
       // Use service role to check auth.users table
-      const serviceSupabase = createClient(
-        'https://kmhmoxzhsljtnztywfre.supabase.co',
-        '***REMOVED***'
-      );
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('🚨 SECURITY: Missing Supabase admin configuration in environment variables');
+      }
+      
+      const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
       
       // Check all users with Alex or David names
       console.log('🔍 Searching for Alex/David users in auth.users...');

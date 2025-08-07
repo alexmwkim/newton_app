@@ -4,8 +4,15 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Use environment variables from MCP script
-const SUPABASE_URL = "https://kmhmoxzhsljtnztywfre.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = "***REMOVED***";
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://kmhmoxzhsljtnztywfre.supabase.co";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "REMOVED_FOR_SECURITY_PLEASE_SET_ENV_VAR";
+
+// Security check
+if (SUPABASE_SERVICE_ROLE_KEY === "REMOVED_FOR_SECURITY_PLEASE_SET_ENV_VAR") {
+  console.error('🚨 SECURITY ERROR: Supabase service role key must be set as environment variable');
+  console.error('Set SUPABASE_SERVICE_ROLE_KEY environment variable before running this script');
+  process.exit(1);
+}
 
 console.log('🔧 Creating follows table using Supabase service role...');
 
