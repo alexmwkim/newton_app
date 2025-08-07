@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Markdown from 'react-native-markdown-display';
-// import * as ImagePicker from 'expo-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
+import Avatar from '../components/Avatar';
 import ProfileStore from '../store/ProfileStore';
+import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 import { useNotesStore } from '../store/NotesStore';
+import { useAuth } from '../contexts/AuthContext';
+import ProfileService from '../services/profiles';
+import NotesService from '../services/notes';
+import FollowService from '../services/follow';
 
 // Mock user data matching the design
 const mockUser = {
@@ -41,6 +47,7 @@ Feel free to check out my public notes below!`,
 
 const ProfileScreen = ({ navigation }) => {
   const [activeNavTab, setActiveNavTab] = useState(3); // Profile is index 3
+  const { user, profile, updateProfile } = useAuth();
   const [readmeData, setReadmeData] = useState({
     title: mockUser.readmeTitle,
     content: mockUser.readmeContent,
@@ -48,18 +55,37 @@ const ProfileScreen = ({ navigation }) => {
   
   // Social features state
   const [isFollowing, setIsFollowing] = useState(mockUser.isFollowing);
-  const [followersCount, setFollowersCount] = useState(mockUser.followersCount);
+
+  // Use actual user data if available, otherwise fallback to mock
+  const currentUser = user ? {
+    id: user.id,
+    username: profile?.username || user.username || user.email?.split('@')[0] || 'alexkim',
+    readmeTitle: readmeData.title,
+    readmeContent: readmeData.content,
+    myNotesCount: mockUser.myNotesCount,
+    starredNotesCount: mockUser.starredNotesCount,
+    followersCount: mockUser.followersCount,
+    followingCount: mockUser.followingCount,
+    starsCount: mockUser.starsCount,
+    isFollowing: isFollowing,
+  } : mockUser;
+  const [followersCount, setFollowersCount] = useState(0); // Start with 0, will load real data
+  const [followingCount, setFollowingCount] = useState(0); // Start with 0, will load real data
   const [highlightNotes, setHighlightNotes] = useState([]);
   
   // Profile photo state
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [userProfilePhotoForNotes, setUserProfilePhotoForNotes] = useState(ProfileStore.getProfilePhoto());
   
+  // Get consistent username for display
+  const getUsernameForDisplay = () => {
+    return profile?.username || user?.username || user?.email?.split('@')[0] || 'alexkim';
+  };
+
   // Notes store
   const { privateNotes, publicNotes, globalPublicNotes, isFavorite, toggleFavorite, getStarredNotes, starredNotes } = useNotesStore();
 
   // Calculate actual notes count - user's own public notes only
-  const currentUser = 'alexnwkim';
   const myNotesCount = publicNotes.length; // publicNotes already contains only user's own public notes
   
   // Get starred notes - use the data from NotesStore
@@ -103,14 +129,26 @@ const ProfileScreen = ({ navigation }) => {
     // Load highlight notes
     loadHighlightNotes();
     
+    // Load real social stats
+    loadRealSocialStats();
+    
     return () => clearInterval(interval);
   }, []);
 
   // Subscribe to notes changes for highlight updates and count updates
   useEffect(() => {
+    console.log('📊 Notes changed - updating highlights and counts');
+    console.log('📊 Public notes count:', publicNotes?.length);
+    console.log('📊 Latest public note updated_at:', publicNotes?.[0]?.updated_at);
     loadHighlightNotes();
-    console.log('📊 Notes changed - updating counts');
-  }, [privateNotes?.length, publicNotes?.length]);
+  }, [
+    privateNotes?.length, 
+    publicNotes?.length,
+    // Also watch for changes in the most recent public note's updated_at
+    publicNotes?.[0]?.updated_at,
+    // Watch the entire publicNotes array to catch any updates
+    JSON.stringify(publicNotes?.map(n => ({ id: n.id, updated_at: n.updated_at })))
+  ]);
 
   // Subscribe to profile photo changes for highlight notes
   useEffect(() => {
@@ -120,10 +158,39 @@ const ProfileScreen = ({ navigation }) => {
     return unsubscribe;
   }, []);
 
+  // Load profile photo when AuthContext profile changes
+  useEffect(() => {
+    if (profile?.avatar_url) {
+      console.log('📸 AuthContext profile avatar_url changed, updating local state:', profile.avatar_url);
+      setProfilePhoto(profile.avatar_url);
+    }
+  }, [profile?.avatar_url]);
+
   const loadProfilePhoto = async () => {
     try {
+      // First try to load from AuthContext profile (most up-to-date)
+      if (profile?.avatar_url) {
+        console.log('📸 Loading avatar from AuthContext profile:', profile.avatar_url);
+        setProfilePhoto(profile.avatar_url);
+        await saveProfilePhoto(profile.avatar_url); // Save to local storage too
+        return;
+      }
+      
+      // Then try to load from Supabase if user is authenticated
+      if (user?.id) {
+        const { data: profileData, error } = await ProfileService.getProfile(user.id);
+        if (!error && profileData?.avatar_url) {
+          console.log('📸 Loading avatar from Supabase:', profileData.avatar_url);
+          setProfilePhoto(profileData.avatar_url);
+          await saveProfilePhoto(profileData.avatar_url); // Save to local storage too
+          return;
+        }
+      }
+      
+      // Fallback to local storage
       const savedPhoto = await AsyncStorage.getItem('profilePhoto');
       if (savedPhoto) {
+        console.log('📸 Loading avatar from local storage:', savedPhoto);
         setProfilePhoto(savedPhoto);
       }
     } catch (error) {
@@ -142,11 +209,69 @@ const ProfileScreen = ({ navigation }) => {
 
   const deleteProfilePhoto = async () => {
     try {
+      // Delete from Supabase if there's a current profile photo
+      if (profilePhoto && user?.id) {
+        const { error } = await ProfileService.deleteAvatar(user.id, profilePhoto);
+        if (error) {
+          console.error('📸 Failed to delete from Supabase:', error);
+          Alert.alert('Error', 'Failed to delete profile photo from server.');
+          return;
+        }
+      }
+      
+      // Remove from local storage
       await AsyncStorage.removeItem('profilePhoto');
       setProfilePhoto(null);
       ProfileStore.setProfilePhoto(null); // Update shared store
+      
+      // Update AuthContext profile to remove avatar_url
+      await updateProfile({ avatar_url: null });
+      
+      console.log('📸 Profile photo deleted successfully and profile updated');
+      Alert.alert('Success', 'Profile photo deleted!');
     } catch (error) {
-      console.log('Error deleting profile photo:', error);
+      console.error('📸 Error deleting profile photo:', error);
+      Alert.alert('Error', 'Failed to delete profile photo.');
+    }
+  };
+  
+  // Load real social stats using FollowService
+  const loadRealSocialStats = async () => {
+    try {
+      if (!user?.id) {
+        console.log('📊 ProfileScreen: No user ID available for social stats');
+        setFollowersCount(0);
+        setFollowingCount(0);
+        return;
+      }
+
+      console.log('📊 ProfileScreen: Loading real follow stats for user:', user.id);
+
+      // Initialize follows table if needed (first time setup)
+      await FollowService.initializeFollowsTable();
+
+      // Get real followers count
+      const { success: followersSuccess, count: followers } = await FollowService.getFollowersCount(user.id);
+      if (followersSuccess) {
+        setFollowersCount(followers);
+        console.log('👥 ProfileScreen: Real followers count:', followers);
+      } else {
+        setFollowersCount(0);
+      }
+
+      // Get real following count
+      const { success: followingSuccess, count: following } = await FollowService.getFollowingCount(user.id);
+      if (followingSuccess) {
+        setFollowingCount(following);
+        console.log('👥 ProfileScreen: Real following count:', following);
+      } else {
+        setFollowingCount(0);
+      }
+
+    } catch (err) {
+      console.error('❌ ProfileScreen: Exception loading follow stats:', err);
+      setFollowersCount(0);
+      setFollowingCount(0);
     }
   };
   
@@ -156,28 +281,30 @@ const ProfileScreen = ({ navigation }) => {
       note.isPublic !== false // Make sure it's actually a public note
     );
     
-    // Sort by modification date ("Just now" first, then by actual date)
+    // Sort by MOST RECENTLY UPDATED first for "Recent" section
     const sortedNotes = userPublicNotes.sort((a, b) => {
-      // If both have "Just now", sort by id (newer first)
-      if (a.timeAgo === 'Just now' && b.timeAgo === 'Just now') {
-        return b.id - a.id;
-      }
-      // "Just now" notes come first
-      if (a.timeAgo === 'Just now') return -1;
-      if (b.timeAgo === 'Just now') return 1;
+      console.log('📈 Comparing notes for sorting:', {
+        a: { title: a.title, updated_at: a.updated_at },
+        b: { title: b.title, updated_at: b.updated_at }
+      });
       
-      // Sort by actual modification date if available
-      if (a.lastModified && b.lastModified) {
-        return new Date(b.lastModified) - new Date(a.lastModified);
-      }
+      // Primary sort: most recently updated first
+      const aUpdatedDate = new Date(a.updated_at || a.updatedAt || a.created_at || a.createdAt || 0);
+      const bUpdatedDate = new Date(b.updated_at || b.updatedAt || b.created_at || b.createdAt || 0);
+      const dateDiff = bUpdatedDate.getTime() - aUpdatedDate.getTime();
       
-      // Fall back to creation date or id
-      if (a.createdAt && b.createdAt) {
-        return new Date(b.createdAt) - new Date(a.createdAt);
+      if (dateDiff !== 0) {
+        console.log('📈 Sorted by updated_at:', a.title, 'vs', b.title, '→', dateDiff > 0 ? 'b wins' : 'a wins');
+        return dateDiff; // Most recently updated first
       }
       
-      return b.id - a.id;
+      // Secondary sort: if update times are equal, sort by star count
+      const aStarCount = a.star_count || a.starCount || 0;
+      const bStarCount = b.star_count || b.starCount || 0;
+      return bStarCount - aStarCount;
     });
+    
+    console.log('📈 Final sorted notes order:', sortedNotes.map(n => `${n.title} (updated: ${n.updated_at})`));
     
     // Take only the first 2 notes for highlight section
     const highlightData = sortedNotes.slice(0, 2).map(note => {
@@ -195,7 +322,7 @@ const ProfileScreen = ({ navigation }) => {
         title: note.title,
         forkCount: note.fork_count || note.forksCount || note.forkCount || 0,
         starCount: note.star_count || note.starCount || 0,
-        username: note.username || currentUser,
+        username: getUsernameForDisplay(),
         isStarred: false // Simplified to avoid circular dependency - will be calculated in render
       };
     });
@@ -206,79 +333,212 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleProfilePhotoPress = () => {
-    if (profilePhoto) {
-      // Show options to change or delete photo
-      Alert.alert(
-        'Profile Photo',
-        'What would you like to do?',
-        [
-          { text: 'Change Photo', onPress: selectProfilePhoto },
-          { text: 'Delete Photo', onPress: () => {
-            Alert.alert(
-              'Delete Photo',
-              'Are you sure you want to delete your profile photo?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: deleteProfilePhoto }
-              ]
-            );
-          }},
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
-    } else {
-      // No photo, show upload option
-      selectProfilePhoto();
+    try {
+      console.log('📸 Profile photo pressed, current photo:', profilePhoto ? 'exists' : 'none');
+      
+      if (profilePhoto) {
+        // Show options to change or delete photo
+        Alert.alert(
+          'Profile Photo',
+          'What would you like to do?',
+          [
+            { text: 'Change Photo', onPress: () => {
+              try {
+                selectProfilePhoto();
+              } catch (error) {
+                console.error('📸 Error in change photo:', error);
+                Alert.alert('Error', 'Failed to change photo');
+              }
+            }},
+            { text: 'Delete Photo', onPress: () => {
+              Alert.alert(
+                'Delete Photo',
+                'Are you sure you want to delete your profile photo?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => {
+                    try {
+                      deleteProfilePhoto();
+                    } catch (error) {
+                      console.error('📸 Error in delete photo:', error);
+                      Alert.alert('Error', 'Failed to delete photo');
+                    }
+                  }}
+                ]
+              );
+            }},
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        // No photo, show upload option
+        selectProfilePhoto();
+      }
+    } catch (error) {
+      console.error('📸 Error in handleProfilePhotoPress:', error);
+      Alert.alert('Error', 'Failed to handle profile photo action');
     }
   };
 
   const selectProfilePhoto = async () => {
-    // For now, simulate photo upload with a placeholder
-    // In a production app, you would use expo-image-picker here
-    
-    /* 
-    // PRODUCTION CODE - uncomment when deploying to device:
-    // First, request permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to upload a profile photo.');
-      return;
+    try {
+      console.log('📸 Starting photo selection process...');
+      
+      // Check if user is logged in
+      if (!user?.id) {
+        Alert.alert('Error', 'You must be logged in to upload a profile photo.');
+        return;
+      }
+      
+      // For iOS Simulator, offer sample photo option first
+      if (Platform.OS === 'ios' && __DEV__) {
+        Alert.alert(
+          'Profile Photo',
+          'Running on iOS Simulator. Image picker may not work properly. Would you like to use a sample photo instead?',
+          [
+            { 
+              text: 'Use Sample Photo', 
+              onPress: async () => {
+                try {
+                  const samplePhotoUri = 'https://i.pravatar.cc/150?img=3';
+                  
+                  // Update local state
+                  setProfilePhoto(samplePhotoUri);
+                  await saveProfilePhoto(samplePhotoUri);
+                  
+                  // Update AuthContext profile so it's available across the app
+                  await updateProfile({ avatar_url: samplePhotoUri });
+                  
+                  console.log('📸 Sample profile photo set and profile updated');
+                  Alert.alert('Success', 'Sample profile photo set!');
+                } catch (error) {
+                  console.error('📸 Error setting sample photo:', error);
+                  Alert.alert('Error', 'Failed to set sample photo');
+                }
+              }
+            },
+            { 
+              text: 'Try Image Picker (May Crash)', 
+              onPress: () => {
+                Alert.alert(
+                  'Warning', 
+                  'Image picker may cause the app to crash on simulator. Are you sure you want to continue?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Continue', onPress: () => launchImagePicker() }
+                  ]
+                );
+              }
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        // On device, go straight to image picker
+        await launchImagePicker();
+      }
+    } catch (error) {
+      console.error('📸 Error in selectProfilePhoto:', error);
+      console.error('📸 Error stack:', error.stack);
+      Alert.alert('Error', `Failed to select profile photo: ${error.message}`);
     }
+  };
 
-    // Launch image picker
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+  const launchImagePicker = async () => {
+    try {
+      console.log('📸 Starting image picker process...');
+      
+      // Check if ImagePicker is available
+      if (!ImagePicker) {
+        console.error('📸 ImagePicker is not available');
+        Alert.alert('Error', 'Image picker is not available on this device.');
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      const imageUri = result.assets[0].uri;
-      setProfilePhoto(imageUri);
-      await saveProfilePhoto(imageUri);
-      console.log('📸 Profile photo updated');
+      console.log('📸 Requesting media library permissions...');
+      
+      // Request permissions with error handling
+      let permissionResult;
+      try {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        console.log('📸 Permission result:', permissionResult);
+      } catch (permissionError) {
+        console.error('📸 Permission request failed:', permissionError);
+        Alert.alert('Permission Error', 'Failed to request camera roll permissions. Please check your device settings.');
+        return;
+      }
+      
+      if (permissionResult.status !== 'granted') {
+        console.log('📸 Permission denied:', permissionResult.status);
+        Alert.alert(
+          'Permission Required', 
+          'We need access to your photo library to set a profile picture. Please go to Settings and enable photo library access for this app.',
+          [
+            { text: 'OK', style: 'default' }
+          ]
+        );
+        return;
+      }
+
+      console.log('📸 Permission granted, launching image picker...');
+      
+      // Add a small delay to ensure permission state is stable
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Launch image picker with minimal options to avoid crashes
+      let pickerResult;
+      try {
+        pickerResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false, // Disable editing to avoid potential crashes
+          quality: 0.7, // Lower quality to reduce memory usage
+          allowsMultipleSelection: false,
+        });
+        console.log('📸 Picker completed, result:', JSON.stringify(pickerResult, null, 2));
+      } catch (pickerError) {
+        console.error('📸 Image picker failed:', pickerError);
+        Alert.alert('Image Picker Error', 'Failed to open image picker. This feature may not be available on the simulator.');
+        return;
+      }
+
+      if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+        const imageUri = pickerResult.assets[0].uri;
+        console.log('📸 Selected image URI:', imageUri);
+        
+        if (!imageUri) {
+          console.error('📸 No image URI received');
+          Alert.alert('Error', 'Failed to get image from picker');
+          return;
+        }
+        
+        // Update local state
+        setProfilePhoto(imageUri);
+        await saveProfilePhoto(imageUri);
+        
+        // Update AuthContext profile so it's available across the app
+        try {
+          await updateProfile({ avatar_url: imageUri });
+          console.log('📸 Profile updated successfully');
+        } catch (updateError) {
+          console.error('📸 Profile update failed:', updateError);
+          // Don't fail the whole operation if profile update fails
+        }
+        
+        console.log('📸 Profile photo set locally and profile updated:', imageUri);
+        Alert.alert('Success', 'Profile photo updated!');
+        
+      } else {
+        console.log('📸 Image selection was canceled');
+        // Don't show an alert for cancellation, it's normal user behavior
+      }
+    } catch (error) {
+      console.error('📸 Unexpected error in launchImagePicker:', error);
+      console.error('📸 Error stack:', error.stack);
+      Alert.alert(
+        'Unexpected Error', 
+        `An unexpected error occurred: ${error.message}. Image picker may not work properly on the simulator.`
+      );
     }
-    */
-    
-    // DEVELOPMENT/SIMULATOR CODE:
-    Alert.alert(
-      'Upload Profile Photo',
-      'Photo upload functionality will be available when running on a device. For now, a sample photo will be used.',
-      [
-        { 
-          text: 'Use Sample Photo', 
-          onPress: () => {
-            // Use a sample photo URL for demonstration
-            const samplePhotoUri = 'https://i.pravatar.cc/150?img=3';
-            setProfilePhoto(samplePhotoUri);
-            saveProfilePhoto(samplePhotoUri);
-            console.log('📸 Sample profile photo set');
-          }
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
   };
 
   const handleNavChange = (tabIndex) => {
@@ -301,12 +561,30 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleMyNotesPress = () => {
     console.log('My notes pressed');
-    navigation.navigate('myNotes');
+    navigation.navigate('notesList', {
+      listType: 'myNotes',
+      username: getUsernameForDisplay(),
+      userId: user?.id,
+      userProfile: profile,
+      title: 'My Notes',
+      isCurrentUser: false, // ALWAYS show public notes only in profile "My Notes" section
+      // Add origin information for proper back navigation
+      originScreen: 'profile'
+    });
   };
 
   const handleStarredNotesPress = () => {
     console.log('Starred notes pressed');
-    navigation.navigate('starredNotes');
+    navigation.navigate('notesList', {
+      listType: 'starredNotes',
+      username: getUsernameForDisplay(),
+      userId: user?.id,
+      userProfile: profile,
+      title: 'Starred Notes',
+      isCurrentUser: true,
+      // Add origin information for proper back navigation
+      originScreen: 'profile'
+    });
   };
 
   const handleNotePress = (note) => {
@@ -375,19 +653,14 @@ const ProfileScreen = ({ navigation }) => {
           >
             {/* Profile Section */}
             <View style={styles.profileSection}>
-              <TouchableOpacity style={styles.avatarContainer} onPress={handleProfilePhotoPress}>
-                <View style={styles.avatar}>
-                  {profilePhoto ? (
-                    <Image source={{ uri: profilePhoto }} style={styles.avatarImage} />
-                  ) : (
-                    <Icon name="user" size={24} color={Colors.secondaryText} />
-                  )}
-                </View>
-                <View style={styles.cameraIconContainer}>
-                  <Icon name="camera" size={16} color={Colors.mainBackground} />
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.username}>{mockUser.username}</Text>
+              <Avatar
+                size="large"
+                imageUrl={profilePhoto}
+                username={getUsernameForDisplay()}
+                showCamera={true}
+                onPress={handleProfilePhotoPress}
+              />
+              <Text style={styles.username}>{currentUser.username}</Text>
             </View>
 
             {/* Social Stats Section */}
@@ -401,28 +674,30 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.statSeparator}>  </Text>
               <TouchableOpacity onPress={handleFollowingPress}>
                 <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{mockUser.followingCount}</Text>
+                  <Text style={styles.statNumber}>{followingCount}</Text>
                   <Text style={styles.statLabel}> following</Text>
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Follow Button Section */}
-            <View style={styles.followButtonSection}>
-              <TouchableOpacity 
-                style={[styles.followButton, isFollowing && styles.followingButton]} 
-                onPress={handleFollowPress}
-              >
-                <Icon 
-                  name={isFollowing ? "user-check" : "user-plus"} 
-                  size={16} 
-                  color={isFollowing ? Colors.secondaryText : Colors.mainBackground} 
-                />
-                <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-                  {isFollowing ? 'Following' : 'Follow'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Follow Button Section - Hidden on own profile */}
+            {false && (
+              <View style={styles.followButtonSection}>
+                <TouchableOpacity 
+                  style={[styles.followButton, isFollowing && styles.followingButton]} 
+                  onPress={handleFollowPress}
+                >
+                  <Icon 
+                    name={isFollowing ? "user-check" : "user-plus"} 
+                    size={16} 
+                    color={isFollowing ? Colors.secondaryText : Colors.mainBackground} 
+                  />
+                  <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Readme Header */}
             <View style={styles.readmeHeader}>
@@ -476,14 +751,26 @@ const ProfileScreen = ({ navigation }) => {
                     onPress={() => handleNotePress(note)}
                   >
                     <View style={styles.highlightCardHeader}>
-                      <View style={styles.highlightAvatar}>
-                        {userProfilePhotoForNotes ? (
-                          <Image source={{ uri: userProfilePhotoForNotes }} style={styles.highlightAvatarImage} />
-                        ) : (
-                          <Icon name="user" size={16} color={Colors.secondaryText} />
-                        )}
-                      </View>
-                      <Text style={styles.highlightUsername}>{note.username}</Text>
+                      <Avatar
+                        size="small"
+                        imageUrl={getConsistentAvatarUrl({
+                          userId: user?.id,
+                          currentUser: user,
+                          currentProfile: profile,
+                          currentProfilePhoto: userProfilePhotoForNotes,
+                          profiles: profile,
+                          avatarUrl: userProfilePhotoForNotes,
+                          username: getUsernameForDisplay()
+                        })}
+                        username={getConsistentUsername({
+                          userId: user?.id,
+                          currentUser: user,
+                          currentProfile: profile,
+                          profiles: profile,
+                          username: getUsernameForDisplay()
+                        })}
+                      />
+                      <Text style={styles.highlightUsername}>{getUsernameForDisplay()}</Text>
                     </View>
                     <Text style={styles.highlightNoteTitle}>{note.title}</Text>
                     <View style={styles.highlightStats}>
@@ -748,7 +1035,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Layout.spacing.sm,
-    gap: Layout.spacing.xs,
+    gap: Layout.spacing.sm, // 8px for consistency
   },
   highlightAvatar: {
     width: 24,

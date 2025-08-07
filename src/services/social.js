@@ -85,11 +85,22 @@ class SocialService {
     try {
       if (!userId) return { isStarred: false, error: null };
 
+      // First get the profile ID for this user (stars table references profiles.id)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!profile) {
+        return { isStarred: false, error: null };
+      }
+
       const { data, error } = await supabase
         .from('stars')
         .select('id')
         .eq('note_id', noteId)
-        .eq('user_id', userId)
+        .eq('user_id', profile.id) // Use profile.id instead of auth.user.id
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -269,26 +280,50 @@ class SocialService {
   // 사용자 활동 피드 (팔로잉한 사용자들의 활동)
   async getActivityFeed(userId, limit = 20, offset = 0) {
     try {
-      // This is a simplified version - you might want to implement a following system
-      // For now, we'll show recent public notes and activities
-      
-      const { data, error } = await supabase
+      // Get notes first
+      const { data: notes, error: notesError } = await supabase
         .from('notes')
-        .select(`
-          *,
-          profiles:user_id (
-            id,
-            username,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('is_public', true)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
+        
+      if (notesError) {
+        throw notesError;
+      }
+      
+      if (!notes || notes.length === 0) {
+        return { data: [], error: null };
+      }
+      
+      // Get unique user IDs from notes
+      const userIds = [...new Set(notes.map(note => note.user_id))];
+      
+      // Get profiles for these users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('user_id', userIds);
+        
+      if (profilesError) {
+        console.warn('Could not load profiles:', profilesError.message);
+        // Return notes without profile information
+        return { data: notes, error: null };
+      }
+      
+      // Create a map of user_id to profile for quick lookup
+      const profileMap = {};
+      profiles?.forEach(profile => {
+        profileMap[profile.user_id] = profile;
+      });
+      
+      // Add profile information to each note
+      const notesWithProfiles = notes.map(note => ({
+        ...note,
+        profiles: profileMap[note.user_id] || null
+      }));
 
-      if (error) throw error;
-
-      return { data, error: null };
+      return { data: notesWithProfiles, error: null };
     } catch (error) {
       console.error('Get activity feed error:', error);
       return { data: null, error: error.message };
@@ -298,6 +333,7 @@ class SocialService {
   // 인기 있는 작성자들
   async getPopularAuthors(limit = 10) {
     try {
+      // First try the complex query with relationships
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -308,7 +344,22 @@ class SocialService {
         .order('notes(count)', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      if (error) {
+        // If schema relationship error, fall back to simple profiles query
+        console.warn('Schema relationship error, falling back to simple query:', error.message);
+        
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('profiles')
+          .select('*')
+          .limit(limit);
+          
+        if (simpleError) {
+          throw simpleError;
+        }
+        
+        // Return profiles without note counts
+        return { data: simpleData, error: null };
+      }
 
       return { data, error: null };
     } catch (error) {

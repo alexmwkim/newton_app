@@ -76,33 +76,13 @@ class NotesService {
       const profileError = profileResult.error;
       
       if (!profile || profileError) {
-        console.log('❌ No profile found for user, creating profile:', userId);
+        console.log('⚠️ No profile found for user:', userId);
+        console.log('⚠️ Profile should be created during user registration, not here');
+        console.log('⚠️ Continuing without profile - notes will have minimal metadata');
         
-        // Try to create profile automatically
-        try {
-          const { data: user } = await supabase.auth.getUser();
-          const username = user?.user?.user_metadata?.username || user?.user?.email?.split('@')[0] || 'user';
-          
-          const { data: newProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert([{
-              user_id: userId,
-              username: username
-            }])
-            .select('id, username')
-            .single();
-          
-          if (createError) {
-            console.error('❌ Failed to create profile:', createError);
-            return { data: [], error: null }; // Return empty data instead of throwing error
-          }
-          
-          profile = newProfile;
-          console.log('✅ Profile created successfully:', profile);
-        } catch (createErr) {
-          console.error('❌ Error creating profile:', createErr);
-          return { data: [], error: null }; // Return empty data instead of throwing error
-        }
+        // DO NOT create profile here - profiles should only be created during user registration
+        // Return empty data gracefully instead of creating unnecessary profiles
+        return { data: [], error: null };
       }
       
       console.log('👤 Found profile ID:', profile.id);
@@ -439,11 +419,11 @@ class NotesService {
           .from('profiles')
           .select('id')
           .eq('user_id', userId)
-          .single(),
+          .limit(1), // Use limit(1) instead of single() to avoid multiple rows error
         'getProfileForStarredNotes'
       );
       
-      const profile = profileResult.data;
+      const profile = profileResult.data?.[0]; // Get first item from array
       if (!profile) {
         console.error('⭐ ❌ Profile not found for user:', userId);
         supabaseDebugger.logRelationshipError(
@@ -458,6 +438,9 @@ class NotesService {
       console.log('⭐ ✅ Profile found:', profile.id, 'for user:', userId);
       
       // STEP 1: Get starred note IDs from stars table
+      console.log('🔍 RLS DEBUG: Querying stars table with profile.id:', profile.id);
+      console.log('🔍 RLS DEBUG: Current auth user (for RLS):', (await supabase.auth.getUser()).data?.user?.id);
+      
       const starsResult = await supabaseDebugger.wrapQuery(
         'stars',
         () => supabase
@@ -468,6 +451,12 @@ class NotesService {
           .range(offset, offset + limit - 1),
         `getStarredNoteIds_profileId:${profile.id}`
       );
+      
+      console.log('🔍 RLS DEBUG: Stars query result:', {
+        hasData: !!starsResult.data,
+        dataLength: starsResult.data?.length || 0,
+        error: starsResult.error
+      });
 
       const starredRecords = starsResult.data;
 

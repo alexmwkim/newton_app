@@ -140,19 +140,52 @@ export const AuthProvider = ({ children }) => {
       
       console.log('📝 Creating profile with username:', username);
       
-      // Check if username is available before creating
-      const { isAvailable } = await ProfileService.checkUsernameAvailability(username);
-      if (!isAvailable) {
-        // Generate a unique username by appending a random number
-        const randomSuffix = Math.floor(Math.random() * 10000);
-        username = `${username}_${randomSuffix}`;
-        console.log('⚠️ Username taken, using:', username);
+      // Try to create profile with multiple attempts for unique username
+      let attempt = 0;
+      let profileData = null;
+      let createError = null;
+      
+      while (attempt < 5 && !profileData) {
+        try {
+          // Check if username is available before creating
+          const { isAvailable } = await ProfileService.checkUsernameAvailability(username);
+          if (!isAvailable || attempt > 0) {
+            // Generate a unique username by appending timestamp and random number
+            const timestamp = Date.now().toString().slice(-4);
+            const randomSuffix = Math.floor(Math.random() * 1000);
+            username = `${username.split('_')[0]}_${timestamp}${randomSuffix}`;
+            console.log(`⚠️ Username taken (attempt ${attempt + 1}), trying:`, username);
+          }
+          
+          const result = await ProfileService.createProfile(userId, username);
+          
+          if (result.error) {
+            if (result.error.includes('duplicate key') || result.error.includes('23505')) {
+              console.log(`❌ Duplicate username error (attempt ${attempt + 1}):`, result.error);
+              attempt++;
+              continue; // Try again with different username
+            } else {
+              throw new Error(result.error);
+            }
+          }
+          
+          profileData = result.data;
+          createError = null;
+          break;
+          
+        } catch (error) {
+          console.error(`❌ Profile creation attempt ${attempt + 1} failed:`, error);
+          createError = error;
+          attempt++;
+          
+          if (attempt >= 5) {
+            break;
+          }
+        }
       }
       
-      const { data: profileData, error } = await ProfileService.createProfile(userId, username);
-      
-      if (error) {
-        console.error('❌ Failed to create user profile:', error);
+      if (createError && !profileData) {
+        console.error('❌ Failed to create user profile after 5 attempts:', createError);
         return;
       }
 

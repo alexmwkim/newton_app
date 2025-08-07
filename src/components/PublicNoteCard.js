@@ -1,14 +1,18 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import Avatar from './Avatar';
+import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 
 const PublicNoteCard = ({ 
   username = "username", 
   title = "Note title",
   forksCount = 0,
+  starsCount = 0,
+  avatarUrl,
   onPress 
 }) => {
   return (
@@ -16,15 +20,24 @@ const PublicNoteCard = ({
       <TouchableOpacity onPress={onPress} style={styles.noteCardContent}>
         <View style={styles.noteHeader}>
           <View style={styles.userInfo}>
-            <View style={styles.avatar}>
-              <Icon name="user" size={16} color={Colors.secondaryText} />
-            </View>
-            <Text style={styles.userName}>{username}</Text>
+            <Avatar
+              size="small"
+              imageUrl={avatarUrl}
+              username={username}
+            />
+            <Text style={styles.userName}>@{username}</Text>
           </View>
         </View>
         <Text style={styles.noteTitle}>{title}</Text>
         <View style={styles.noteFooter}>
-          <Text style={styles.forkCount}>{forksCount} Forks</Text>
+          <View style={styles.statItem}>
+            <Icon name="star" size={16} color={Colors.secondaryText} />
+            <Text style={styles.statText}>{starsCount}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Icon name="git-branch" size={16} color={Colors.secondaryText} />
+            <Text style={styles.statText}>{forksCount}</Text>
+          </View>
         </View>
       </TouchableOpacity>
     </View>
@@ -49,15 +62,7 @@ const styles = StyleSheet.create({
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Layout.spacing.sm,
+    gap: 8, // Layout.spacing.sm for consistency
   },
   userName: {
     fontSize: Typography.fontSize.small,
@@ -74,8 +79,14 @@ const styles = StyleSheet.create({
   noteFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
   },
-  forkCount: {
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
     fontSize: Typography.fontSize.small,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,

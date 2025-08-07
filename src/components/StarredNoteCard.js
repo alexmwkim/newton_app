@@ -4,8 +4,12 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import Avatar from './Avatar';
+import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 const StarredNoteCard = ({ note, onPress, onUnstar, onFork, showForkButton = false, isStarred = false, showDate = true }) => {
+  const { user, profile } = useAuth();
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -32,9 +36,27 @@ const StarredNoteCard = ({ note, onPress, onUnstar, onFork, showForkButton = fal
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.header}>
         <View style={styles.authorInfo}>
-          <Text style={styles.authorAvatar}>{note.author.avatar}</Text>
+          <Avatar
+            size="small"
+            imageUrl={getConsistentAvatarUrl({
+              userId: note.user_id,
+              currentUser: user,
+              currentProfile: profile,
+              currentProfilePhoto: profile?.avatar_url,
+              profiles: note.profiles || note.author,
+              avatarUrl: note.author?.avatar_url,
+              username: note.author?.name || note.author?.username
+            })}
+            username={getConsistentUsername({
+              userId: note.user_id,
+              currentUser: user,
+              currentProfile: profile,
+              profiles: note.profiles || note.author,
+              username: note.author?.name || note.author?.username
+            })}
+          />
           <View style={styles.authorDetails}>
-            <Text style={styles.authorName}>{note.author.name}</Text>
+            <Text style={styles.authorName}>{note.author?.name || note.author?.username || 'Unknown'}</Text>
             {showDate && (
               <Text style={styles.dateText}>
                 {formatDate(note.createdAt)}
@@ -105,10 +127,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  authorAvatar: {
-    fontSize: 20,
-    marginRight: Layout.spacing.sm,
+    gap: 8, // Layout.spacing.sm for consistency
   },
   authorDetails: {
     flex: 1,

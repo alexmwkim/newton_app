@@ -7,6 +7,9 @@ import Layout from '../constants/Layout';
 import ProfileStore from '../store/ProfileStore';
 import { useNotesStore } from '../store/NotesStore';
 import { useViewMode } from '../store/ViewModeStore';
+import { useAuth } from '../contexts/AuthContext';
+import Avatar from './Avatar';
+import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 
 const SwipeableNoteItem = ({ 
   note,
@@ -17,8 +20,13 @@ const SwipeableNoteItem = ({
 }) => {
   const { viewModes } = useViewMode();
   const [userProfilePhoto, setUserProfilePhoto] = useState(ProfileStore.getProfilePhoto());
-  const currentUser = 'alexnwkim'; // Current logged-in user
+  const { user, profile } = useAuth();
   const { toggleStarred, isStarred } = useNotesStore();
+  
+  // Get consistent username for current user
+  const getCurrentUserDisplayName = () => {
+    return profile?.username || user?.username || user?.email?.split('@')[0] || 'Unknown';
+  };
   
   // Local star count state for immediate UI updates
   const [localStarCount, setLocalStarCount] = useState(
@@ -309,62 +317,35 @@ const SwipeableNoteItem = ({
               <View style={styles.publicTopSection}>
                 <View style={styles.noteHeader}>
                   <View style={styles.userInfo}>
-                    <View style={styles.avatar}>
-                      {(() => {
-                        // Debug note data for troubleshooting
-                        console.log('🏠 Home note debug (Content Preview):', {
-                          title: normalizedNote.title,
-                          username: normalizedNote.username,
-                          user_id: normalizedNote.user_id,
-                          currentUser: currentUser,
-                          hasProfiles: !!normalizedNote.profiles,
-                          profiles: normalizedNote.profiles
-                        });
-                        
-                        // Check if this is current user's note by multiple criteria
-                        const isCurrentUser = normalizedNote.username === currentUser || 
-                                            normalizedNote.user_id === currentUser ||
-                                            !normalizedNote.username; // If no username, assume current user for home screen
-                        
-                        // Get profile photo for the note author
-                        const authorAvatar = normalizedNote.profiles?.avatar_url;
-                        const currentUserAvatar = userProfilePhoto;
-                        
-                        // For current user's notes, prioritize their actual profile photo
-                        let displayAvatar;
-                        if (isCurrentUser) {
-                          displayAvatar = currentUserAvatar || 'https://i.pravatar.cc/150?img=3';
-                        } else {
-                          // For other users, use their profile or generate consistent avatar
-                          displayAvatar = authorAvatar;
-                          if (!displayAvatar && normalizedNote.username) {
-                            const userHash = normalizedNote.username.length % 70 + 1;
-                            displayAvatar = `https://i.pravatar.cc/150?img=${userHash}`;
-                          }
-                        }
-                        
-                        return displayAvatar ? (
-                          <Image 
-                            source={{ uri: displayAvatar }} 
-                            style={styles.avatarImage}
-                            onError={(error) => {
-                              console.log('🖼️ Avatar load failed for:', normalizedNote.username);
-                            }}
-                          />
-                        ) : (
-                          <Icon name="user" size={16} color={Colors.textGray} />
-                        );
-                      })()}
-                    </View>
+                    <Avatar
+                      size="small"
+                      imageUrl={getConsistentAvatarUrl({
+                        userId: normalizedNote.user_id,
+                        currentUser: user,
+                        currentProfile: profile,
+                        currentProfilePhoto: userProfilePhoto,
+                        profiles: normalizedNote.profiles,
+                        avatarUrl: normalizedNote.avatar_url,
+                        username: normalizedNote.username
+                      })}
+                      username={getConsistentUsername({
+                        userId: normalizedNote.user_id,
+                        currentUser: user,
+                        currentProfile: profile,
+                        profiles: normalizedNote.profiles,
+                        username: normalizedNote.username
+                      })}
+                    />
                     <Text style={styles.userName}>
                       {(() => {
                         // Check if this is current user's note and display appropriate username
-                        const isCurrentUserNote = normalizedNote.username === currentUser || 
-                                                normalizedNote.user_id === currentUser ||
-                                                !normalizedNote.username; // If no username, assume current user for home screen
+                        const currentUserName = getCurrentUserDisplayName();
+                        const isCurrentUserNote = normalizedNote.user_id === user?.id ||
+                                                normalizedNote.username === currentUserName ||
+                                                (normalizedNote.profiles?.user_id === user?.id);
                         
                         if (isCurrentUserNote) {
-                          return '@Alex Kim'; // Show formatted username like in note detail page
+                          return `@${getCurrentUserDisplayName()}`; // Show current user's actual username
                         } else {
                           const username = normalizedNote.username || normalizedNote.profiles?.username || 'unknown';
                           return `@${username}`;
@@ -479,62 +460,35 @@ const SwipeableNoteItem = ({
               <View style={styles.publicTopSection}>
                 <View style={styles.noteHeader}>
                   <View style={styles.userInfo}>
-                    <View style={styles.avatar}>
-                      {(() => {
-                        // Debug note data for troubleshooting
-                        console.log('🏠 Home note debug:', {
-                          title: normalizedNote.title,
-                          username: normalizedNote.username,
-                          user_id: normalizedNote.user_id,
-                          currentUser: currentUser,
-                          hasProfiles: !!normalizedNote.profiles,
-                          profiles: normalizedNote.profiles
-                        });
-                        
-                        // Check if this is current user's note by multiple criteria
-                        const isCurrentUser = normalizedNote.username === currentUser || 
-                                            normalizedNote.user_id === currentUser ||
-                                            !normalizedNote.username; // If no username, assume current user for home screen
-                        
-                        // Get profile photo for the note author
-                        const authorAvatar = normalizedNote.profiles?.avatar_url;
-                        const currentUserAvatar = userProfilePhoto;
-                        
-                        // For current user's notes, prioritize their actual profile photo
-                        let displayAvatar;
-                        if (isCurrentUser) {
-                          displayAvatar = currentUserAvatar || 'https://i.pravatar.cc/150?img=3';
-                        } else {
-                          // For other users, use their profile or generate consistent avatar
-                          displayAvatar = authorAvatar;
-                          if (!displayAvatar && normalizedNote.username) {
-                            const userHash = normalizedNote.username.length % 70 + 1;
-                            displayAvatar = `https://i.pravatar.cc/150?img=${userHash}`;
-                          }
-                        }
-                        
-                        return displayAvatar ? (
-                          <Image 
-                            source={{ uri: displayAvatar }} 
-                            style={styles.avatarImage}
-                            onError={(error) => {
-                              console.log('🖼️ Avatar load failed for:', normalizedNote.username);
-                            }}
-                          />
-                        ) : (
-                          <Icon name="user" size={16} color={Colors.textGray} />
-                        );
-                      })()}
-                    </View>
+                    <Avatar
+                      size="small"
+                      imageUrl={getConsistentAvatarUrl({
+                        userId: normalizedNote.user_id,
+                        currentUser: user,
+                        currentProfile: profile,
+                        currentProfilePhoto: userProfilePhoto,
+                        profiles: normalizedNote.profiles,
+                        avatarUrl: normalizedNote.avatar_url,
+                        username: normalizedNote.username
+                      })}
+                      username={getConsistentUsername({
+                        userId: normalizedNote.user_id,
+                        currentUser: user,
+                        currentProfile: profile,
+                        profiles: normalizedNote.profiles,
+                        username: normalizedNote.username
+                      })}
+                    />
                     <Text style={styles.userName}>
                       {(() => {
                         // Check if this is current user's note and display appropriate username
-                        const isCurrentUserNote = normalizedNote.username === currentUser || 
-                                                normalizedNote.user_id === currentUser ||
-                                                !normalizedNote.username; // If no username, assume current user for home screen
+                        const currentUserName = getCurrentUserDisplayName();
+                        const isCurrentUserNote = normalizedNote.user_id === user?.id ||
+                                                normalizedNote.username === currentUserName ||
+                                                (normalizedNote.profiles?.user_id === user?.id);
                         
                         if (isCurrentUserNote) {
-                          return '@Alex Kim'; // Show formatted username like in note detail page
+                          return `@${getCurrentUserDisplayName()}`; // Show current user's actual username
                         } else {
                           const username = normalizedNote.username || normalizedNote.profiles?.username || 'unknown';
                           return `@${username}`;
@@ -593,7 +547,9 @@ const SwipeableNoteItem = ({
                   </Text>
                 </View>
               )}
-              <Text style={styles.username}>{normalizedNote.username || normalizedNote.timeAgo}</Text>
+              <Text style={styles.username}>
+                {normalizedNote.timeAgo}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -698,6 +654,7 @@ const styles = StyleSheet.create({
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8, // Layout.spacing.sm for consistency
   },
   avatar: {
     width: 24,

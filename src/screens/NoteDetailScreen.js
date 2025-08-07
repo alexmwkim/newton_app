@@ -12,7 +12,8 @@ import {
   Alert,
   Text,
   ActivityIndicator,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 // SafeArea fallback for projects without safe-area-context
 let useSafeAreaInsets;
@@ -25,6 +26,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
+import SocialInteractionBar from '../components/SocialInteractionBar';
 
 // Separated modules
 import { 
@@ -36,6 +38,8 @@ import { useKeyboardHandlers } from '../hooks/useKeyboardHandlers';
 import { useNoteDetailHandlers } from '../hooks/useNoteDetailHandlers';
 import { NoteBlockRenderer } from '../components/NoteBlockRenderer';
 import { noteDetailStyles } from '../styles/NoteDetailStyles';
+import Avatar from '../components/Avatar';
+import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 
 const TOOLBAR_ID = 'newton-toolbar';
 
@@ -141,7 +145,20 @@ const NoteDetailScreen = ({
   // Store and auth
   const notesStore = useNotesStore();
   const { getNoteById, updateNote, deleteNote, toggleFavorite, isFavorite, toggleStarred, isStarred } = notesStore;
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  
+  // Get current user's username for display (used for current user context)
+  const getCurrentUserForDisplay = () => {
+    return profile?.username || user?.username || user?.email?.split('@')[0] || 'alexkim';
+  };
+
+  // Get note author's username for display
+  const getNoteAuthorForDisplay = () => {
+    return displayNote?.profiles?.username || 
+           displayNote?.username || 
+           displayNote?.user?.username || 
+           'Unknown Author';
+  };
   const insets = useSafeAreaInsets();
   const styles = noteDetailStyles;
 
@@ -520,10 +537,52 @@ const NoteDetailScreen = ({
                 ]} />
               )}
               
+              {/* Author info for public notes */}
+              {displayNote.isPublic && (
+                <View style={styles.authorSection}>
+                  <View style={styles.authorInfo}>
+                    <Avatar
+                      size="medium"
+                      imageUrl={getConsistentAvatarUrl({
+                        userId: displayNote.user_id,
+                        currentUser: user,
+                        currentProfile: profile,
+                        currentProfilePhoto: profile?.avatar_url,
+                        profiles: displayNote.profiles,
+                        avatarUrl: displayNote.avatar_url || displayNote.user?.avatar_url,
+                        username: getNoteAuthorForDisplay()
+                      })}
+                      username={getConsistentUsername({
+                        userId: displayNote.user_id,
+                        currentUser: user,
+                        currentProfile: profile,
+                        profiles: displayNote.profiles,
+                        username: displayNote.username
+                      })}
+                    />
+                    <View style={styles.authorDetails}>
+                      <Text style={styles.authorName}>{getNoteAuthorForDisplay()}</Text>
+                      <Text style={styles.authorUserId}>@{getNoteAuthorForDisplay()}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Social Interaction Bar for public notes or when viewing others' notes */}
+              {displayNote && (displayNote.isPublic || displayNote.user_id !== user?.id) && (
+                <SocialInteractionBar
+                  noteId={displayNote.id}
+                  authorId={displayNote.user_id || displayNote.userId}
+                  initialStarCount={displayNote.starCount || displayNote.star_count || 0}
+                  initialForkCount={displayNote.forkCount || displayNote.fork_count || 0}
+                />
+              )}
+
               {/* Title Input */}
               <TextInput
+                ref={titleInputRef}
                 style={styles.titleInput}
-                placeholder="제목을 입력하세요"
+                placeholder="Title"
                 value={title}
                 onChangeText={(newTitle) => {
                   console.log('🏷️ Title changed:', newTitle.length, 'characters');
@@ -554,39 +613,6 @@ const NoteDetailScreen = ({
                 editable={isAuthor}
                 inputAccessoryViewID={TOOLBAR_ID}
               />
-
-              {/* Author info for public notes */}
-              {displayNote.isPublic && (
-                <View style={styles.authorSection}>
-                  <View style={styles.authorInfo}>
-                    <View style={styles.authorAvatar}>
-                      <Icon name="user" size={20} color={Colors.secondaryText} />
-                    </View>
-                    <View style={styles.authorDetails}>
-                      <Text style={styles.authorName}>{displayNote.username || 'Unknown'}</Text>
-                      <Text style={styles.authorUserId}>@{displayNote.username || 'unknown'}</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              {/* Stats for public notes */}
-              {displayNote.isPublic && (
-                <View style={styles.publicStats}>
-                  <Text style={styles.statCount}>
-                    {displayNote.starCount || 0} stars
-                  </Text>
-                  <Text style={styles.statCount}>
-                    {displayNote.forkCount || 0} forks
-                  </Text>
-                  {!isAuthor && (
-                    <View style={styles.readOnlyIndicator}>
-                      <Icon name="eye" size={16} color={Colors.secondaryText} />
-                      <Text style={styles.readOnlyText}>Read only</Text>
-                    </View>
-                  )}
-                </View>
-              )}
 
               {/* Content Blocks */}
               <View style={styles.blocksContainer}>

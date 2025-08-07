@@ -1,6 +1,290 @@
 import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
 
 class AdminService {
+  // Clean up duplicate profiles
+  async cleanupDuplicateProfiles() {
+    try {
+      console.log('🧹 === CLEANING UP DUPLICATE PROFILES ===');
+      
+      const serviceSupabase = createClient(
+        'https://kmhmoxzhsljtnztywfre.supabase.co',
+        '***REMOVED***'
+      );
+      
+      // Real user IDs from auth.users
+      const ALEX_KIM_REAL_ID = '10663749-9fba-4039-9f22-d6e7add9ea2d';
+      const DAVID_LEE_REAL_ID = 'e7cc75eb-9ed4-42b9-95d6-88ff615aac22';
+      
+      // Get all profiles for each user
+      const { data: alexProfiles, error: alexError } = await serviceSupabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', ALEX_KIM_REAL_ID)
+        .order('created_at', { ascending: true });
+      
+      const { data: davidProfiles, error: davidError } = await serviceSupabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', DAVID_LEE_REAL_ID)
+        .order('created_at', { ascending: true });
+      
+      console.log('👤 Alex Kim profiles found:', alexProfiles?.length || 0);
+      console.log('👤 David Lee profiles found:', davidProfiles?.length || 0);
+      
+      // Keep only the first profile for each user and delete the rest
+      if (alexProfiles && alexProfiles.length > 1) {
+        const profilesToDelete = alexProfiles.slice(1); // Keep first, delete rest
+        console.log('🗑️ Deleting', profilesToDelete.length, 'duplicate Alex profiles');
+        
+        for (const profile of profilesToDelete) {
+          const { error: deleteError } = await serviceSupabase
+            .from('profiles')
+            .delete()
+            .eq('id', profile.id);
+          
+          if (deleteError) {
+            console.error('❌ Failed to delete Alex profile:', profile.username, deleteError.message);
+          } else {
+            console.log('✅ Deleted Alex profile:', profile.username);
+          }
+        }
+      }
+      
+      if (davidProfiles && davidProfiles.length > 1) {
+        const profilesToDelete = davidProfiles.slice(1); // Keep first, delete rest
+        console.log('🗑️ Deleting', profilesToDelete.length, 'duplicate David profiles');
+        
+        for (const profile of profilesToDelete) {
+          const { error: deleteError } = await serviceSupabase
+            .from('profiles')
+            .delete()
+            .eq('id', profile.id);
+          
+          if (deleteError) {
+            console.error('❌ Failed to delete David profile:', profile.username, deleteError.message);
+          } else {
+            console.log('✅ Deleted David profile:', profile.username);
+          }
+        }
+      }
+      
+      // Update remaining profile usernames to be clean
+      if (alexProfiles && alexProfiles.length > 0) {
+        const { error: updateAlexError } = await serviceSupabase
+          .from('profiles')
+          .update({ username: 'Alex Kim' })
+          .eq('id', alexProfiles[0].id);
+        
+        if (updateAlexError) {
+          console.error('❌ Failed to update Alex username:', updateAlexError.message);
+        } else {
+          console.log('✅ Updated Alex username to "Alex Kim"');
+        }
+      }
+      
+      if (davidProfiles && davidProfiles.length > 0) {
+        const { error: updateDavidError } = await serviceSupabase
+          .from('profiles')
+          .update({ username: 'David Lee' })
+          .eq('id', davidProfiles[0].id);
+        
+        if (updateDavidError) {
+          console.error('❌ Failed to update David username:', updateDavidError.message);
+        } else {
+          console.log('✅ Updated David username to "David Lee"');
+        }
+      }
+      
+      console.log('🎉 === DUPLICATE PROFILE CLEANUP COMPLETED ===');
+      
+      return { success: true, message: 'Duplicate profiles cleaned up successfully' };
+    } catch (error) {
+      console.error('❌ Cleanup duplicate profiles error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  // Fix user IDs to match real auth.users
+  async fixUserIdsToRealAuthUsers() {
+    try {
+      console.log('🔧 === FIXING USER IDS TO REAL AUTH USERS ===');
+      
+      const serviceSupabase = createClient(
+        'https://kmhmoxzhsljtnztywfre.supabase.co',
+        '***REMOVED***'
+      );
+      
+      // Real user IDs from auth.users (from screenshot)
+      const ALEX_KIM_REAL_ID = '10663749-9fba-4039-9f22-d6e7add9ea2d';
+      const DAVID_LEE_REAL_ID = 'e7cc75eb-9ed4-42b9-95d6-88ff615aac22';
+      
+      console.log('📝 Real Alex Kim ID:', ALEX_KIM_REAL_ID);
+      console.log('📝 Real David Lee ID:', DAVID_LEE_REAL_ID);
+      
+      // Check what user IDs are currently in the notes table
+      const { data: notes, error: notesError } = await serviceSupabase
+        .from('notes')
+        .select('user_id, title');
+      
+      if (notesError) {
+        console.error('❌ Failed to check notes:', notesError.message);
+      } else {
+        console.log('📊 Current user_ids in notes table:');
+        const userIdCounts = {};
+        notes?.forEach(n => {
+          userIdCounts[n.user_id] = (userIdCounts[n.user_id] || 0) + 1;
+        });
+        Object.entries(userIdCounts).forEach(([userId, count]) => {
+          console.log(`  - ${userId}: ${count} notes`);
+        });
+      }
+      
+      // Check profiles table
+      const { data: profiles, error: profilesError } = await serviceSupabase
+        .from('profiles')
+        .select('user_id, username');
+      
+      if (profilesError) {
+        console.error('❌ Failed to check profiles:', profilesError.message);
+      } else {
+        console.log('👤 Current profiles:');
+        profiles?.forEach(p => console.log(`  - ${p.username}: ${p.user_id}`));
+      }
+      
+      // Update Alex Kim's notes to use real ID
+      console.log('🔄 Updating Alex Kim notes...');
+      const { error: alexNotesError } = await serviceSupabase
+        .from('notes')
+        .update({ user_id: ALEX_KIM_REAL_ID })
+        .or('title.ilike.%alex%,title.ilike.%memo%,title.ilike.%ㅅㅅ%');
+      
+      if (alexNotesError) {
+        console.error('❌ Failed to update Alex notes:', alexNotesError.message);
+      } else {
+        console.log('✅ Updated Alex Kim notes');
+      }
+      
+      // Update David Lee's notes to use real ID  
+      console.log('🔄 Updating David Lee notes...');
+      const { error: davidNotesError } = await serviceSupabase
+        .from('notes')
+        .update({ user_id: DAVID_LEE_REAL_ID })
+        .or('title.ilike.%david%,title.ilike.%note%');
+      
+      if (davidNotesError) {
+        console.error('❌ Failed to update David notes:', davidNotesError.message);
+      } else {
+        console.log('✅ Updated David Lee notes');
+      }
+      
+      // Create/update profiles with real IDs
+      console.log('👤 Creating/updating profiles...');
+      
+      // Check if Alex Kim profile exists and create/update accordingly
+      const { data: existingAlexProfile, error: alexCheckError } = await serviceSupabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', ALEX_KIM_REAL_ID)
+        .single();
+      
+      if (alexCheckError && alexCheckError.code === 'PGRST116') {
+        // Profile doesn't exist, create new one
+        console.log('📝 Creating new Alex Kim profile...');
+        const { error: alexCreateError } = await serviceSupabase
+          .from('profiles')
+          .insert({
+            user_id: ALEX_KIM_REAL_ID,
+            username: 'Alex Kim'
+          });
+        
+        if (alexCreateError) {
+          console.error('❌ Failed to create Alex profile:', alexCreateError.message);
+        } else {
+          console.log('✅ Alex Kim profile created');
+        }
+      } else if (!alexCheckError) {
+        // Profile exists, update it
+        console.log('🔄 Updating existing Alex Kim profile...');
+        const { error: alexUpdateError } = await serviceSupabase
+          .from('profiles')
+          .update({ username: 'Alex Kim' })
+          .eq('user_id', ALEX_KIM_REAL_ID);
+        
+        if (alexUpdateError) {
+          console.error('❌ Failed to update Alex profile:', alexUpdateError.message);
+        } else {
+          console.log('✅ Alex Kim profile updated');
+        }
+      }
+      
+      // Handle David Lee profile more carefully
+      console.log('🔍 Checking David Lee profile situation...');
+      
+      // First, check if there's already a profile with the correct user_id
+      const { data: existingDavidProfile, error: davidCheckError } = await serviceSupabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', DAVID_LEE_REAL_ID)
+        .single();
+      
+      // Also check if there are any profiles with David-related usernames
+      const { data: davidUsernameProfiles, error: davidUsernameError } = await serviceSupabase
+        .from('profiles')
+        .select('*')
+        .or('username.ilike.%david%,username.ilike.%David%');
+      
+      console.log('👤 David profiles by user_id:', existingDavidProfile ? 'EXISTS' : 'NOT FOUND');
+      console.log('👤 David profiles by username:', davidUsernameProfiles?.length || 0);
+      davidUsernameProfiles?.forEach(p => {
+        console.log(`  - Username: "${p.username}", user_id: ${p.user_id}`);
+      });
+      
+      if (davidCheckError && davidCheckError.code === 'PGRST116') {
+        // No profile with correct user_id exists
+        if (davidUsernameProfiles && davidUsernameProfiles.length > 0) {
+          // There are profiles with David usernames, update the first one to use correct user_id
+          const profileToUpdate = davidUsernameProfiles[0];
+          console.log(`🔄 Updating existing David profile "${profileToUpdate.username}" to use correct user_id...`);
+          
+          const { error: davidUpdateError } = await serviceSupabase
+            .from('profiles')
+            .update({ user_id: DAVID_LEE_REAL_ID })
+            .eq('id', profileToUpdate.id);
+          
+          if (davidUpdateError) {
+            console.error('❌ Failed to update David profile user_id:', davidUpdateError.message);
+          } else {
+            console.log('✅ David profile user_id updated successfully');
+          }
+        } else {
+          // No David profiles exist, create new one
+          console.log('📝 Creating new David Lee profile...');
+          const { error: davidCreateError } = await serviceSupabase
+            .from('profiles')
+            .insert({
+              user_id: DAVID_LEE_REAL_ID,
+              username: 'David Lee'
+            });
+          
+          if (davidCreateError) {
+            console.error('❌ Failed to create David profile:', davidCreateError.message);
+          } else {
+            console.log('✅ David Lee profile created');
+          }
+        }
+      } else if (!davidCheckError) {
+        // Profile with correct user_id already exists
+        console.log('✅ David Lee profile already has correct user_id');
+      }
+      
+      console.log('🎉 === USER ID FIX COMPLETED ===');
+      
+      return { success: true, message: 'User IDs fixed to match real auth.users' };
+    } catch (error) {
+      console.error('❌ Fix user IDs error:', error);
+      return { success: false, error: error.message };
+    }
+  }
   // Foreign Key 제약조건을 우회하여 User ID 수정
   async fixUserIdNoConstraints() {
     try {
@@ -154,22 +438,18 @@ class AdminService {
         throw new Error('Failed to check current user profile: ' + profileCheckError.message);
       }
       
-      // 2단계: 프로필이 없다면 생성
+      // 2단계: 프로필이 없다면 오류 처리 (생성하지 않음)
       if (!currentProfile) {
-        console.log('📝 Creating profile for current authenticated user...');
-        const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'user';
+        console.log('⚠️ No profile found for current authenticated user:', currentAuthId);
+        console.log('⚠️ Profiles should be created during user registration, not during admin operations');
+        console.log('⚠️ This suggests the user registration process is incomplete');
         
-        const { error: createProfileError } = await supabase
-          .from('profiles')
-          .insert([{
-            user_id: currentAuthId,
-            username: username
-          }]);
-        
-        if (createProfileError) {
-          throw new Error('Failed to create profile: ' + createProfileError.message);
-        }
-        console.log('✅ Created profile for current user');
+        // DO NOT create profile here - this should be handled during user registration
+        // Return error to indicate the problem
+        return {
+          success: false,
+          error: 'User profile not found. Please ensure user registration completed properly.'
+        };
       } else {
         console.log('✅ Profile already exists for current user');
       }

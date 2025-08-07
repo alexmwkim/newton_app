@@ -15,6 +15,9 @@ import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import PinnedNotesSection from '../components/PinnedNotesSection';
 import ViewModeModal from '../components/ViewModeModal';
 import AdminService from '../services/admin';
+import ProfileService from '../services/profiles';
+import FollowService from '../services/follow';
+import SupabaseAdminService from '../services/supabaseAdmin';
 
 
 const HomeScreenNew = ({ navigation, initialTab }) => {
@@ -36,6 +39,88 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  // EMERGENCY CLEANUP: Run only once if needed (remove this after cleanup is complete)
+  useEffect(() => {
+    const runEmergencyCleanup = async () => {
+      // Check if cleanup has already been performed
+      const cleanupKey = 'emergency_profile_cleanup_completed';
+      try {
+        const AsyncStorage = await import('@react-native-async-storage/async-storage');
+        const cleanupCompleted = await AsyncStorage.default.getItem(cleanupKey);
+        
+        if (cleanupCompleted) {
+          console.log('🛡️ Emergency cleanup already completed, skipping');
+          return;
+        }
+        
+        console.log('🚨 === EMERGENCY CLEANUP (ONE TIME ONLY) ===');
+        
+        // Clean up duplicate profiles
+        console.log('🧹 Running emergency duplicate profile cleanup...');
+        const cleanupResult = await AdminService.cleanupDuplicateProfiles();
+        console.log('🧹 Cleanup result:', cleanupResult);
+        
+        if (cleanupResult?.success) {
+          // Mark cleanup as completed
+          await AsyncStorage.default.setItem(cleanupKey, 'true');
+          console.log('✅ Emergency cleanup completed and marked');
+          
+          // Refresh popular authors after cleanup
+          console.log('🔄 Refreshing popular authors after cleanup...');
+          try {
+            const { useSocialStore } = await import('../store/SocialStore');
+            const socialStore = useSocialStore.getState();
+            await socialStore.loadPopularAuthors();
+            console.log('✅ Popular authors refreshed');
+          } catch (error) {
+            console.error('❌ Failed to refresh popular authors:', error);
+          }
+        }
+        
+        console.log('🚨 === END EMERGENCY CLEANUP ===');
+        
+        // Initialize follow system using SupabaseAdminService
+        console.log('👥 === INITIALIZING FOLLOW SYSTEM WITH ADMIN SERVICE ===');
+        try {
+          // First list all tables
+          await SupabaseAdminService.listTables();
+          
+          // Check if follows table exists
+          const checkResult = await SupabaseAdminService.checkFollowsTable();
+          console.log('👥 Follow table check result:', checkResult);
+          
+          if (!checkResult.exists) {
+            // Create the table
+            console.log('🔧 Creating follows table...');
+            const createResult = await SupabaseAdminService.createFollowsTable();
+            console.log('👥 Follow table creation result:', createResult);
+            
+            if (createResult.success) {
+              // Verify creation
+              const verifyResult = await SupabaseAdminService.checkFollowsTable();
+              console.log('✅ Follow table verification result:', verifyResult);
+            } else if (createResult.sql) {
+              console.log('📋 Manual SQL required:');
+              console.log(createResult.sql);
+            }
+          } else {
+            console.log('✅ Follows table already exists and is accessible');
+            // Get table schema for verification
+            await SupabaseAdminService.getTableSchema('follows');
+          }
+          
+        } catch (error) {
+          console.error('❌ Follow system initialization failed:', error);
+        }
+        console.log('👥 === END FOLLOW SYSTEM INIT ===');
+      } catch (error) {
+        console.error('❌ Emergency cleanup failed:', error);
+      }
+    };
+    
+    runEmergencyCleanup();
+  }, []);
 
 
   console.log('🏠 HomeScreen render - Private notes:', privateNotes.length, 'Public notes:', publicNotes.length);
@@ -213,6 +298,70 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
       console.log('🔧 NO-CONSTRAINTS Fix result:', result);
     };
     
+    // Add global follow system test functions using SupabaseAdminService
+    global.testFollowSystem = async () => {
+      console.log('👥 === TESTING FOLLOW SYSTEM WITH ADMIN SERVICE ===');
+      try {
+        // List all tables first
+        await SupabaseAdminService.listTables();
+        
+        // Check follows table
+        const checkResult = await SupabaseAdminService.checkFollowsTable();
+        console.log('👥 Follow table check:', checkResult);
+        
+        if (checkResult.exists) {
+          // Get table schema
+          await SupabaseAdminService.getTableSchema('follows');
+          
+          // Test follow operations
+          console.log('👥 Testing follow counts...');
+          const followersResult = await FollowService.getFollowersCount(user?.id);
+          const followingResult = await FollowService.getFollowingCount(user?.id);
+          console.log('👥 Current user followers:', followersResult);
+          console.log('👥 Current user following:', followingResult);
+        } else {
+          console.log('🔧 Table does not exist, attempting to create...');
+          const createResult = await SupabaseAdminService.createFollowsTable();
+          console.log('👥 Table creation result:', createResult);
+        }
+      } catch (error) {
+        console.error('❌ Follow system test error:', error);
+      }
+      console.log('👥 === END FOLLOW SYSTEM TEST ===');
+    };
+    
+    global.checkFollowTable = async () => {
+      console.log('👥 === CHECKING FOLLOWS TABLE WITH ADMIN SERVICE ===');
+      try {
+        const result = await SupabaseAdminService.checkFollowsTable();
+        console.log('👥 Check result:', result);
+        
+        if (!result.exists) {
+          console.log('🔧 Creating follows table...');
+          const createResult = await SupabaseAdminService.createFollowsTable();
+          console.log('👥 Creation result:', createResult);
+          
+          if (createResult.sql) {
+            console.log('📋 Manual SQL needed:');
+            console.log(createResult.sql);
+          }
+        }
+      } catch (err) {
+        console.error('❌ Admin service error:', err);
+      }
+      console.log('👥 === END ADMIN TABLE CHECK ===');
+    };
+    
+    global.createFollowsTable = async () => {
+      console.log('🔧 === MANUALLY CREATING FOLLOWS TABLE ===');
+      const result = await SupabaseAdminService.createFollowsTable();
+      console.log('🔧 Creation result:', result);
+      if (result.success) {
+        const verifyResult = await SupabaseAdminService.checkFollowsTable();
+        console.log('✅ Verification result:', verifyResult);
+      }
+    };
+    
     return () => {
       delete global.cleanupDatabase;
       delete global.testPinFirst;
@@ -220,6 +369,9 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
       delete global.fixUserIds;
       delete global.fixUserIdsProper;
       delete global.fixUserIdsNoConstraints;
+      delete global.testFollowSystem;
+      delete global.checkFollowTable;
+      delete global.createFollowsTable;
     };
   }, [currentNotes, pinnedNotes, togglePinned]);
 

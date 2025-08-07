@@ -159,13 +159,18 @@ export const useNoteDetailHandlers = (
   }, [blocks, setBlocks]);
 
   const handleTextChange = useCallback((id, text) => {
-    console.log('✏️ Text changed in block:', id, 'New text length:', text.length);
-    setBlocks(prev => prev.map(block => {
-      if (block.id === id) {
-        return { ...block, content: text };
-      }
-      return block;
-    }));
+    console.log('✏️ Text changed in block:', id, 'New text length:', text.length, 'New text:', text.substring(0, 50));
+    console.log('🔍 handleTextChange called - will trigger auto-save useEffect');
+    setBlocks(prev => {
+      const updated = prev.map(block => {
+        if (block.id === id) {
+          return { ...block, content: text };
+        }
+        return block;
+      });
+      console.log('🔄 Blocks updated, total blocks:', updated.length);
+      return updated;
+    });
   }, [setBlocks]);
 
   // Enhanced auto-save with proper content conversion
@@ -175,11 +180,19 @@ export const useNoteDetailHandlers = (
       loadingNote,
       noteId,
       titleLength: title?.length || 0,
-      blocksLength: blocks?.length || 0
+      blocksLength: blocks?.length || 0,
+      displayNote: displayNote?.id || 'no displayNote'
     });
     
     if (!isAuthor) {
-      console.log('🚫 Auto-save blocked: not author');
+      console.log('🚫 Auto-save blocked: not author (isAuthor:', isAuthor, ')');
+      console.log('🔍 displayNote info:', {
+        id: displayNote?.id,
+        user_id: displayNote?.user_id,
+        isPublic: displayNote?.isPublic || displayNote?.is_public,
+        title: displayNote?.title
+      });
+      console.log('🔍 Current user id from auth:', updateNote?.constructor?.name); // This is a hack to check if updateNote is available
       return;
     }
     
@@ -203,22 +216,25 @@ export const useNoteDetailHandlers = (
         noteId,
         finalTitle: finalTitle.substring(0, 50) + '...',
         titleLength: finalTitle.length,
-        contentLength: finalContent.length
+        contentLength: finalContent.length,
+        updateNoteFunction: typeof updateNote,
+        updateNoteExists: !!updateNote
       });
       
-      if (finalTitle.trim() || finalContent.trim()) {
-        console.log('💾 Calling updateNote function...');
-        try {
-          const result = await updateNote(noteId, {
-            title: finalTitle,
-            content: finalContent
-          });
-          console.log('✅ Auto-save SUCCESS:', result);
-        } catch (error) {
-          console.error('❌ Auto-save ERROR:', error);
-        }
-      } else {
-        console.log('💾 Auto-save skipped: no content to save');
+      // Always save, even if content is empty (user might have deleted content)
+      console.log('💾 Calling updateNote function...');
+      console.log('💾 updateNote type:', typeof updateNote);
+      console.log('💾 Content check - title empty:', !finalTitle.trim(), 'content empty:', !finalContent.trim());
+      
+      try {
+        const result = await updateNote(noteId, {
+          title: finalTitle || 'Untitled', // Provide fallback title for empty notes
+          content: finalContent
+        });
+        console.log('✅ Auto-save SUCCESS (including empty content):', result);
+      } catch (error) {
+        console.error('❌ Auto-save ERROR:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
       }
     }, 2000); // Increased delay to 2 seconds
 

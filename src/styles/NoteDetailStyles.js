@@ -69,17 +69,16 @@ export const noteDetailStyles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     marginBottom: 20,
     color: Colors.primaryText,
   },
   
   // Author section
   authorSection: {
-    marginBottom: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    marginBottom: Layout.spacing.sm,
+    paddingBottom: Layout.spacing.sm,
+    paddingHorizontal: 0,
   },
   authorInfo: {
     flexDirection: 'row',
@@ -87,6 +86,12 @@ export const noteDetailStyles = StyleSheet.create({
     gap: Layout.spacing.sm,
   },
   authorAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  authorAvatarPlaceholder: {
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -128,6 +133,11 @@ export const noteDetailStyles = StyleSheet.create({
     color: Colors.secondaryText,
     fontFamily: Typography.fontFamily.primary,
   },
+  readOnlyContainer: {
+    paddingHorizontal: Layout.screen.padding,
+    paddingVertical: Layout.spacing.sm,
+    alignItems: 'flex-end',
+  },
   readOnlyIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -136,7 +146,6 @@ export const noteDetailStyles = StyleSheet.create({
     paddingHorizontal: Layout.spacing.sm,
     paddingVertical: Layout.spacing.xs,
     borderRadius: Layout.borderRadius / 2,
-    marginLeft: 'auto',
   },
   readOnlyText: {
     fontSize: Typography.fontSize.small,

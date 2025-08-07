@@ -31,10 +31,21 @@ export const Colors = {
   iconInactive: 'rgba(212, 204, 194, 1)', // from vector-52, vector-54 etc.
   
   // Text Colors
+  text: 'rgba(0, 0, 0, 1)',
+  textSecondary: '#A6A29D',
   primaryText: 'rgba(0, 0, 0, 1)',
   secondaryText: '#A6A29D',
   inverseText: 'rgba(255, 255, 255, 1)',
   danger: '#DC3545',
+  
+  // Accent and Status Colors
+  accent: 'rgba(235, 117, 75, 1)', // Same as floatingButton
+  success: '#28A745',
+  warning: '#FFC107',
+  info: '#17A2B8',
+  
+  // Background variations
+  background: 'rgba(255, 255, 255, 1)',
   
   // Shadow (from CSS)
   shadow: '0px -1px 20px 0px rgba(0,0,0,0.5)', // rectangle-50-44
