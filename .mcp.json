@@ -5,7 +5,7 @@
       "args": ["@supabase/mcp-server-supabase"],
       "env": {
         "SUPABASE_URL": "https://kmhmoxzhsljtnztywfre.supabase.co",
-        "SUPABASE_ACCESS_TOKEN": "REMOVED_FOR_SECURITY_PLEASE_SET_ENV_VAR"
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
       }
     }
   }
