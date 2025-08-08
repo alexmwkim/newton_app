@@ -643,4 +643,6 @@ class AdminService {
   }
 }
 
-export default new AdminService();
+// Export class instead of instance to prevent initialization errors
+// IMPORTANT: This service requires admin keys and should NOT be used in client applications
+export default AdminService;

@@ -336,4 +336,6 @@ class FollowService {
   }
 }
 
-export default new FollowService();
+// Export class instead of instance to prevent initialization errors
+// IMPORTANT: This service requires admin keys and should only be used server-side
+export default FollowService;

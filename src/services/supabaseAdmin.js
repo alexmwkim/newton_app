@@ -260,4 +260,6 @@ class SupabaseAdminService {
   }
 }
 
-export default new SupabaseAdminService();
+// Export class instead of instance to prevent initialization errors  
+// IMPORTANT: This service requires admin keys and should NOT be used in client applications
+export default SupabaseAdminService;

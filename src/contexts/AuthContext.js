@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AuthService from '../services/auth';
-import ProfileService from '../services/profiles';
+import ProfileService from '../services/profilesClient';
 import { testSupabaseConnection } from '../services/supabase';
 
 const AuthContext = createContext({});
@@ -134,8 +134,13 @@ export const AuthProvider = ({ children }) => {
       
       if (!username) {
         // Get the username from the user metadata
-        const { data: { user } } = await AuthService.getCurrentUser();
-        username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'user';
+        const { user, error: getUserError } = await AuthService.getCurrentUser();
+        if (getUserError || !user) {
+          console.warn('Could not get current user for username, using fallback:', getUserError);
+          username = `user_${userId.substring(0, 8)}`;
+        } else {
+          username = user?.user_metadata?.username || user?.email?.split('@')[0] || `user_${userId.substring(0, 8)}`;
+        }
       }
       
       console.log('📝 Creating profile with username:', username);
@@ -148,7 +153,7 @@ export const AuthProvider = ({ children }) => {
       while (attempt < 5 && !profileData) {
         try {
           // Check if username is available before creating
-          const { isAvailable } = await ProfileService.checkUsernameAvailability(username);
+          const isAvailable = await ProfileService.checkUsernameAvailable(username);
           if (!isAvailable || attempt > 0) {
             // Generate a unique username by appending timestamp and random number
             const timestamp = Date.now().toString().slice(-4);
@@ -157,27 +162,23 @@ export const AuthProvider = ({ children }) => {
             console.log(`⚠️ Username taken (attempt ${attempt + 1}), trying:`, username);
           }
           
-          const result = await ProfileService.createProfile(userId, username);
-          
-          if (result.error) {
-            if (result.error.includes('duplicate key') || result.error.includes('23505')) {
-              console.log(`❌ Duplicate username error (attempt ${attempt + 1}):`, result.error);
-              attempt++;
-              continue; // Try again with different username
-            } else {
-              throw new Error(result.error);
-            }
-          }
-          
-          profileData = result.data;
+          // Client service returns profile data directly or throws error
+          profileData = await ProfileService.createBasicProfile(userId, { username });
           createError = null;
           break;
           
         } catch (error) {
           console.error(`❌ Profile creation attempt ${attempt + 1} failed:`, error);
           createError = error;
-          attempt++;
           
+          // Check if it's a duplicate key error
+          if (error.message && (error.message.includes('duplicate key') || error.message.includes('23505'))) {
+            console.log(`❌ Duplicate username error (attempt ${attempt + 1}), trying different username`);
+            attempt++;
+            continue; // Try again with different username
+          }
+          
+          attempt++;
           if (attempt >= 5) {
             break;
           }
@@ -201,7 +202,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       
       // Check username availability first
-      const { isAvailable } = await ProfileService.checkUsernameAvailability(username);
+      const isAvailable = await ProfileService.checkUsernameAvailable(username);
       if (!isAvailable) {
         throw new Error('Username is already taken');
       }

@@ -7,12 +7,12 @@ import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import Avatar from '../components/Avatar';
-import ProfileService from '../services/profiles';
+import ProfileService from '../services/profilesClient';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotesStore } from '../store/NotesStore';
 import NotesService from '../services/notes';
-import FollowService from '../services/follow';
+import FollowService from '../services/followClient';
 
 // User data for display
 const createUserData = (username) => ({
@@ -341,7 +341,7 @@ Feel free to check out my public notes below!`;
 
       // Check if current user is following this user (only if not current user)
       if (!isCurrentUser) {
-        const { success: followingCheckSuccess, isFollowing: followingStatus } = await FollowService.isFollowing(targetProfile.user_id);
+        const { success: followingCheckSuccess, isFollowing: followingStatus } = await FollowService.isFollowing(currentUser?.id, targetProfile.user_id);
         if (followingCheckSuccess) {
           setIsFollowing(followingStatus);
           console.log('👥 UserProfileScreen: Follow status:', followingStatus);
@@ -520,7 +520,7 @@ Feel free to check out my public notes below!`;
       setFollowersCount(isFollowing ? followersCount - 1 : followersCount + 1);
       
       // Perform actual follow/unfollow using user_id from userProfile
-      const { success, isFollowing: newFollowingStatus, error } = await FollowService.toggleFollow(userProfile.user_id);
+      const { success, isFollowing: newFollowingStatus, error } = await FollowService.toggleFollow(currentUser?.id, userProfile.user_id);
       
       if (success) {
         // Update with actual result

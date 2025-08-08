@@ -54,7 +54,11 @@
       "mcp__supabase__list_tables",
       "mcp__supabase__apply_migration",
       "Bash(./supabase-mcp-alt.sh:*)",
-      "Bash(./supabase-mcp.sh:*)"
+      "Bash(./supabase-mcp.sh:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "WebFetch(domain:feature-sliced.design)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   },

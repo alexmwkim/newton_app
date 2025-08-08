@@ -13,9 +13,9 @@ import ProfileStore from '../store/ProfileStore';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
-import ProfileService from '../services/profiles';
+import ProfileService from '../services/profilesClient';
 import NotesService from '../services/notes';
-import FollowService from '../services/follow';
+import FollowService from '../services/followClient';
 
 // Mock user data matching the design
 const mockUser = {

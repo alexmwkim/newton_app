@@ -206,8 +206,9 @@ export const useNoteDetailHandlers = (
       return;
     }
     
+    // 매우 짧은 디바운스 (300ms) - 너무 빈번한 저장 방지하면서도 거의 즉시 저장
     const timer = setTimeout(async () => {
-      console.log('💾 Auto-save timer triggered after 2 seconds');
+      console.log('💾 Auto-save triggered after 300ms (fast save)');
       
       const finalTitle = title?.trim() || '';
       const finalContent = convertBlocksToContent(blocks);
@@ -223,20 +224,18 @@ export const useNoteDetailHandlers = (
       
       // Always save, even if content is empty (user might have deleted content)
       console.log('💾 Calling updateNote function...');
-      console.log('💾 updateNote type:', typeof updateNote);
-      console.log('💾 Content check - title empty:', !finalTitle.trim(), 'content empty:', !finalContent.trim());
       
       try {
         const result = await updateNote(noteId, {
           title: finalTitle || 'Untitled', // Provide fallback title for empty notes
           content: finalContent
         });
-        console.log('✅ Auto-save SUCCESS (including empty content):', result);
+        console.log('✅ Auto-save SUCCESS (fast save - 300ms):', result);
       } catch (error) {
         console.error('❌ Auto-save ERROR:', error);
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
       }
-    }, 2000); // Increased delay to 2 seconds
+    }, 300); // 300ms 딜레이로 변경 - 기존 2초에서 대폭 단축
 
     return () => {
       console.log('🗚 Clearing auto-save timer');

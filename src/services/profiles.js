@@ -474,4 +474,6 @@ class ProfileService {
   }
 }
 
-export default new ProfileService();
+// Export class instead of instance to prevent initialization errors
+// IMPORTANT: This service has some methods requiring admin keys - use client-safe version instead
+export default ProfileService;
