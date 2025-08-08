@@ -281,3 +281,4 @@ Since this is a mobile-first React Native + Expo project:
 - Explored unified content block system as a long-term solution
 - Identified specific technical limitations in React Native for precise cursor tracking
 - Proposed both short-term and long-term strategies for implementing a seamless content insertion experience
+- 응 앞으로 새로운 파일을 만들때 이미 존재하면 그 파일을 수정해서 작업해. 계속 새로운 파일을 만들지말고.

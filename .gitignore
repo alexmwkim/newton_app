@@ -67,3 +67,14 @@ mcp-settings.json
 *.pem
 *.key
 credentials.json
+
+# 🚨 CRITICAL SECURITY: Secret environment files
+.env.secret
+.env.private
+**/.env.secret
+**/.env.private
+**/secrets.*
+
+# MCP Configuration with secrets
+.mcp.json
+mcp-settings.json

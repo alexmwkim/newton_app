@@ -58,7 +58,10 @@
       "Bash(git push:*)",
       "Bash(git fetch:*)",
       "WebFetch(domain:feature-sliced.design)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(source:*)",
+      "Bash(npx @supabase/mcp-server-supabase:*)",
+      "Bash(./secure-mcp-launcher.sh:*)"
     ],
     "deny": []
   },
