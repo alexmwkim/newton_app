@@ -1,17 +1,10 @@
 import { supabase } from './supabase';
-import { createClient } from '@supabase/supabase-js';
 
 class FollowService {
   constructor() {
-    // Service role client for admin operations (bypassing RLS)
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('🚨 SECURITY: Missing Supabase admin configuration in environment variables');
-    }
-    
-    this.serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Use the main supabase client (with anon key + RLS)
+    // This is secure because RLS policies control access
+    console.log('🔧 Initializing FollowService with client authentication');
   }
 
   // Create follows table if it doesn't exist
@@ -20,7 +13,7 @@ class FollowService {
       console.log('🔧 Initializing follows table...');
       
       // Check if follows table exists by trying to query it
-      const { data: testData, error: existsError } = await this.serviceSupabase
+      const { data: testData, error: existsError } = await supabase
         .from('follows')
         .select('id')
         .limit(1);
@@ -66,15 +59,15 @@ class FollowService {
         CREATE INDEX IF NOT EXISTS idx_follows_following_id ON public.follows(following_id);
       `;
       
-      // Execute the SQL using a stored procedure (if available) or direct query
-      const { error: createError } = await this.serviceSupabase.rpc('exec_sql', {
-        sql: createTableSQL
-      });
+      // Note: Table creation should be done via Supabase dashboard or SQL editor
+      // Client apps cannot create tables due to security restrictions
+      console.log('⚠️ Table creation should be done manually via Supabase dashboard');
+      const createError = new Error('Table creation requires admin access');
       
       if (createError) {
         console.error('❌ Error creating follows table:', createError);
         // Try alternative method - direct table creation
-        const { error: altError } = await this.serviceSupabase
+        const { error: altError } = await supabase
           .from('follows')
           .select('*')
           .limit(1);
@@ -186,13 +179,27 @@ class FollowService {
   // Check if current user is following another user
   async isFollowing(followingUserId) {
     try {
+      console.log('🔍 ENHANCED isFollowing DEBUG: Starting check for followingUserId:', followingUserId);
+      
       // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('🔍 Auth check result:', {
+        hasUser: !!user,
+        userId: user?.id,
+        hasAuthError: !!authError,
+        authError: authError?.message
+      });
+      
       if (authError || !user) {
+        console.log('🔍 No authenticated user, returning false');
         return { success: true, isFollowing: false };
       }
       
       const followerId = user.id;
+      console.log('🔍 Query parameters:', {
+        follower_id: followerId,
+        following_id: followingUserId
+      });
       
       // Check follow relationship
       const { data, error } = await supabase
@@ -202,12 +209,27 @@ class FollowService {
         .eq('following_id', followingUserId)
         .single();
       
+      console.log('🔍 Supabase query result:', {
+        hasData: !!data,
+        dataCount: data ? 1 : 0,
+        hasError: !!error,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        rawData: data
+      });
+      
       if (error && error.code !== 'PGRST116') {
+        console.log('🔍 Database error (not "no rows"):', error);
         throw error;
       }
       
       const isFollowing = !!data;
-      console.log('🔍 Follow status:', followingUserId, '→', isFollowing);
+      console.log('🔍 FINAL Follow status result:', {
+        followerId,
+        followingUserId,
+        isFollowing,
+        meaning: isFollowing ? 'Following relationship EXISTS' : 'Following relationship does NOT exist'
+      });
       
       return { success: true, isFollowing };
       
@@ -255,59 +277,157 @@ class FollowService {
     }
   }
 
-  // Get followers list for a user
+  // Get followers list for a user with profile data
   async getFollowers(userId, limit = 50, offset = 0) {
     try {
-      const { data, error } = await supabase
+      console.log('👥 Getting followers for user:', userId);
+      
+      // Get follows first (without JOIN to avoid schema cache issues)
+      const { data: followsData, error } = await supabase
         .from('follows')
-        .select(`
-          id,
-          created_at,
-          follower:follower_id (
-            id,
-            email
-          )
-        `)
+        .select('follower_id, created_at')
         .eq('following_id', userId)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
       
       if (error) throw error;
       
-      console.log('👥 Followers for', userId, ':', data?.length || 0);
-      return { success: true, data: data || [] };
+      if (!followsData || followsData.length === 0) {
+        console.log('👥 No followers found for user:', userId);
+        return { success: true, data: [] };
+      }
+
+      // Get profile data for all follower_ids
+      const followerIds = followsData.map(f => f.follower_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, username, avatar_url, bio')
+        .in('user_id', followerIds);
+        
+      if (profilesError) {
+        console.warn('⚠️ Failed to get profile data, using basic info:', profilesError);
+      }
+      
+      // Combine follows and profiles data
+      const followers = followsData.map(follow => {
+        const profile = profilesData?.find(p => p.user_id === follow.follower_id);
+        return {
+          id: follow.follower_id,
+          username: profile?.username || null,
+          full_name: profile?.username || 'Newton User',
+          avatar_url: profile?.avatar_url || null,
+          bio: profile?.bio || null,
+          followed_at: follow.created_at
+        };
+      });
+      
+      console.log('👥 Followers for', userId, ':', followers.length);
+      return { success: true, data: followers };
       
     } catch (error) {
       console.error('❌ Get followers error:', error);
-      return { success: false, error: error.message, data: [] };
+      // Fallback: try to get basic user data
+      try {
+        const { data: followData, error: followError } = await supabase
+          .from('follows')
+          .select('follower_id, created_at')
+          .eq('following_id', userId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        
+        if (followError) throw followError;
+        
+        const followers = (followData || []).map(item => ({
+          id: item.follower_id,
+          username: null,
+          full_name: 'Newton User',
+          avatar_url: null,
+          bio: null,
+          followed_at: item.created_at
+        }));
+        
+        return { success: true, data: followers };
+      } catch (fallbackError) {
+        console.error('❌ Fallback followers error:', fallbackError);
+        return { success: false, error: error.message, data: [] };
+      }
     }
   }
 
-  // Get following list for a user
+  // Get following list for a user with profile data
   async getFollowing(userId, limit = 50, offset = 0) {
     try {
-      const { data, error } = await supabase
+      console.log('👥 Getting following for user:', userId);
+      
+      // Get follows first (without JOIN to avoid schema cache issues)
+      const { data: followsData, error } = await supabase
         .from('follows')
-        .select(`
-          id,
-          created_at,
-          following:following_id (
-            id,
-            email
-          )
-        `)
+        .select('following_id, created_at')
         .eq('follower_id', userId)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
       
       if (error) throw error;
       
-      console.log('👥 Following for', userId, ':', data?.length || 0);
-      return { success: true, data: data || [] };
+      if (!followsData || followsData.length === 0) {
+        console.log('👥 No following found for user:', userId);
+        return { success: true, data: [] };
+      }
+
+      // Get profile data for all following_ids
+      const followingIds = followsData.map(f => f.following_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, username, avatar_url, bio')
+        .in('user_id', followingIds);
+        
+      if (profilesError) {
+        console.warn('⚠️ Failed to get profile data, using basic info:', profilesError);
+      }
+      
+      // Combine follows and profiles data
+      const following = followsData.map(follow => {
+        const profile = profilesData?.find(p => p.user_id === follow.following_id);
+        return {
+          id: follow.following_id,
+          username: profile?.username || null,
+          full_name: profile?.username || 'Newton User',
+          avatar_url: profile?.avatar_url || null,
+          bio: profile?.bio || null,
+          followed_at: follow.created_at
+        };
+      });
+      
+      console.log('👥 Following for', userId, ':', following.length);
+      return { success: true, data: following };
       
     } catch (error) {
       console.error('❌ Get following error:', error);
-      return { success: false, error: error.message, data: [] };
+      // Fallback: try to get basic user data
+      try {
+        const { data: followData, error: followError } = await supabase
+          .from('follows')
+          .select('following_id, created_at')
+          .eq('follower_id', userId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        
+        if (followError) throw followError;
+        
+        const following = (followData || []).map(item => ({
+          id: item.following_id,
+          username: null,
+          full_name: 'Newton User',
+          avatar_url: null,
+          bio: null,
+          followed_at: item.created_at
+        }));
+        
+        return { success: true, data: following };
+      } catch (fallbackError) {
+        console.error('❌ Fallback following error:', fallbackError);
+        return { success: false, error: error.message, data: [] };
+      }
     }
   }
 
@@ -336,6 +456,41 @@ class FollowService {
   }
 }
 
-// Export class instead of instance to prevent initialization errors
-// IMPORTANT: This service requires admin keys and should only be used server-side
-export default FollowService;
+// Create service instance
+const followServiceInstance = new FollowService();
+
+// Helper methods for easier usage
+export const followService = {
+  // Core follow operations
+  followUser: (userId) => followServiceInstance.followUser(userId),
+  unfollowUser: (userId) => followServiceInstance.unfollowUser(userId),
+  toggleFollow: (userId) => followServiceInstance.toggleFollow(userId),
+  
+  // Follow status checks
+  checkFollowStatus: async (userId) => {
+    const result = await followServiceInstance.isFollowing(userId);
+    return result.isFollowing;
+  },
+  
+  // Get counts
+  getFollowersCount: (userId) => followServiceInstance.getFollowersCount(userId),
+  getFollowingCount: (userId) => followServiceInstance.getFollowingCount(userId),
+  
+  // Get lists with enhanced data
+  getFollowers: async (userId, limit = 50, offset = 0) => {
+    const result = await followServiceInstance.getFollowers(userId, limit, offset);
+    return result.success ? result.data : [];
+  },
+  
+  getFollowing: async (userId, limit = 50, offset = 0) => {
+    const result = await followServiceInstance.getFollowing(userId, limit, offset);
+    return result.success ? result.data : [];
+  },
+  
+  // Initialize table if needed
+  initializeTable: () => followServiceInstance.initializeFollowsTable(),
+};
+
+// Export both the class and the service instance
+export { FollowService };
+export default followService;

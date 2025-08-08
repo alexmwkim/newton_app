@@ -29,7 +29,11 @@ export const noteDetailStyles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   backButton: {
-    padding: Layout.spacing.sm,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
   },
   headerActions: {
     flexDirection: 'row',

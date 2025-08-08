@@ -244,11 +244,42 @@ export const useSocialStore = create()(
         try {
           console.log('🔄 Loading popular authors from Supabase...');
           const { data, error } = await SocialService.getPopularAuthors();
+          console.log('🔍 SocialService.getPopularAuthors result:', { data: data?.length, error });
           if (!error && data && data.length > 0) {
             console.log('✅ Popular authors loaded successfully:', data.length, 'authors');
-            set({ popularAuthors: data });
+            
+            // Add public notes count to each author
+            const authorsWithNoteCount = await Promise.all(
+              data.map(async (author) => {
+                try {
+                  console.log(`📊 Counting public notes for author: ${author.username} (${author.user_id})`);
+                  const { count, error: countError } = await supabase
+                    .from('notes')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', author.user_id)
+                    .eq('is_public', true);
+                  
+                  console.log(`📊 Count result for ${author.username}:`, { count, countError });
+                  
+                  return {
+                    ...author,
+                    publicNotesCount: countError ? 0 : (count || 0)
+                  };
+                } catch (error) {
+                  console.error('Error getting note count for author:', author.user_id, error);
+                  return {
+                    ...author,
+                    publicNotesCount: 0
+                  };
+                }
+              })
+            );
+            
+            console.log('📊 Final authors with note counts:', authorsWithNoteCount.map(a => `${a.username}: ${a.publicNotesCount} notes`));
+            set({ popularAuthors: authorsWithNoteCount });
           } else {
             console.warn('Popular authors service returned no data, fetching unique profiles directly');
+            console.log('🔍 Going to fallback logic - error:', error, 'data length:', data?.length);
             // Direct fallback to profiles table - get unique profiles only (one per user_id)
             const { data: allProfiles, error: profilesError } = await supabase
               .from('profiles')
@@ -267,9 +298,36 @@ export const useSocialStore = create()(
                 }
               }
               
-              console.log('✅ Fallback: Loaded unique profiles as popular authors:', uniqueProfiles.length, 'out of', allProfiles.length, 'total profiles');
-              console.log('👥 Unique authors:', uniqueProfiles.map(p => `${p.username} (${p.user_id})`));
-              set({ popularAuthors: uniqueProfiles.slice(0, 5) }); // Limit to 5
+              // Get public notes count for each author
+              const authorsWithNoteCount = await Promise.all(
+                uniqueProfiles.slice(0, 5).map(async (profile) => {
+                  try {
+                    console.log(`📊 Counting public notes for user: ${profile.username} (${profile.user_id})`);
+                    const { count, error: countError } = await supabase
+                      .from('notes')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('user_id', profile.user_id)
+                      .eq('is_public', true);
+                    
+                    console.log(`📊 Count result for ${profile.username}:`, { count, countError });
+                    
+                    return {
+                      ...profile,
+                      publicNotesCount: countError ? 0 : (count || 0)
+                    };
+                  } catch (error) {
+                    console.error('Error getting note count for user:', profile.user_id, error);
+                    return {
+                      ...profile,
+                      publicNotesCount: 0
+                    };
+                  }
+                })
+              );
+              
+              console.log('✅ Fallback: Loaded unique profiles as popular authors:', authorsWithNoteCount.length, 'out of', allProfiles.length, 'total profiles');
+              console.log('👥 Unique authors with note counts:', authorsWithNoteCount.map(p => `${p.username} (${p.publicNotesCount} notes)`));
+              set({ popularAuthors: authorsWithNoteCount });
             } else {
               console.error('❌ Failed to load any author data:', profilesError);
               set({ popularAuthors: [] });

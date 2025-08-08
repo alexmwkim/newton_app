@@ -234,6 +234,7 @@ const ExploreScreen = ({ navigation }) => {
       }
       
       await refreshFeed(user.id);
+      console.log('🔄 Force refreshing popular authors...');
       await loadPopularAuthors();
     } catch (error) {
       console.error('Refresh error:', error);
@@ -473,7 +474,7 @@ const ExploreScreen = ({ navigation }) => {
                               {author.username || 'Unknown'}
                             </Text>
                             <Text style={styles.authorStats}>
-                              {author.notes?.length || 0} notes
+                              {author.publicNotesCount || 0} notes
                             </Text>
                           </TouchableOpacity>
                           );
@@ -800,9 +801,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,
-    padding: 12,
+    padding: 16, // 12 → 16으로 증가
     marginRight: 12,
-    width: 80,
+    width: 100, // 80 → 100으로 증가
+    minHeight: 120, // 최소 높이 추가
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -830,15 +832,16 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   authorName: {
-    fontSize: 12,
+    fontSize: 14, // 12 → 14로 증가
     fontFamily: Typography.fontFamily.primary,
     fontWeight: Typography.fontWeight.medium,
     color: Colors.text,
     textAlign: 'center',
     marginBottom: 2,
+    marginTop: 8, // 프로필 사진과 이름 사이 간격 추가
   },
   authorStats: {
-    fontSize: 10,
+    fontSize: 12, // 10 → 12로 증가
     fontFamily: Typography.fontFamily.primary,
     color: Colors.textSecondary,
     textAlign: 'center',

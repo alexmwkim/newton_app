@@ -382,11 +382,11 @@ const styles = StyleSheet.create({
     paddingTop: Layout.spacing.lg,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
+    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
   },
   headerTitle: {
     fontSize: Typography.fontSize.medium,

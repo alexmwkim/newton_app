@@ -251,12 +251,7 @@ class FollowClientService {
         .from('follows')
         .select(`
           follower_id,
-          created_at,
-          profiles:follower_id (
-            username,
-            full_name,
-            avatar_url
-          )
+          created_at
         `)
         .eq('following_id', userId)
         .order('created_at', { ascending: false })
@@ -267,7 +262,37 @@ class FollowClientService {
         return { success: false, data: [], error };
       }
 
-      console.log('✅ Retrieved followers:', data?.length || 0);
+      // 별도로 profiles 데이터 가져오기
+      if (data && data.length > 0) {
+        const followerIds = data.map(f => f.follower_id);
+        console.log('📋 Follower IDs to fetch profiles:', followerIds);
+        
+        const { data: profilesData, error: profilesError } = await this.supabase
+          .from('profiles')
+          .select('id, user_id, username, avatar_url, bio')
+          .in('user_id', followerIds);
+
+        console.log('👤 Profiles data:', profilesData);
+        console.log('❌ Profiles error:', profilesError);
+
+        if (!profilesError && profilesData) {
+          // followers 데이터와 profiles 데이터 결합
+          const followersWithProfiles = data.map(follower => {
+            const profile = profilesData.find(p => p.user_id === follower.follower_id);
+            console.log(`🔗 Matching follower ${follower.follower_id} with profile:`, profile);
+            return {
+              ...follower,
+              profiles: profile
+            };
+          });
+          
+          console.log('✅ Retrieved followers:', followersWithProfiles.length);
+          return { success: true, data: followersWithProfiles };
+        }
+      }
+
+      console.log('✅ Retrieved followers (no profiles):', data?.length || 0);
+      console.log('🔍 Followers data (no profiles):', JSON.stringify(data, null, 2));
       return { success: true, data: data || [] };
 
     } catch (error) {
@@ -287,12 +312,7 @@ class FollowClientService {
         .from('follows')
         .select(`
           following_id,
-          created_at,
-          profiles:following_id (
-            username,
-            full_name,
-            avatar_url
-          )
+          created_at
         `)
         .eq('follower_id', userId)
         .order('created_at', { ascending: false })
@@ -301,6 +321,30 @@ class FollowClientService {
       if (error) {
         console.error('❌ Error getting following:', error);
         return { success: false, data: [], error };
+      }
+
+      // 별도로 profiles 데이터 가져오기
+      if (data && data.length > 0) {
+        const followingIds = data.map(f => f.following_id);
+        const { data: profilesData, error: profilesError } = await this.supabase
+          .from('profiles')
+          .select('id, user_id, username, avatar_url, bio')
+          .in('user_id', followingIds);
+
+        if (!profilesError && profilesData) {
+          // following 데이터와 profiles 데이터 결합
+          const followingWithProfiles = data.map(following => {
+            const profile = profilesData.find(p => p.user_id === following.following_id);
+            return {
+              ...following,
+              profiles: profile
+            };
+          });
+          
+          console.log('✅ Retrieved following:', followingWithProfiles.length);
+          console.log('🔍 Following data structure:', JSON.stringify(followingWithProfiles, null, 2));
+          return { success: true, data: followingWithProfiles };
+        }
       }
 
       console.log('✅ Retrieved following:', data?.length || 0);

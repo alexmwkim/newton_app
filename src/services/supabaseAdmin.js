@@ -103,7 +103,7 @@ class SupabaseAdminService {
         console.log('📋 MANUAL TABLE CREATION REQUIRED:');
         console.log('');
         console.log('1. Go to Supabase Dashboard → SQL Editor');
-        console.log('2. Copy and paste the SQL from: /Users/alex/Desktop/newton_app/createFollowsTable.sql');
+        console.log('2. Copy and paste the SQL from: /Users/alex/Desktop/newton_app/setup_follows_table.sql');
         console.log('3. Execute the SQL script');
         console.log('4. Return to the app and test with: testFollowSystem()');
         console.log('');
@@ -117,7 +117,7 @@ class SupabaseAdminService {
           error: 'Manual table creation required - see console for instructions',
           manualRequired: true,
           sql: createTableSQL,
-          sqlFile: '/Users/alex/Desktop/newton_app/createFollowsTable.sql'
+          sqlFile: '/Users/alex/Desktop/newton_app/setup_follows_table.sql'
         };
       }
       

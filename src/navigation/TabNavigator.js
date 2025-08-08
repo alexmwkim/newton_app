@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { useAuth } from '../contexts/AuthContext';
 
 // Import screens
 import HomeScreenNew from '../screens/HomeScreenNew';
@@ -20,20 +21,29 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import StarredNotesScreen from '../screens/StarredNotesScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import NotesListScreen from '../screens/NotesListScreen';
+import FollowListScreen from '../screens/FollowListScreen';
 
 const TabNavigator = ({ logout }) => {
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState('home');
   const [screenProps, setScreenProps] = useState({});
+  
+  // NAVIGATION STACK - Track navigation history for proper back navigation
+  const [navigationStack, setNavigationStack] = useState([
+    { screen: 'home', props: {} }
+  ]);
   
   // TRACK STATE CHANGES
   React.useEffect(() => {
     console.log('🔄 TabNavigator state changed:', {
       currentScreen,
+      navigationStackLength: navigationStack.length,
+      navigationStackTop: navigationStack[navigationStack.length - 1],
       screenPropsKeys: Object.keys(screenProps || {}),
       screenPropsEmpty: !screenProps || Object.keys(screenProps).length === 0
     });
-  }, [currentScreen, screenProps]); 
+  }, [currentScreen, screenProps, navigationStack]); 
 
   const tabs = [
     { key: 'home', label: '', icon: 'home' },
@@ -45,13 +55,16 @@ const TabNavigator = ({ logout }) => {
     console.log('📍 TabNavigator navigate called!');
     console.log('📍 Screen:', screen);
     console.log('📍 Params:', JSON.stringify(params, null, 2));
-    console.log('📍 Params type:', typeof params);
-    console.log('📍 Params keys:', Object.keys(params || {}));
-    console.log('📍 Current screenProps before update:', screenProps);
+    console.log('📍 Current navigation stack length:', navigationStack.length);
     
-    // CRITICAL FIX: Use functional state update to ensure we get the latest state
-    // and batch updates together
+    // STACK-BASED NAVIGATION: Add to stack instead of replacing
     React.startTransition(() => {
+      // Add current navigation to stack
+      setNavigationStack(prevStack => [
+        ...prevStack,
+        { screen, props: params }
+      ]);
+      
       setCurrentScreen(screen);
       setScreenProps(params);
       
@@ -60,94 +73,37 @@ const TabNavigator = ({ logout }) => {
       }
     });
     
-    console.log('📍 Navigate function completed, state updates queued');
+    console.log('📍 Navigate function completed, added to stack');
   };
 
   const goBack = () => {
     console.log('🔙 GOBACK CALLED!');
+    console.log('🔙 Current navigation stack length:', navigationStack.length);
     console.log('🔙 Current screen:', currentScreen);
-    console.log('🔙 Current screenProps:', screenProps);
-    console.log('🔙 screenProps keys:', Object.keys(screenProps || {}));
     
-    // Add stack trace to see what called goBack
-    console.log('🔙 Stack trace:');
-    console.trace();
-    
-    // Check if we're going back from noteDetail or createNote and need to preserve tab state
-    if (currentScreen === 'noteDetail' || currentScreen === 'createNote') {
-      if (screenProps.returnToScreen) {
-        // Going back to specific screen (like search, notesList, userProfile, etc.)
-        if (screenProps.returnToScreen === 'notesList') {
-          // Keep notesList screenProps when going back from noteDetail
-          setCurrentScreen('notesList');
-          // Preserve the original notesList params but remove noteDetail specific ones
-          const { noteId, returnToScreen, ...notesListProps } = screenProps;
-          setScreenProps(notesListProps);
-        } else {
-          setCurrentScreen(screenProps.returnToScreen);
-          if (['home', 'search', 'explore', 'profile'].includes(screenProps.returnToScreen)) {
-            setActiveTab(screenProps.returnToScreen);
-            // For main tab screens, clear screenProps
-            setScreenProps({});
-          } else if (screenProps.returnToScreen === 'userProfile') {
-            // CRITICAL FIX: When returning to userProfile, preserve original profile data
-            console.log('🔙 Returning to userProfile, preserving profile data');
-            const { noteId, returnToScreen, ...originalUserProfileProps } = screenProps;
-            console.log('🔙 Preserved userProfile props:', originalUserProfileProps);
-            setScreenProps(originalUserProfileProps);
-          } else {
-            // For other screens, clear screenProps
-            setScreenProps({});
-          }
-        }
-      } else if (screenProps.returnToTab) {
-        // Going back to home with specific tab state
-        setCurrentScreen('home');
-        setActiveTab('home');
-        setScreenProps({ returnToTab: screenProps.returnToTab });
-      } else {
-        // Regular back to home
-        setCurrentScreen('home');
-        setActiveTab('home');
-        setScreenProps({});
-      }
-    } else if (currentScreen === 'notesList') {
-      // Special handling for notesList - use originScreen to determine where to go back
-      console.log('🔙 Going back from notesList, originScreen:', screenProps.originScreen);
-      
-      if (screenProps.originScreen === 'profile') {
-        // Going back to main ProfileScreen
-        setCurrentScreen('profile');
-        setActiveTab('profile');
-        setScreenProps({});
-      } else if (screenProps.originScreen === 'userProfile') {
-        // Going back to UserProfileScreen  
-        setCurrentScreen('userProfile');
-        // Preserve the userProfile params but remove notesList specific ones
-        const { listType, title, originScreen, ...userProfileProps } = screenProps;
-        setScreenProps(userProfileProps);
-        // Keep current activeTab (usually 'explore' when viewing other users)
-      } else {
-        // Fallback: determine by isCurrentUser
-        if (screenProps.isCurrentUser) {
-          setCurrentScreen('profile');
-          setActiveTab('profile');
-          setScreenProps({});
-        } else {
-          setCurrentScreen('userProfile');
-          const { listType, title, originScreen, ...userProfileProps } = screenProps;
-          setScreenProps(userProfileProps);
-        }
-      }
-    } else if (['home', 'search', 'explore', 'profile'].includes(activeTab)) {
-      setCurrentScreen(activeTab);
-      setScreenProps({});
-    } else {
-      // If activeTab is not a main screen, default to home
-      setCurrentScreen('home');
-      setActiveTab('home');
-      setScreenProps({});
+    // STACK-BASED GO BACK: Pop from stack and go to previous screen
+    if (navigationStack.length <= 1) {
+      console.log('🔙 At root of stack, staying on current screen');
+      return;
     }
+    
+    React.startTransition(() => {
+      // Remove current screen from stack
+      const newStack = navigationStack.slice(0, -1);
+      const previousNavigation = newStack[newStack.length - 1];
+      
+      console.log('🔙 Going back to:', previousNavigation.screen);
+      console.log('🔙 New stack length:', newStack.length);
+      
+      setNavigationStack(newStack);
+      setCurrentScreen(previousNavigation.screen);
+      setScreenProps(previousNavigation.props);
+      
+      // Update active tab if going back to main tab
+      if (['home', 'search', 'explore', 'profile'].includes(previousNavigation.screen)) {
+        setActiveTab(previousNavigation.screen);
+      }
+    });
   };
 
   const renderScreen = () => {
@@ -254,6 +210,9 @@ const TabNavigator = ({ logout }) => {
       case 'notesList':
         console.log('📄 Rendering NotesListScreen with props:', screenProps);
         return <NotesListScreen key="notes-list" navigation={navigationProps} route={{ params: screenProps }} />;
+      case 'FollowList':
+        console.log('👥 Rendering FollowListScreen with props:', screenProps);
+        return <FollowListScreen key="follow-list" navigation={navigationProps} route={{ params: screenProps }} />;
       default:
         return <HomeScreenNew key="home-screen-default" navigation={navigationProps} />;
     }

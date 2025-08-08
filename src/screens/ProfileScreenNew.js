@@ -146,6 +146,16 @@ const ProfileScreenNew = ({ navigation, route }) => {
             followersCount={social.followersCount}
             followingCount={social.followingCount}
             isOwnProfile={computed.isOwnProfile}
+            onFollowersPress={() => navigation.navigate('FollowList', { 
+              userId: userId || 'currentUser', 
+              type: 'followers', 
+              username: computed.displayUsername 
+            })}
+            onFollowingPress={() => navigation.navigate('FollowList', { 
+              userId: userId || 'currentUser', 
+              type: 'following', 
+              username: computed.displayUsername 
+            })}
           />
 
           {/* README 섹션 */}

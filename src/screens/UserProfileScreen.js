@@ -95,16 +95,69 @@ const UserProfileScreen = ({ navigation, route }) => {
       console.error('❌ Navigation keys:', navigation ? Object.keys(navigation) : 'null');
     }
   }
-  const [activeNavTab, setActiveNavTab] = useState(2); // Explore is index 2
+  // DYNAMIC TAB: Set tab based on where user came from
+  const [activeNavTab, setActiveNavTab] = useState(() => {
+    // If user came from profile page (via followers/following), keep profile tab active
+    // If user came from explore page, keep explore tab active
+    const originTab = route.params?.originTab || route.params?.fromTab;
+    
+    console.log('🔍 NAV TAB DEBUG: Route origin info:', {
+      originTab,
+      fromTab: route.params?.fromTab,
+      routeParams: route.params
+    });
+    
+    if (originTab !== undefined) {
+      console.log('✅ Using originTab:', originTab);
+      return originTab;
+    }
+    
+    // Default fallback logic based on navigation pattern
+    // If this is current user's profile, it's likely from profile tab (3)
+    // If this is another user, it's likely from explore tab (2)
+    const defaultTab = isCurrentUser ? 3 : 2;
+    console.log('✅ Using default tab logic:', defaultTab, 'for', isCurrentUser ? 'current user' : 'other user');
+    return defaultTab;
+  });
   const [userProfile, setUserProfile] = useState(null);
   const [userPublicNotes, setUserPublicNotes] = useState([]);
   const [readmeData, setReadmeData] = useState({ title: '', content: '' });
   const [highlightNotes, setHighlightNotes] = useState([]);
   
-  // Social features state
-  const [isFollowing, setIsFollowing] = useState(false);
+  // Social features state - INITIALIZE WITH PROPER VALUE
+  const [isFollowing, setIsFollowing] = useState(!!profileData?.followed_at); // route에서 온 데이터로 초기화
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [showFollowOptions, setShowFollowOptions] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false); // 통계 로딩 상태 추적
+
+  // IMMEDIATE DEBUG LOG
+  console.log('🎯 UserProfileScreen IMMEDIATE INIT:', {
+    isCurrentUser,
+    profileDataUserId: profileData?.user_id,
+    profileDataFollowedAt: profileData?.followed_at,
+    initialIsFollowing: !!profileData?.followed_at
+  });
+
+  // IMMEDIATE FOLLOW CHECK - DIRECT CALL (if no followed_at field)
+  React.useEffect(() => {
+    const immediateCheck = async () => {
+      if (!isCurrentUser && profileData?.user_id && !profileData?.followed_at) {
+        console.log('🚀🚀 DIRECT: No followed_at field, checking follow status NOW');
+        try {
+          const result = await FollowService.isFollowing(currentUser?.id, profileData.user_id);
+          console.log('🚀🚀 DIRECT result:', result);
+          if (result.success) {
+            console.log('🚀🚀 DIRECT: Setting isFollowing to:', result.isFollowing);
+            setIsFollowing(result.isFollowing);
+          }
+        } catch (error) {
+          console.error('🚀🚀 DIRECT error:', error);
+        }
+      }
+    };
+    immediateCheck();
+  }, []); // 빈 dependency로 한 번만 실행
   
   // Create user data for display
   const userData = createUserData(username);
@@ -121,6 +174,53 @@ const UserProfileScreen = ({ navigation, route }) => {
     };
     loadData();
   }, [userId, username]);
+
+  // Force load social stats for non-current users - AGGRESSIVE APPROACH
+  useEffect(() => {
+    const forceLoadSocialStats = async () => {
+      console.log('🔍 FORCE STATS DEBUG:', {
+        isCurrentUser,
+        hasUserProfile: !!userProfile,
+        hasProfileData: !!profileData,
+        userProfileId: userProfile?.user_id,
+        profileDataId: profileData?.user_id,
+        statsLoaded,
+        conditionMet: !isCurrentUser && (userProfile || profileData) && !statsLoaded
+      });
+      
+      if (!isCurrentUser && (userProfile || profileData) && !statsLoaded) {
+        console.log('🔄 FORCED: Loading social stats for non-current user');
+        setStatsLoaded(true); // 중복 실행 방지
+        await loadRealSocialStats(userProfile || profileData);
+      } else {
+        console.log('❌ FORCE STATS: Condition not met for loading social stats');
+      }
+    };
+    forceLoadSocialStats();
+  }, [isCurrentUser, userProfile, profileData, statsLoaded]);
+
+  // IMMEDIATE follow status check for profileData (route에서 온 데이터)
+  useEffect(() => {
+    const immediateFollowCheck = async () => {
+      if (!isCurrentUser && profileData?.user_id && !statsLoaded) {
+        console.log('🚀 IMMEDIATE: Checking follow status for profileData user_id:', profileData.user_id);
+        try {
+          const { success, isFollowing: followStatus } = await FollowService.isFollowing(profileData.user_id);
+          console.log('🚀 IMMEDIATE follow check result:', { success, followStatus });
+          
+          if (success) {
+            setIsFollowing(followStatus);
+            console.log('✅ IMMEDIATE: Set following status to:', followStatus);
+          } else {
+            console.log('❌ IMMEDIATE: Follow check failed, keeping default false');
+          }
+        } catch (error) {
+          console.error('❌ IMMEDIATE: Follow check error:', error);
+        }
+      }
+    };
+    immediateFollowCheck();
+  }, [isCurrentUser, profileData?.user_id, statsLoaded]);
 
   // TRACK PROFILE STATE CHANGES
   useEffect(() => {
@@ -287,6 +387,7 @@ Feel free to check out my public notes below!`;
       });
       
       // Calculate real social stats based on actual data
+      console.log('🔍 About to call loadRealSocialStats with profile:', profile ? 'exists' : 'null');
       await loadRealSocialStats(profile);
       
       console.log('👤 Profile setup complete:', {
@@ -307,22 +408,38 @@ Feel free to check out my public notes below!`;
 
   const loadRealSocialStats = async (profileData = null) => {
     try {
+      console.log('📊 loadRealSocialStats called with:', { 
+        hasProfileData: !!profileData, 
+        hasUserProfile: !!userProfile,
+        userId 
+      });
+      
       const targetProfile = profileData || userProfile;
-      if (!userId || !targetProfile?.user_id) {
-        console.log('📊 UserProfileScreen: No userId or user_id provided for social stats');
+      const targetUserId = targetProfile?.user_id || userId;
+      
+      console.log('📊 Target calculation:', {
+        targetProfile: !!targetProfile,
+        targetUserId,
+        fromProfileData: profileData?.user_id,
+        fromUserProfile: userProfile?.user_id,
+        fallbackUserId: userId
+      });
+      
+      if (!targetUserId) {
+        console.log('📊 UserProfileScreen: No valid userId for social stats');
         setFollowersCount(0);
         setFollowingCount(0);
         setIsFollowing(false);
         return;
       }
 
-      console.log('📊 UserProfileScreen: Loading real follow stats for user:', targetProfile.user_id);
+      console.log('📊 UserProfileScreen: Loading real follow stats for user:', targetUserId);
 
       // Initialize follows table if needed (first time setup)
       await FollowService.initializeFollowsTable();
 
       // Get real followers count using user_id from profile
-      const { success: followersSuccess, count: followers } = await FollowService.getFollowersCount(targetProfile.user_id);
+      const { success: followersSuccess, count: followers } = await FollowService.getFollowersCount(targetUserId);
       if (followersSuccess) {
         setFollowersCount(followers);
         console.log('👥 UserProfileScreen: Real followers count:', followers);
@@ -331,7 +448,7 @@ Feel free to check out my public notes below!`;
       }
 
       // Get real following count
-      const { success: followingSuccess, count: following } = await FollowService.getFollowingCount(targetProfile.user_id);
+      const { success: followingSuccess, count: following } = await FollowService.getFollowingCount(targetUserId);
       if (followingSuccess) {
         setFollowingCount(following);
         console.log('👥 UserProfileScreen: Real following count:', following);
@@ -341,12 +458,33 @@ Feel free to check out my public notes below!`;
 
       // Check if current user is following this user (only if not current user)
       if (!isCurrentUser) {
-        const { success: followingCheckSuccess, isFollowing: followingStatus } = await FollowService.isFollowing(currentUser?.id, targetProfile.user_id);
+        console.log('🔍 ENHANCED DEBUG: Checking follow status');
+        console.log('🔍 Target user ID:', targetUserId);
+        console.log('🔍 Current user ID:', currentUser?.id);
+        console.log('🔍 isCurrentUser flag:', isCurrentUser);
+        console.log('🔍 userProfile data:', userProfile ? {
+          user_id: userProfile.user_id,
+          username: userProfile.username
+        } : 'null');
+        
+        const { success: followingCheckSuccess, isFollowing: followingStatus } = await FollowService.isFollowing(currentUser?.id, targetUserId);
+        console.log('🔍 FollowService.isFollowing response:', {
+          success: followingCheckSuccess,
+          isFollowing: followingStatus
+        });
+        
         if (followingCheckSuccess) {
           setIsFollowing(followingStatus);
-          console.log('👥 UserProfileScreen: Follow status:', followingStatus);
+          console.log('👥 UserProfileScreen: Follow status FINAL result:', {
+            targetUserId,
+            currentUserId: currentUser?.id,
+            followingStatus,
+            meaning: followingStatus ? 'Current user IS following target user' : 'Current user is NOT following target user',
+            buttonWillShow: followingStatus ? 'Following' : 'Follow'
+          });
         } else {
           setIsFollowing(false);
+          console.log('❌ Failed to check follow status, defaulting to false');
         }
       }
 
@@ -504,12 +642,13 @@ Feel free to check out my public notes below!`;
   // Social interaction handlers - Real follow/unfollow functionality
   const handleFollowPress = async () => {
     try {
-      if (!userId || !userProfile?.user_id) {
-        console.error('❌ No userId or user_id to follow/unfollow');
+      const targetUserId = userProfile?.user_id || profileData?.user_id;
+      if (!targetUserId) {
+        console.error('❌ No user_id to follow/unfollow');
         return;
       }
 
-      console.log('👥 Toggle follow for user:', userProfile.user_id, 'current status:', isFollowing);
+      console.log('👥 Toggle follow for user:', targetUserId, 'current status:', isFollowing);
       
       // Show loading state (optional - could add loading indicator)
       const originalFollowing = isFollowing;
@@ -519,13 +658,20 @@ Feel free to check out my public notes below!`;
       setIsFollowing(!isFollowing);
       setFollowersCount(isFollowing ? followersCount - 1 : followersCount + 1);
       
-      // Perform actual follow/unfollow using user_id from userProfile
-      const { success, isFollowing: newFollowingStatus, error } = await FollowService.toggleFollow(currentUser?.id, userProfile.user_id);
+      // Perform actual follow/unfollow using current user ID and target user ID
+      console.log('🔍 FollowService.toggleFollow params:', {
+        currentUserId: currentUser?.id,
+        targetUserId: targetUserId
+      });
+      
+      const { success, isFollowing: newFollowingStatus, error } = await FollowService.toggleFollow(currentUser?.id, targetUserId);
       
       if (success) {
         // Update with actual result
+        console.log('✅ Follow toggle successful! Setting isFollowing to:', newFollowingStatus);
+        console.log('✅ Before setState - current isFollowing:', isFollowing);
         setIsFollowing(newFollowingStatus);
-        console.log('✅ Follow toggle successful:', newFollowingStatus ? 'Now following' : 'Unfollowed');
+        console.log('✅ After setState called - new value should be:', newFollowingStatus);
         
         // Refresh follower count
         await loadRealSocialStats();
@@ -542,15 +688,72 @@ Feel free to check out my public notes below!`;
       Alert.alert('Error', 'Something went wrong');
     }
   };
+
+  const handleFollowingButtonPress = () => {
+    setShowFollowOptions(true);
+  };
+
+  const handleUnfollow = async () => {
+    setShowFollowOptions(false);
+    Alert.alert(
+      'Unfollow User',
+      `Are you sure you want to unfollow ${username || 'this user'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Unfollow', 
+          style: 'destructive',
+          onPress: () => handleFollowPress()
+        }
+      ]
+    );
+  };
+
+  const handleMute = () => {
+    setShowFollowOptions(false);
+    Alert.alert(
+      'Mute User',
+      `Are you sure you want to mute ${username || 'this user'}? You will still follow them but won't see their posts.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Mute', 
+          style: 'default',
+          onPress: () => {
+            console.log('👥 Muted user:', username);
+            // TODO: Implement mute functionality
+          }
+        }
+      ]
+    );
+  };
+
+  const closeFollowOptions = () => {
+    setShowFollowOptions(false);
+  };
   
   const handleFollowersPress = () => {
     console.log('👥 Followers pressed for', username);
-    // TODO: Navigate to followers list
+    navigation.navigate('FollowList', {
+      userId: userId,
+      type: 'followers',
+      username: username || 'User',
+      // PASS CURRENT TAB: So FollowList knows where user came from
+      originTab: activeNavTab,
+      fromTab: activeNavTab
+    });
   };
 
   const handleFollowingPress = () => {
     console.log('👥 Following pressed for', username);
-    // TODO: Navigate to following list
+    navigation.navigate('FollowList', {
+      userId: userId,
+      type: 'following',
+      username: username || 'User',
+      // PASS CURRENT TAB: So FollowList knows where user came from
+      originTab: activeNavTab,
+      fromTab: activeNavTab
+    });
   };
   
   const handleMyNotesPress = () => {
@@ -724,9 +927,18 @@ Feel free to check out my public notes below!`;
             {/* Follow Button Section - Only show for other users, not current user */}
             {!isCurrentUser && (
               <View style={styles.followButtonSection}>
+                {/* 백그라운드 터치 시 메뉴 닫기 */}
+                {showFollowOptions && (
+                  <TouchableOpacity 
+                    style={styles.followOverlay}
+                    onPress={closeFollowOptions}
+                    activeOpacity={1}
+                  />
+                )}
+
                 <TouchableOpacity 
                   style={[styles.followButton, isFollowing && styles.followingButton]} 
-                  onPress={handleFollowPress}
+                  onPress={isFollowing ? handleFollowingButtonPress : handleFollowPress}
                 >
                   <Icon 
                     name={isFollowing ? "user-check" : "user-plus"} 
@@ -734,9 +946,34 @@ Feel free to check out my public notes below!`;
                     color={isFollowing ? Colors.secondaryText : Colors.mainBackground} 
                   />
                   <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-                    {isFollowing ? 'Following' : 'Follow'}
+                    {(() => {
+                      const buttonText = isFollowing ? 'Following' : 'Follow';
+                      console.log('🎯 Button render - isFollowing:', isFollowing, 'buttonText:', buttonText);
+                      return buttonText;
+                    })()}
                   </Text>
                 </TouchableOpacity>
+
+                {/* 옵션 메뉴 - Following 버튼용 */}
+                {showFollowOptions && (
+                  <View style={styles.followOptionsMenu}>
+                    <TouchableOpacity
+                      style={styles.followOptionItem}
+                      onPress={handleMute}
+                    >
+                      <Icon name="volume-x" size={16} color={Colors.secondaryText} />
+                      <Text style={[styles.followOptionText, { color: Colors.secondaryText }]}>Mute</Text>
+                    </TouchableOpacity>
+                    <View style={styles.optionSeparator} />
+                    <TouchableOpacity
+                      style={styles.followOptionItem}
+                      onPress={handleUnfollow}
+                    >
+                      <Icon name="user-minus" size={16} color="#FF3B30" />
+                      <Text style={styles.followOptionText}>Unfollow</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
 
@@ -865,22 +1102,11 @@ const styles = StyleSheet.create({
     paddingTop: Layout.spacing.lg,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: Colors.noteCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
   },
   headerRight: {
     flexDirection: 'row',
@@ -907,6 +1133,7 @@ const styles = StyleSheet.create({
   followButtonSection: {
     paddingHorizontal: Layout.screen.padding,
     paddingBottom: Layout.spacing.lg,
+    position: 'relative',
   },
   followButton: {
     flexDirection: 'row',
@@ -932,6 +1159,55 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: Colors.secondaryText,
+  },
+
+  // Follow Options Menu
+  followOverlay: {
+    position: 'absolute',
+    top: -50,
+    left: -Layout.screen.padding,
+    right: -Layout.screen.padding,
+    bottom: -Layout.spacing.lg,
+    backgroundColor: 'transparent',
+    zIndex: 1000,
+  },
+  followOptionsMenu: {
+    position: 'absolute',
+    top: 50, // 버튼 아래쪽에 위치
+    right: 0,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    paddingVertical: 4,
+    minWidth: 140,
+    shadowColor: Colors.primaryText,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    zIndex: 1001,
+  },
+  followOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  followOptionText: {
+    fontSize: 14,
+    color: '#FF3B30', // 빨간색 텍스트 (Unfollow용)
+    fontFamily: 'Avenir Next',
+    fontWeight: '500',
+  },
+  optionSeparator: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginHorizontal: 8,
   },
   scrollView: {
     flex: 1,

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, testSupabaseConnection } from './supabase';
 import supabaseDebugger from '../utils/SupabaseDebugger';
 
 class NotesService {
@@ -131,6 +131,14 @@ class NotesService {
   // 퍼블릭 노트 피드 조회
   async getPublicNotes(limit = 20, offset = 0, orderBy = 'created_at') {
     try {
+      // Test connection first
+      console.log('🌐 Testing Supabase connection before fetching public notes...');
+      const isConnected = await testSupabaseConnection();
+      if (!isConnected) {
+        throw new Error('Network connection failed - cannot reach Supabase');
+      }
+
+      console.log('✅ Connection test passed, fetching public notes...');
       // FIXED: Remove JOIN to avoid schema cache issues
       const { data: notes, error } = await supabase
         .from('notes')

@@ -55,6 +55,7 @@ const ProfileScreen = ({ navigation }) => {
   
   // Social features state
   const [isFollowing, setIsFollowing] = useState(mockUser.isFollowing);
+  const [showFollowOptions, setShowFollowOptions] = useState(false);
 
   // Use actual user data if available, otherwise fallback to mock
   const currentUser = user ? {
@@ -90,22 +91,10 @@ const ProfileScreen = ({ navigation }) => {
   
   // Get starred notes - use the data from NotesStore
   const userStarredNotes = React.useMemo(() => {
-    console.log('⭐ ProfileScreen calculating starred notes');
-    console.log('⭐ starredNotes from store (local IDs):', starredNotes?.length || 0, 'IDs');
-    console.log('⭐ getStarredNotes() (note objects):', getStarredNotes()?.length || 0, 'notes');
-    console.log('⭐ starredNotes array detail:', starredNotes);
-    
-    const result = getStarredNotes();
-    console.log('⭐ ProfileScreen using starred notes:', result?.length || 0);
-    console.log('⭐ ProfileScreen starred notes details:', result?.map(n => `${n.title}(${n.id})`));
-    return result;
-  }, [getStarredNotes, starredNotes]);
+    return getStarredNotes();
+  }, [starredNotes?.length]); // Only recalculate when starredNotes count changes
   
   const starredNotesCount = userStarredNotes?.length || 0;
-
-  console.log('📊 Profile counts - My notes:', myNotesCount, 'Starred notes:', starredNotesCount);
-  console.log('📊 Profile data - publicNotes:', publicNotes.length, 'globalPublicNotes:', globalPublicNotes?.length);
-  console.log('📊 Public notes details:', publicNotes.map(n => `${n.title}(${n.is_public})`));
 
   useEffect(() => {
     // Check for global readme data on every render
@@ -137,16 +126,10 @@ const ProfileScreen = ({ navigation }) => {
 
   // Subscribe to notes changes for highlight updates and count updates
   useEffect(() => {
-    console.log('📊 Notes changed - updating highlights and counts');
-    console.log('📊 Public notes count:', publicNotes?.length);
-    console.log('📊 Latest public note updated_at:', publicNotes?.[0]?.updated_at);
     loadHighlightNotes();
   }, [
-    privateNotes?.length, 
     publicNotes?.length,
-    // Also watch for changes in the most recent public note's updated_at
     publicNotes?.[0]?.updated_at,
-    // Watch the entire publicNotes array to catch any updates
     JSON.stringify(publicNotes?.map(n => ({ id: n.id, updated_at: n.updated_at })))
   ]);
 
@@ -617,15 +600,53 @@ const ProfileScreen = ({ navigation }) => {
     console.log(isFollowing ? '👥 Unfollowed user' : '👥 Followed user');
   };
 
+  const handleFollowingButtonPress = () => {
+    setShowFollowOptions(true);
+  };
+
+  const handleUnfollow = () => {
+    setShowFollowOptions(false);
+    Alert.alert(
+      'Unfollow User',
+      'Are you sure you want to unfollow this user?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Unfollow', 
+          style: 'destructive',
+          onPress: () => handleFollowPress()
+        }
+      ]
+    );
+  };
+
+  const closeFollowOptions = () => {
+    setShowFollowOptions(false);
+  };
+
 
   const handleFollowersPress = () => {
     console.log('👥 Followers pressed');
-    // TODO: Navigate to followers list
+    navigation.navigate('FollowList', {
+      userId: user?.id || 'currentUser', // 현재 사용자
+      type: 'followers',
+      username: profile?.username || user?.email || 'Me',
+      // PASS PROFILE TAB: So FollowList knows user came from Profile page
+      originTab: 3, // Profile tab is index 3
+      fromTab: 3
+    });
   };
 
   const handleFollowingPress = () => {
     console.log('👥 Following pressed');
-    // TODO: Navigate to following list
+    navigation.navigate('FollowList', {
+      userId: user?.id || 'currentUser', // 현재 사용자
+      type: 'following',
+      username: profile?.username || user?.email || 'Me',
+      // PASS PROFILE TAB: So FollowList knows user came from Profile page
+      originTab: 3, // Profile tab is index 3
+      fromTab: 3
+    });
   };
 
 
@@ -683,9 +704,18 @@ const ProfileScreen = ({ navigation }) => {
             {/* Follow Button Section - Hidden on own profile */}
             {false && (
               <View style={styles.followButtonSection}>
+                {/* 백그라운드 터치 시 메뉴 닫기 */}
+                {showFollowOptions && (
+                  <TouchableOpacity 
+                    style={styles.followOverlay}
+                    onPress={closeFollowOptions}
+                    activeOpacity={1}
+                  />
+                )}
+
                 <TouchableOpacity 
                   style={[styles.followButton, isFollowing && styles.followingButton]} 
-                  onPress={handleFollowPress}
+                  onPress={isFollowing ? handleFollowingButtonPress : handleFollowPress}
                 >
                   <Icon 
                     name={isFollowing ? "user-check" : "user-plus"} 
@@ -696,6 +726,19 @@ const ProfileScreen = ({ navigation }) => {
                     {isFollowing ? 'Following' : 'Follow'}
                   </Text>
                 </TouchableOpacity>
+
+                {/* 옵션 메뉴 - Following 버튼용 */}
+                {showFollowOptions && (
+                  <View style={styles.followOptionsMenu}>
+                    <TouchableOpacity
+                      style={styles.followOptionItem}
+                      onPress={handleUnfollow}
+                    >
+                      <Icon name="user-minus" size={16} color="#FF3B30" />
+                      <Text style={styles.followOptionText}>Unfollow</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
 
@@ -843,6 +886,7 @@ const styles = StyleSheet.create({
   followButtonSection: {
     paddingHorizontal: Layout.screen.padding,
     paddingBottom: Layout.spacing.lg,
+    position: 'relative',
   },
   followButton: {
     flexDirection: 'row',
@@ -868,6 +912,50 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: Colors.secondaryText,
+  },
+  
+  // Follow Options Menu
+  followOverlay: {
+    position: 'absolute',
+    top: -50,
+    left: -Layout.screen.padding,
+    right: -Layout.screen.padding,
+    bottom: -Layout.spacing.lg,
+    backgroundColor: 'transparent',
+    zIndex: 1000,
+  },
+  followOptionsMenu: {
+    position: 'absolute',
+    top: 50, // 버튼 아래쪽에 위치
+    right: 0,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    paddingVertical: 4,
+    minWidth: 120,
+    shadowColor: Colors.primaryText,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    zIndex: 1001,
+  },
+  followOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  followOptionText: {
+    fontSize: 14,
+    color: '#FF3B30', // 빨간색 텍스트
+    fontFamily: 'Avenir Next',
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
