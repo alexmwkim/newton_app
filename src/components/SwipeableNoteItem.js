@@ -218,7 +218,7 @@ const SwipeableNoteItem = ({
     
     // If no content, show placeholder
     if (!content || content.trim() === '') {
-      return { text: '(내용 없음)', images: [] };
+      return { text: '(No content)', images: [] };
     }
     
     // Parse content blocks in order to find the first content type
@@ -241,14 +241,13 @@ const SwipeableNoteItem = ({
         // Skip adding to text since we show as thumbnail
         continue;
       } else if (part.startsWith('📋 Card:')) {
-        // If first content is card, show card content without icon
+        // If first content is card, show only the card content text (no card mention)
         if (firstContentImages.length === 0 && processedText === '') {
           const cardContent = part.replace('📋 Card:', '').trim();
           if (cardContent) {
-            processedText = cardContent; // Show card content directly without icon
-          } else {
-            processedText = '(빈 카드)';
+            processedText = cardContent; // Show card content directly without any prefix
           }
+          // If card is empty, don't show anything (don't set processedText)
         }
         // Skip other cards since we only show first content
         continue;
@@ -282,8 +281,9 @@ const SwipeableNoteItem = ({
     }
     
     // If no content found, show placeholder
-    if (!processedText && firstContentImages.length === 0) {
-      processedText = '(내용 없음)';
+    // Only show placeholder if there really is no content at all
+    if (!processedText && firstContentImages.length === 0 && (!content || content.trim() === '')) {
+      processedText = '(No content)';
     }
     
     return { 

@@ -47,34 +47,32 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
   }, []);
 
 
-  console.log('🏠 HomeScreen render - Private notes:', privateNotes.length, 'Public notes:', publicNotes.length);
+  // Safe array access to prevent length undefined errors
+  const safePrivateNotes = privateNotes || [];
+  const safePublicNotes = publicNotes || [];
+  const safePinnedNotes = pinnedNotes || [];
   
-  // Debug: Check first note from each category
-  if (privateNotes.length > 0) {
-    console.log('🔍 First private note:', privateNotes[0].title, 'isPublic:', privateNotes[0].isPublic, 'is_public:', privateNotes[0].is_public);
-  }
-  if (publicNotes.length > 0) {
-    console.log('🔍 First public note:', publicNotes[0].title, 'isPublic:', publicNotes[0].isPublic, 'is_public:', publicNotes[0].is_public);
-  }
+  console.log('🏠 HomeScreen render - Private notes:', safePrivateNotes.length, 'Public notes:', safePublicNotes.length);
   
   // Filter notes - pinned notes will appear in both pinned section and main lists
-  const filteredPrivateNotes = privateNotes; // Show all private notes
+  const filteredPrivateNotes = safePrivateNotes; // Show all private notes
   
   // Since these are user's own notes, no filtering needed - just show all
-  const filteredPublicNotes = publicNotes; // Show all user's public notes
+  const filteredPublicNotes = safePublicNotes; // Show all user's public notes
   
-  console.log('🏠 Pinned:', pinnedNotes.length, 'Filtered Private:', filteredPrivateNotes.length, 'Filtered Public:', filteredPublicNotes.length);
-  console.log('🏠 Pinned notes details:', pinnedNotes);
+  console.log('🏠 Pinned:', safePinnedNotes.length, 'Filtered Private:', filteredPrivateNotes.length, 'Filtered Public:', filteredPublicNotes.length);
+  console.log('🏠 Pinned notes details:', safePinnedNotes);
   
   // Debug: Show available note IDs for testing pinning
-  if (privateNotes.length > 0) {
-    console.log('🔍 Available private note IDs for testing:', privateNotes.map(n => `${n.title}: ${n.id}`));
+  if (safePrivateNotes.length > 0) {
+    console.log('🔍 Available private note IDs for testing:', safePrivateNotes.map(n => `${n.title}: ${n.id}`));
   }
-  if (publicNotes.length > 0) {
-    console.log('🔍 Available public note IDs for testing:', publicNotes.map(n => `${n.title}: ${n.id}`));
+  if (safePublicNotes.length > 0) {
+    console.log('🔍 Available public note IDs for testing:', safePublicNotes.map(n => `${n.title}: ${n.id}`));
   }
   
   const currentNotes = activeTab === 'private' ? filteredPrivateNotes : filteredPublicNotes;
+  const safeCurrentNotes = currentNotes || [];
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -100,10 +98,30 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
   };
 
   const handleNoteClick = (noteId) => {
+    console.log('🔍 ===== HOME SCREEN NOTE CLICK =====');
+    console.log('🔍 noteId clicked:', noteId);
+    console.log('🔍 noteId type:', typeof noteId);
+    console.log('🔍 activeTab:', activeTab);
+    console.log('🔍 currentNotes length:', safeCurrentNotes.length);
+    console.log('🔍 currentNotes sample:', safeCurrentNotes.slice(0, 2).map(n => ({ id: n.id, title: n.title })));
+    console.log('🔍 Note found in currentNotes?', safeCurrentNotes.find(n => n.id === noteId) ? 'YES' : 'NO');
+    
+    const foundNote = safeCurrentNotes.find(n => n.id === noteId);
+    if (foundNote) {
+      console.log('🔍 Found note details:', {
+        id: foundNote.id,
+        title: foundNote.title,
+        hasContent: !!foundNote.content,
+        contentLength: foundNote.content?.length || 0
+      });
+    }
+    
     navigation.navigate('noteDetail', { 
       noteId, 
+      note: foundNote, // 실제 노트 데이터도 함께 전달
       returnToTab: activeTab // Pass current tab state
     });
+    console.log('🔍 ===== NAVIGATION CALLED =====');
   };
 
   const handleCreateNote = () => {
@@ -175,8 +193,8 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     
     // TEMP: Add direct pin test functions
     global.testPinFirst = async () => {
-      if (currentNotes.length > 0) {
-        const noteToPin = currentNotes[0];
+      if (safeCurrentNotes.length > 0) {
+        const noteToPin = safeCurrentNotes[0];
         console.log('🧪 Testing pin for first note:', noteToPin.title, noteToPin.id);
         try {
           const result = await togglePinned(noteToPin.id);
@@ -246,7 +264,7 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
       delete global.checkFollowTable;
       delete global.createFollowsTable;
     };
-  }, [currentNotes, pinnedNotes, togglePinned]);
+  }, [safeCurrentNotes, safePinnedNotes, togglePinned]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -273,11 +291,11 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
               contentContainerStyle={styles.scrollContent}
             >
               <PinnedNotesSection
-                pinnedNotes={pinnedNotes}
+                pinnedNotes={safePinnedNotes}
                 onNotePress={handleNoteClick}
               />
               <NotesListComponent
-                notes={currentNotes}
+                notes={safeCurrentNotes}
                 onNoteClick={handleNoteClick}
                 onDeleteNote={handleDeleteNote}
                 isPublic={activeTab === 'public'}

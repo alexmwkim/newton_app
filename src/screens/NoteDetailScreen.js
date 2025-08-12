@@ -164,16 +164,21 @@ const NoteDetailScreen = ({
 
   // Get display note with fallback - memoized to prevent unnecessary re-renders
   const displayNote = useMemo(() => {
-    return normalizeNote(storeNote) || {
+    if (storeNote) {
+      return normalizeNote(storeNote);
+    }
+    
+    // Only show loading state, don't depend on loadingNote in memo
+    return {
       id: noteId || 1,
-      title: loadingNote ? 'Loading...' : 'Note Not Found',
-      content: loadingNote ? 'Loading note content...' : 'This note could not be found.',
+      title: 'Loading...',
+      content: 'Loading note content...',
       timeAgo: 'Unknown',
       isPublic: false,
       starCount: 0,
       forkCount: 0
     };
-  }, [storeNote, noteId, loadingNote]);
+  }, [storeNote, noteId]);
   
   // Check if user is author
   const isAuthor = useMemo(() => {
@@ -204,55 +209,131 @@ const NoteDetailScreen = ({
     updateNote
   );
   
-  // Load note data
+  // Load note data - SINGLE useEffect to prevent loops
   useEffect(() => {
+    let isMounted = true; // Prevent state updates if component unmounted
+    
     const loadNote = async () => {
+      console.log('🔍 ===== LOAD NOTE STARTED =====');
       console.log('🔍 Loading note for ID:', noteId);
-      setLoadingNote(true);
-      setContentInitialized(false); // Reset content initialization for new note
+      console.log('🔍 Passed note prop:', note ? `${note.title} (${note.id})` : 'no note prop');
       
+      if (!isMounted) return;
+      setLoadingNote(true);
+      setContentInitialized(false);
+      
+      // PRIORITY 1: Use passed note if available
       if (note && note.title !== undefined) {
-        console.log('✅ Using passed note:', note.title);
-        setStoreNote(note);
-        setLoadingNote(false);
+        console.log('✅ Using passed note (PRIORITY 1):', note.title);
+        if (isMounted) {
+          setStoreNote(note);
+          setLoadingNote(false);
+        }
+        console.log('🔍 ===== LOAD NOTE COMPLETED (used passed note) =====');
         return;
       }
       
+      // PRIORITY 2: Try to get note from store
       try {
+        console.log('🔄 Calling getNoteById...');
         const foundNote = await getNoteById(noteId);
-        console.log('📋 Found note:', foundNote?.title || 'not found');
-        setStoreNote(foundNote);
+        
+        if (!isMounted) return;
+        
+        if (foundNote && foundNote.title) {
+          console.log('✅ getNoteById SUCCESS:', foundNote.title);
+          setStoreNote(foundNote);
+        } else {
+          console.log('⚠️ getNoteById returned empty/null result');
+          throw new Error('Note not found or empty result');
+        }
+        
       } catch (error) {
-        console.error('❌ Error loading note:', error);
-        setStoreNote(null);
+        console.error('❌ getNoteById failed:', error?.message);
+        
+        if (!isMounted) return;
+        
+        // PRIORITY 3: Create fallback note to prevent infinite loading
+        console.log('🔄 Creating fallback note to prevent infinite loading');
+        const fallbackNote = {
+          id: noteId,
+          title: 'Note Not Found',
+          content: 'This note could not be loaded. It may not exist or there may be a connection issue.',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_public: false,
+          user_id: user?.id || null
+        };
+        
+        setStoreNote(fallbackNote);
       } finally {
-        setLoadingNote(false);
+        if (isMounted) {
+          console.log('🏁 setLoadingNote(false) called');
+          setLoadingNote(false);
+          console.log('🔍 ===== LOAD NOTE COMPLETED =====');
+        }
       }
     };
 
-    if (noteId) {
+    // More lenient noteId validation - accept any truthy value
+    if (noteId && noteId !== 'MISSING_NOTE_ID' && noteId !== 'undefined' && noteId !== 'null') {
+      console.log('🚀 Starting loadNote for noteId:', noteId);
       loadNote();
     } else {
-      console.warn('⚠️ NoteDetailScreen: noteId is missing');
+      console.warn('⚠️ NoteDetailScreen: noteId is missing or invalid:', noteId);
+      console.warn('⚠️ Creating empty fallback note');
+      
+      const emptyNote = {
+        id: 'empty',
+        title: 'Empty Note',
+        content: 'This is a new empty note.',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_public: false,
+        user_id: user?.id || null
+      };
+      
+      setStoreNote(emptyNote);
       setLoadingNote(false);
     }
-  }, [noteId]);
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
+  }, [noteId]); // ONLY noteId dependency to prevent infinite loops
   
   // Initialize content from note data - only run once when note loads
   useEffect(() => {
     if (displayNote && !loadingNote && displayNote.id && !contentInitialized) {
       console.log('🔄 Initializing content for note:', displayNote.id);
       console.log('🔄 DisplayNote content:', displayNote.content);
-      console.log('🔄 Loading state:', loadingNote);
-      console.log('🔄 Content initialized state:', contentInitialized);
+      
       setTitle(displayNote.title || '');
       
       // Convert existing content to blocks using shared utility
       if (displayNote.content && displayNote.content.trim()) {
         console.log('🔄 Content exists, parsing to blocks...');
-        const newBlocks = parseNoteContentToBlocks(displayNote);
-        console.log('🔄 Parsed blocks:', newBlocks.map(b => ({ type: b.type, content: b.content?.substring(0, 30) || 'empty' })));
-        setBlocks(newBlocks);
+        try {
+          const newBlocks = parseNoteContentToBlocks(displayNote);
+          console.log('🔄 Parsed blocks:', newBlocks.length, 'blocks');
+          if (newBlocks.length > 0) {
+            setBlocks(newBlocks.map(block => ({
+              ...block,
+              ref: React.createRef()
+            })));
+          } else {
+            // Fallback if parsing fails
+            setBlocks([
+              { id: generateId(), type: 'text', content: displayNote.content || '', ref: React.createRef() }
+            ]);
+          }
+        } catch (parseError) {
+          console.log('⚠️ Content parsing failed, using fallback:', parseError);
+          setBlocks([
+            { id: generateId(), type: 'text', content: displayNote.content || '', ref: React.createRef() }
+          ]);
+        }
       } else {
         console.log('🔄 No content, creating empty text block');
         // Ensure we have at least one text block
@@ -262,20 +343,27 @@ const NoteDetailScreen = ({
       }
       
       setContentInitialized(true);
+      console.log('✅ Content initialization completed');
     }
-  }, [displayNote?.id, loadingNote, contentInitialized]); // Include contentInitialized to prevent re-runs
+  }, [displayNote?.id, loadingNote, contentInitialized]); // Keep essential dependencies
 
   // Ensure there's always an empty text block at the end
 
   useEffect(() => {
-    // 항상 마지막에 빈 텍스트 블록 유지
-    if (blocks.length === 0 || blocks[blocks.length - 1].type !== 'text') {
+    // Always maintain empty text block at the end - but prevent infinite loops
+    if (blocks.length === 0) {
+      // Only add block if there are NO blocks at all
+      setBlocks([
+        { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+      ]);
+    } else if (blocks.length > 0 && blocks[blocks.length - 1].type !== 'text') {
+      // Only add if last block is NOT text AND we have at least one block
       setBlocks(prev => ([
         ...prev,
         { id: generateId(), type: 'text', content: '', ref: React.createRef() }
       ]));
     }
-  }, [blocks]);
+  }, [blocks.length, blocks[blocks.length - 1]?.type]); // More specific dependencies
 
   // Header handlers
   const handleBack = useCallback(() => {

@@ -33,7 +33,7 @@ const SocialInteractionBar = ({
   const starCount = socialCounts.stars || initialStarCount;
   const forkCount = socialCounts.forks || initialForkCount;
 
-  // 컴포넌트 마운트시 소셜 상태 확인
+  // Check social status on component mount
   React.useEffect(() => {
     if (user && noteId) {
       checkNoteSocialStatus(noteId, user.id);
@@ -42,12 +42,12 @@ const SocialInteractionBar = ({
 
   const handleStar = async () => {
     if (!user) {
-      Alert.alert('로그인 필요', '별표를 추가하려면 로그인이 필요합니다.');
+      Alert.alert('Login Required', 'You need to log in to add a star.');
       return;
     }
 
     if (user.id === authorId) {
-      Alert.alert('알림', '자신의 노트에는 별표를 추가할 수 없습니다.');
+      Alert.alert('Notice', 'You cannot star your own note.');
       return;
     }
 
@@ -59,7 +59,7 @@ const SocialInteractionBar = ({
         await starNote(noteId, user.id);
       }
     } catch (error) {
-      Alert.alert('오류', error.message || '별표 처리 중 오류가 발생했습니다.');
+      Alert.alert('Error', error.message || 'An error occurred while processing the star.');
     } finally {
       setIsLoading(false);
     }
@@ -67,34 +67,34 @@ const SocialInteractionBar = ({
 
   const handleFork = async () => {
     if (!user) {
-      Alert.alert('로그인 필요', '포크하려면 로그인이 필요합니다.');
+      Alert.alert('Login Required', 'You need to log in to fork this note.');
       return;
     }
 
     if (user.id === authorId) {
-      Alert.alert('알림', '자신의 노트는 포크할 수 없습니다.');
+      Alert.alert('Notice', 'You cannot fork your own note.');
       return;
     }
 
     if (isForked) {
-      Alert.alert('알림', '이미 포크한 노트입니다.');
+      Alert.alert('Notice', 'You have already forked this note.');
       return;
     }
 
     Alert.alert(
-      '노트 포크',
-      '이 노트를 포크하시겠습니까? 포크된 노트는 개인 노트로 저장됩니다.',
+      'Fork Note',
+      'Do you want to fork this note? The forked note will be saved as a private note.',
       [
-        { text: '취소', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: '포크',
+          text: 'Fork',
           onPress: async () => {
             setIsLoading(true);
             try {
               await forkNote(noteId, user.id);
-              Alert.alert('성공', '노트가 성공적으로 포크되었습니다!');
+              Alert.alert('Success', 'Note has been successfully forked!');
             } catch (error) {
-              Alert.alert('오류', error.message || '포크 중 오류가 발생했습니다.');
+              Alert.alert('Error', error.message || 'An error occurred while forking.');
             } finally {
               setIsLoading(false);
             }

@@ -77,12 +77,13 @@ class NotesService {
       
       if (!profile || profileError) {
         console.log('⚠️ No profile found for user:', userId);
-        console.log('⚠️ Profile should be created during user registration, not here');
-        console.log('⚠️ Continuing without profile - notes will have minimal metadata');
+        console.log('⚠️ Continuing with minimal profile data for notes to load');
         
-        // DO NOT create profile here - profiles should only be created during user registration
-        // Return empty data gracefully instead of creating unnecessary profiles
-        return { data: [], error: null };
+        // Create minimal profile data to allow notes to load
+        profile = {
+          id: null,
+          username: 'User'
+        };
       }
       
       console.log('👤 Found profile ID:', profile.id);
@@ -174,6 +175,8 @@ class NotesService {
   // 노트 상세 조회
   async getNoteById(noteId) {
     try {
+      console.log('🔍 getNoteById called with noteId:', noteId);
+      
       // FIXED: Remove JOIN to avoid schema cache issues
       const { data: note, error } = await supabase
         .from('notes')
@@ -181,24 +184,53 @@ class NotesService {
         .eq('id', noteId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Note query error:', error);
+        throw error;
+      }
+      
+      if (!note) {
+        console.log('❌ Note not found with ID:', noteId);
+        return { data: null, error: 'Note not found' };
+      }
 
-      // Get profile separately
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, user_id, username, avatar_url, bio')
-        .eq('user_id', note.user_id)
-        .single();
+      console.log('✅ Found note:', note.title);
 
-      // Add profile data manually
+      // Get profile separately - handle gracefully if profile doesn't exist
+      let profile = null;
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, avatar_url, bio')
+          .eq('user_id', note.user_id)
+          .single();
+          
+        if (!profileError && profileData) {
+          profile = profileData;
+          console.log('✅ Found profile:', profile.username);
+        } else {
+          console.log('⚠️ Profile not found, using fallback');
+        }
+      } catch (profileError) {
+        console.log('⚠️ Profile query failed, using fallback:', profileError);
+      }
+
+      // Add profile data manually with fallback
       const noteWithProfile = {
         ...note,
-        profiles: profile || { username: 'Unknown' }
+        profiles: profile || { 
+          id: null,
+          user_id: note.user_id,
+          username: 'Unknown',
+          avatar_url: null,
+          bio: null
+        }
       };
 
+      console.log('✅ Returning note with profile data');
       return { data: noteWithProfile, error: null };
     } catch (error) {
-      console.error('Get note by ID error:', error);
+      console.error('💥 Get note by ID error:', error);
       return { data: null, error: error.message };
     }
   }

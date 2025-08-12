@@ -102,10 +102,10 @@ export const useNoteInsertHandlers = (
   }, [blocks, setBlocks]);
 
   const handleDeleteBlock = useCallback((index) => {
-    Alert.alert('삭제 확인', '이 블록을 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
+    Alert.alert('Delete Confirmation', 'Do you want to delete this block?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: '삭제', style: 'destructive', onPress: () => {
+        text: 'Delete', style: 'destructive', onPress: () => {
           const updated = [...blocks];
           const deletedBlock = updated[index];
           updated.splice(index, 1);

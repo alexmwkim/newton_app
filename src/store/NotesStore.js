@@ -593,24 +593,42 @@ export const useNotesStore = () => {
       return privateNotes;
     },
     getNoteById: async (noteId) => {
-      console.log('🔍 getNoteById 호출됨, noteId:', noteId);
+      console.log('🔍 ===== NOTES STORE GET NOTE BY ID =====');
+      console.log('🔍 noteId:', noteId);
+      console.log('🔍 noteId type:', typeof noteId);
+      console.log('🔍 user authenticated?', !!user?.id);
+      console.log('🔍 stableSupabaseData.notes length:', stableSupabaseData.notes?.length || 0);
       
       // First check if note exists in current store data (including subpages)
       const allRawNotes = stableSupabaseData.notes || [];
-      const localNote = allRawNotes.find(note => note.id === noteId);
+      console.log('🔍 Searching in', allRawNotes.length, 'local notes...');
+      
+      const localNote = allRawNotes.find(note => {
+        console.log('🔍 Comparing', note.id, 'with', noteId, '- match?', note.id === noteId);
+        return note.id === noteId;
+      });
+      
       if (localNote) {
         console.log('✅ 로컬 스토어에서 노트 발견 (subpage 포함):', localNote.title);
+        console.log('🔍 ===== RETURNING LOCAL NOTE =====');
         return localNote;
       }
       
       // If not found locally, fetch from Supabase
       console.log('🔄 로컬에서 찾을 수 없음, Supabase에서 조회...');
+      console.log('🔄 supabaseStore.getNoteById available?', typeof supabaseStore.getNoteById);
+      
       try {
+        console.log('🌐 Calling supabaseStore.getNoteById...');
         const result = await supabaseStore.getNoteById(noteId);
         console.log('📋 Supabase 조회 결과:', result?.title || 'not found');
+        console.log('📋 result type:', typeof result);
+        console.log('🔍 ===== RETURNING SUPABASE RESULT =====');
         return result;
       } catch (error) {
         console.error('❌ getNoteById 에러:', error);
+        console.error('❌ Error stack:', error.stack);
+        console.log('🔍 ===== RETURNING NULL DUE TO ERROR =====');
         return null;
       }
     },
