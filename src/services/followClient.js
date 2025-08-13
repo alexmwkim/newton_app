@@ -139,6 +139,90 @@ class FollowClientService {
   }
 
   /**
+   * 배치 팔로우 데이터 로딩 (병렬 처리로 성능 향상)
+   */
+  async getBatchFollowData(userId, currentUserId = null) {
+    try {
+      if (!userId) {
+        return { 
+          success: false, 
+          followersCount: 0, 
+          followingCount: 0, 
+          isFollowing: false,
+          error: 'No user ID provided' 
+        };
+      }
+
+      console.log('🚀 Getting batch follow data for user:', userId);
+
+      // 병렬로 모든 데이터 가져오기
+      const promises = [
+        // 팔로워 수
+        this.supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', userId),
+        
+        // 팔로잉 수
+        this.supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', userId)
+      ];
+
+      // 현재 사용자가 있고 다른 사용자의 프로필을 보는 경우에만 팔로우 상태 확인
+      if (currentUserId && currentUserId !== userId) {
+        promises.push(
+          this.supabase
+            .from('follows')
+            .select('id')
+            .eq('follower_id', currentUserId)
+            .eq('following_id', userId)
+            .single()
+        );
+      }
+
+      const results = await Promise.all(promises);
+      
+      const [followersResult, followingResult, followStatusResult] = results;
+
+      // 결과 처리
+      const followersCount = followersResult.error ? 0 : (followersResult.count || 0);
+      const followingCount = followingResult.error ? 0 : (followingResult.count || 0);
+      const isFollowing = followStatusResult 
+        ? (followStatusResult.error && followStatusResult.error.code !== 'PGRST116' 
+           ? false 
+           : !!followStatusResult.data)
+        : false;
+
+      console.log('✅ Batch follow data loaded:', {
+        followersCount,
+        followingCount,
+        isFollowing,
+        hasCurrentUser: !!currentUserId
+      });
+
+      return {
+        success: true,
+        followersCount,
+        followingCount,
+        isFollowing,
+        error: null
+      };
+
+    } catch (error) {
+      console.error('❌ Exception in getBatchFollowData:', error);
+      return { 
+        success: false, 
+        followersCount: 0, 
+        followingCount: 0, 
+        isFollowing: false,
+        error 
+      };
+    }
+  }
+
+  /**
    * 언팔로우 하기 (클라이언트 안전 - RLS 적용)
    */
   async unfollowUser(followerId, followingId) {

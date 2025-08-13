@@ -65,35 +65,21 @@ const SearchScreen = ({ navigation }) => {
   console.log('🔍 Total notes available:', allNotes.length, 'Recent searches:', recentSearches.length);
   console.log('🔍 All note titles:', allNotes.map(note => note.title));
   
-  // Generate suggestions from note titles and content
+  // Generate suggestions from note titles only
   const suggestions = useMemo(() => {
-    const words = new Set();
+    const titles = new Set();
     
     allNotes.forEach(note => {
-      // Extract words from title
-      if (note.title) {
-        const titleWords = note.title.toLowerCase()
-          .split(/\s+/)
-          .filter(word => word.length > 2) // Only words longer than 2 characters
-          .filter(word => !/^\d+$/.test(word)) // Exclude pure numbers
-          .filter(word => !word.includes('📏') && !word.includes('✅')); // Exclude emoji words
-        titleWords.forEach(word => words.add(word));
-      }
-      
-      // Extract meaningful words from content
-      if (note.content) {
-        const contentWords = note.content.toLowerCase()
-          .split(/\s+/)
-          .filter(word => word.length > 3) // Only longer words from content
-          .filter(word => !/^\d+$/.test(word)) // Exclude pure numbers
-          .filter(word => !word.includes('📏') && !word.includes('✅')) // Exclude emoji words
-          .slice(0, 10); // Limit to first 10 words to avoid too many suggestions
-        contentWords.forEach(word => words.add(word));
+      // Use complete note titles as suggestions
+      if (note.title && note.title.trim().length > 0) {
+        titles.add(note.title.trim());
       }
     });
     
-    // Convert to array and sort by frequency/relevance
-    return Array.from(words).slice(0, 8); // Limit to 8 suggestions
+    // Convert to array and sort alphabetically, limit to 8 suggestions
+    return Array.from(titles)
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, 8);
   }, [allNotes]);
 
   const handleSearch = (query) => {

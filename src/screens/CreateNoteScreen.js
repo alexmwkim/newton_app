@@ -45,7 +45,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   const noteData = note || initialNote;
   const styles = createNoteStyles;
   
-  // Debug user state
+  // Debug user state and toolbar rendering
   console.log('🔍 CreateNoteScreen - Auth state:', {
     user: !!user,
     userId: user?.id,
@@ -95,6 +95,16 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     cardLayoutModes,
     setCardLayoutModes
   );
+
+  // 변수 초기화 완료 후 디버그 로그
+  console.log('🔧 Toolbar debug:', {
+    platform: Platform.OS,
+    toolbarId: TOOLBAR_ID,
+    keyboardVisible,
+    keyboardHeight,
+    focusedIndex,
+    blocksCount: blocks.length
+  });
 
   // Initialize content from note data
   useEffect(() => {
@@ -199,11 +209,13 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   console.log('🔍 CreateNote render - keyboardVisible:', keyboardVisible, 'keyboardHeight:', keyboardHeight);
 
   return (
+    <>
     <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView 
           style={styles.keyboardContainer}
-          behavior={Platform.OS === 'ios' ? 'height' : 'height'}
-          keyboardVerticalOffset={0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 25} // iOS: 툴바 높이만큼 오프셋
+          enabled={true}
         >
         {/* Header */}
         <View style={styles.header}>
@@ -261,7 +273,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                   setTitle(newTitle);
                 }}
                 onFocus={() => {
-                  console.log('🎯 Title input focused');
+                  console.log('🎯 Title input focused - should show toolbar');
                   setFocusedIndex(-1);
                   if (keyboardVisible) {
                     setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
@@ -329,46 +341,83 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
-
-      {/* Native InputAccessoryView - properly attached to keyboard */}
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={TOOLBAR_ID}>
-          <View style={[styles.nativeToolbar, {
-            paddingBottom: insets.bottom,
-            marginBottom: -insets.bottom,
-            height: 50 + insets.bottom,
-          }]}>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding card at current line, index:', focusedIndex);
-                handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={styles.toolbarBtn}
-            >
-              <Icon name="square" size={24} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding grid at current line, index:', focusedIndex);
-                // TODO: implement grid functionality
-              }}
-              style={styles.toolbarBtn}
-            >
-              <Icon name="grid" size={24} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding image at current line, index:', focusedIndex);
-                handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={styles.toolbarBtn}
-            >
-              <Icon name="image" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-        </InputAccessoryView>
-      )}
     </SafeAreaView>
+
+    {/* InputAccessoryView - 안정적인 렌더링 보장 */}
+    <InputAccessoryView nativeID={TOOLBAR_ID}>
+      <View style={{
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#E5E5E5',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        height: 44,
+        width: '100%',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🔧 Adding card at current line, index:', focusedIndex);
+              handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
+            }}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              backgroundColor: '#F0F0F0',
+              minWidth: 36,
+              minHeight: 36,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Icon name="square" size={18} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🔧 Adding image at current line, index:', focusedIndex);
+              handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
+            }}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              backgroundColor: '#F0F0F0',
+              minWidth: 36,
+              minHeight: 36,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Icon name="image" size={18} color="#333" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Done pressed - hiding keyboard');
+            // 키보드 숨기기
+            if (focusedIndex === -1 && titleInputRef.current) {
+              titleInputRef.current.blur();
+            } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
+              blocks[focusedIndex].ref.current.blur();
+            }
+          }}
+          style={{
+            padding: 8,
+            borderRadius: 6,
+            backgroundColor: '#007AFF',
+            minWidth: 60,
+            minHeight: 36,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </InputAccessoryView>
+    </>
   );
 };
 

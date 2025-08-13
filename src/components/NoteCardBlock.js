@@ -472,7 +472,7 @@ const NoteCardBlock = ({
           spellCheck={false}
           scrollEnabled={false}
           editable={isAuthor && !isDragging}
-          inputAccessoryViewID={TOOLBAR_ID}
+          inputAccessoryViewID="newton-toolbar"
           placeholderTextColor={Colors.secondaryText}
         />
         {isAuthor && (

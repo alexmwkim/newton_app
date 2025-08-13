@@ -57,6 +57,33 @@ const TabNavigator = ({ logout }) => {
     console.log('📍 Params:', JSON.stringify(params, null, 2));
     console.log('📍 Current navigation stack length:', navigationStack.length);
     
+    // PRELOAD: Profile 화면으로 이동할 때 미리 캐시 준비
+    if (screen === 'profile' && currentUser?.id) {
+      try {
+        console.log('⚡ PRELOAD: Preparing follow cache for profile transition');
+        const followCacheStore = require('../store/FollowCacheStore').default;
+        const FollowService = require('../services/followClient').default;
+        
+        // 현재 사용자 데이터가 캐시에 없으면 미리 로드
+        if (!followCacheStore.getFromCache(currentUser.id)) {
+          FollowService.getBatchFollowData(currentUser.id).then(result => {
+            if (result.success) {
+              followCacheStore.setCache(currentUser.id, {
+                followersCount: result.followersCount,
+                followingCount: result.followingCount,
+                isFollowing: false // 자신이므로 false
+              });
+              console.log('⚡ PRELOAD: Profile cache prepared instantly');
+            }
+          }).catch(err => {
+            console.log('⚡ PRELOAD: Background profile cache failed (non-critical)');
+          });
+        }
+      } catch (error) {
+        console.log('⚡ PRELOAD: Profile cache preparation failed (non-critical)');
+      }
+    }
+    
     // STACK-BASED NAVIGATION: Add to stack instead of replacing
     React.startTransition(() => {
       // Add current navigation to stack

@@ -498,11 +498,12 @@ const NoteDetailScreen = ({
   }
 
   return (
+    <>
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 25} // iOS: 툴바 높이만큼 오프셋
         enabled={true}
       >
         {/* Settings menu */}
@@ -605,7 +606,7 @@ const NoteDetailScreen = ({
             <ScrollView
               ref={scrollRef}
               contentContainerStyle={[styles.scrollContent, {
-                paddingBottom: 150 // Reduced padding, let KeyboardAvoidingView handle spacing
+                paddingBottom: 0 // 완전히 제거 - 툴바 위 여백 없애기
               }]}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
@@ -787,56 +788,108 @@ const NoteDetailScreen = ({
           </View>
         </TouchableWithoutFeedback>
 
-        {/* Native InputAccessoryView - properly attached to keyboard */}
-        {Platform.OS === 'ios' && (
-          <InputAccessoryView nativeID={TOOLBAR_ID}>
-            <View style={[styles.nativeToolbar, {
-              paddingBottom: insets.bottom,
-              marginBottom: -insets.bottom,
-              height: 50 + insets.bottom,
-            }]}>
-              {isAuthor ? (
-                <>
-                  <TouchableOpacity
-                    onPress={() => {
-                      console.log('🔧 Adding card at current line, index:', focusedIndex);
-                      handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
-                    }}
-                    style={styles.toolbarBtn}
-                  >
-                    <Icon name="square" size={24} color="#333" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      console.log('🔧 Adding grid at current line, index:', focusedIndex);
-                      handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-                    }}
-                    style={styles.toolbarBtn}
-                  >
-                    <Icon name="grid" size={24} color="#333" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      console.log('🔧 Adding image at current line, index:', focusedIndex);
-                      handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-                    }}
-                    style={styles.toolbarBtn}
-                  >
-                    <Icon name="image" size={24} color="#333" />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View style={styles.readOnlyToolbar}>
-                  <Text style={styles.readOnlyToolbarText}>Read-only mode</Text>
-                </View>
-              )}
-            </View>
-          </InputAccessoryView>
-        )}
       </KeyboardAvoidingView>
+    </SafeAreaView>
 
-      {/* Page Info Modal */}
-      <Modal
+    {/* InputAccessoryView - 강화된 렌더링 보장 */}
+    <InputAccessoryView nativeID={TOOLBAR_ID}>
+      {console.log('🔧 InputAccessoryView rendering with ID:', TOOLBAR_ID, 'isAuthor:', isAuthor)}
+      <View style={{
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#E5E5E5',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        height: 44,
+        width: '100%',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🔧 Adding card at current line, index:', focusedIndex);
+              if (isAuthor) handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
+            }}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+              minWidth: 36,
+              minHeight: 36,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: isAuthor ? 1 : 0.5,
+            }}
+            disabled={!isAuthor}
+          >
+            <Icon name="square" size={18} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🔧 Adding grid at current line, index:', focusedIndex);
+              if (isAuthor) handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
+            }}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+              minWidth: 36,
+              minHeight: 36,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: isAuthor ? 1 : 0.5,
+            }}
+            disabled={!isAuthor}
+          >
+            <Icon name="grid" size={18} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🔧 Adding image at current line, index:', focusedIndex);
+              if (isAuthor) handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
+            }}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+              minWidth: 36,
+              minHeight: 36,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: isAuthor ? 1 : 0.5,
+            }}
+            disabled={!isAuthor}
+          >
+            <Icon name="image" size={18} color="#333" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Done pressed - hiding keyboard');
+            // 키보드 숨기기 - 현재 포커스된 입력 필드에서 포커스 해제
+            if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
+              blocks[focusedIndex].ref.current.blur();
+            }
+          }}
+          style={{
+            padding: 8,
+            borderRadius: 6,
+            backgroundColor: '#007AFF',
+            minWidth: 60,
+            minHeight: 36,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </InputAccessoryView>
+
+    {/* Page Info Modal */}
+    <Modal
         visible={showPageInfoModal}
         animationType="fade"
         transparent={true}
@@ -895,7 +948,7 @@ const NoteDetailScreen = ({
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-    </SafeAreaView>
+    </>
   );
 };
 

@@ -61,7 +61,8 @@
       "Bash(mkdir:*)",
       "Bash(source:*)",
       "Bash(npx @supabase/mcp-server-supabase:*)",
-      "Bash(./secure-mcp-launcher.sh:*)"
+      "Bash(./secure-mcp-launcher.sh:*)",
+      "Bash(npx react-native log-ios:*)"
     ],
     "deny": []
   },

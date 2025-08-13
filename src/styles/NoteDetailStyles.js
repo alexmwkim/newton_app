@@ -67,7 +67,7 @@ export const noteDetailStyles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 140,
+    paddingBottom: 400, // 키보드+툴바 공간 확보
   },
   titleInput: {
     fontSize: 22,

@@ -41,10 +41,39 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     }
   }, [initialTab]);
 
-  // App initialization (admin services disabled for client safety)
+  // App initialization + Follow data preload for instant Profile transitions
   useEffect(() => {
     console.log('🚀 HomeScreen initialized (admin services disabled in client mode)');
-  }, []);
+    
+    // PRELOAD: 현재 사용자의 팔로우 데이터를 미리 캐시
+    if (user?.id) {
+      try {
+        console.log('⚡ PRELOAD: Loading follow data for instant Profile access');
+        const followCacheStore = require('../store/FollowCacheStore').default;
+        const FollowService = require('../services/followClient').default;
+        
+        // 이미 캐시에 있는지 확인
+        if (!followCacheStore.getFromCache(user.id)) {
+          FollowService.getBatchFollowData(user.id).then(result => {
+            if (result.success) {
+              followCacheStore.setCache(user.id, {
+                followersCount: result.followersCount,
+                followingCount: result.followingCount,
+                isFollowing: false
+              });
+              console.log('⚡ PRELOAD: Follow data cached on app start');
+            }
+          }).catch(err => {
+            console.log('⚡ PRELOAD: Failed to cache follow data (non-critical)');
+          });
+        } else {
+          console.log('⚡ PRELOAD: Follow data already cached');
+        }
+      } catch (error) {
+        console.log('⚡ PRELOAD: Failed to preload follow data (non-critical)');
+      }
+    }
+  }, [user?.id]);
 
 
   // Safe array access to prevent length undefined errors

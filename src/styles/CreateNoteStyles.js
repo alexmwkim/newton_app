@@ -60,7 +60,7 @@ export const createNoteStyles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 120 : 160,
+    paddingBottom: 400, // 키보드+툴바 공간 확보
   },
   titleInput: {
     fontSize: 22,
@@ -236,17 +236,30 @@ export const createNoteStyles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   
-  // Toolbar styles
+  // Toolbar styles - 개선된 안정성과 시각적 피드백
   nativeToolbar: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 16,
-    borderTopWidth: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 5,
+    minHeight: 50, // 최소 높이 보장
   },
   toolbarBtn: {
-    padding: 6,
+    padding: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    minWidth: 44,
+    minHeight: 44,
   },
 });

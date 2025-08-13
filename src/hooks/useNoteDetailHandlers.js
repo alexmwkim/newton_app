@@ -159,8 +159,7 @@ export const useNoteDetailHandlers = (
   }, [blocks, setBlocks]);
 
   const handleTextChange = useCallback((id, text) => {
-    console.log('✏️ Text changed in block:', id, 'New text length:', text.length, 'New text:', text.substring(0, 50));
-    console.log('🔍 handleTextChange called - will trigger auto-save useEffect');
+    // console.log('✏️ Text changed in block:', id, 'New text length:', text.length); // 로그 간소화
     setBlocks(prev => {
       const updated = prev.map(block => {
         if (block.id === id) {
@@ -168,77 +167,43 @@ export const useNoteDetailHandlers = (
         }
         return block;
       });
-      console.log('🔄 Blocks updated, total blocks:', updated.length);
+      // console.log('🔄 Blocks updated, total blocks:', updated.length); // 로그 간소화
       return updated;
     });
   }, [setBlocks]);
 
   // Enhanced auto-save with proper content conversion
   useEffect(() => {
-    console.log('🔄 Auto-save useEffect triggered:', {
-      isAuthor,
-      loadingNote,
-      noteId,
-      titleLength: title?.length || 0,
-      blocksLength: blocks?.length || 0,
-      displayNote: displayNote?.id || 'no displayNote'
-    });
+    // console.log('🔄 Auto-save useEffect triggered'); // 로그 간소화
     
     if (!isAuthor) {
-      console.log('🚫 Auto-save blocked: not author (isAuthor:', isAuthor, ')');
-      console.log('🔍 displayNote info:', {
-        id: displayNote?.id,
-        user_id: displayNote?.user_id,
-        isPublic: displayNote?.isPublic || displayNote?.is_public,
-        title: displayNote?.title
-      });
-      console.log('🔍 Current user id from auth:', updateNote?.constructor?.name); // This is a hack to check if updateNote is available
+      // console.log('🚫 Auto-save blocked: not author'); // 로그 간소화
       return;
     }
     
-    if (loadingNote) {
-      console.log('🚫 Auto-save blocked: still loading');
+    if (loadingNote || !noteId || !updateNote) {
+      // console.log('🚫 Auto-save blocked: conditions not met'); // 로그 간소화
       return;
     }
     
-    if (!noteId) {
-      console.log('🚫 Auto-save blocked: no noteId');
-      return;
-    }
-    
-    // 매우 짧은 디바운스 (300ms) - 너무 빈번한 저장 방지하면서도 거의 즉시 저장
+    // 적절한 디바운스 (2초) - 과도한 저장 방지
     const timer = setTimeout(async () => {
-      console.log('💾 Auto-save triggered after 300ms (fast save)');
-      
       const finalTitle = title?.trim() || '';
       const finalContent = convertBlocksToContent(blocks);
-      
-      console.log('💾 Preparing to save:', {
-        noteId,
-        finalTitle: finalTitle.substring(0, 50) + '...',
-        titleLength: finalTitle.length,
-        contentLength: finalContent.length,
-        updateNoteFunction: typeof updateNote,
-        updateNoteExists: !!updateNote
-      });
-      
-      // Always save, even if content is empty (user might have deleted content)
-      console.log('💾 Calling updateNote function...');
       
       try {
         const result = await updateNote(noteId, {
           title: finalTitle || 'Untitled', // Provide fallback title for empty notes
           content: finalContent
         });
-        console.log('✅ Auto-save SUCCESS (fast save - 300ms):', result);
+        console.log('✅ Auto-save SUCCESS (2s delay)');
       } catch (error) {
         console.error('❌ Auto-save ERROR:', error);
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
       }
-    }, 300); // 300ms 딜레이로 변경 - 기존 2초에서 대폭 단축
+    }, 2000); // 2초 딜레이로 변경 - 과도한 저장 방지
 
     return () => {
-      console.log('🗚 Clearing auto-save timer');
       clearTimeout(timer);
     };
   }, [title, blocks, isAuthor, noteId, loadingNote]); // Removed displayNote and updateNote from dependencies

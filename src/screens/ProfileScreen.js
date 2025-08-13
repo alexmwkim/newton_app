@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProfileService from '../services/profilesClient';
 import NotesService from '../services/notes';
 import FollowService from '../services/followClient';
+import followCacheStore from '../store/FollowCacheStore';
 
 // Mock user data matching the design
 const mockUser = {
@@ -70,8 +71,22 @@ const ProfileScreen = ({ navigation }) => {
     starsCount: mockUser.starsCount,
     isFollowing: isFollowing,
   } : mockUser;
-  const [followersCount, setFollowersCount] = useState(0); // Start with 0, will load real data
-  const [followingCount, setFollowingCount] = useState(0); // Start with 0, will load real data
+  // IMMEDIATE cache check for initial state
+  const getInitialFollowData = () => {
+    if (user?.id) {
+      const cachedData = followCacheStore.getFromCache(user.id);
+      if (cachedData) {
+        console.log('⚡ INSTANT ProfileScreen: Using cached data for immediate display:', cachedData);
+        return cachedData;
+      }
+    }
+    return { followersCount: 0, followingCount: 0 };
+  };
+
+  const initialData = getInitialFollowData();
+
+  const [followersCount, setFollowersCount] = useState(initialData.followersCount); // Start with cached data
+  const [followingCount, setFollowingCount] = useState(initialData.followingCount); // Start with cached data
   const [highlightNotes, setHighlightNotes] = useState([]);
   
   // Profile photo state
@@ -218,7 +233,7 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
   
-  // Load real social stats using FollowService
+  // Load real social stats using FollowService (배치 처리로 최적화)
   const loadRealSocialStats = async () => {
     try {
       if (!user?.id) {
@@ -228,27 +243,61 @@ const ProfileScreen = ({ navigation }) => {
         return;
       }
 
-      console.log('📊 ProfileScreen: Loading real follow stats for user:', user.id);
+      console.log('🚀 ProfileScreen: Loading batch follow data for user:', user.id);
 
+      // 먼저 캐시에서 확인
+      const cachedData = followCacheStore.getFromCache(user.id);
+      if (cachedData) {
+        console.log('⚡ Using cached follow data for instant display');
+        setFollowersCount(cachedData.followersCount);
+        setFollowingCount(cachedData.followingCount);
+        
+        // 캐시된 데이터로 즉시 완료 - 백그라운드 업데이트 제거
+        return;
+      }
+
+      // 캐시가 없으면 즉시 로딩
+      await loadLatestProfileFollowData(user.id);
+    } catch (err) {
+      console.error('❌ ProfileScreen: Exception loading follow stats:', err);
+      setFollowersCount(0);
+      setFollowingCount(0);
+    }
+  };
+
+  // 최신 팔로우 데이터 로딩 함수
+  const loadLatestProfileFollowData = async (userId) => {
+    try {
       // Initialize follows table if needed (first time setup)
       await FollowService.initializeFollowsTable();
 
-      // Get real followers count
-      const { success: followersSuccess, count: followers } = await FollowService.getFollowersCount(user.id);
-      if (followersSuccess) {
-        setFollowersCount(followers);
-        console.log('👥 ProfileScreen: Real followers count:', followers);
-      } else {
-        setFollowersCount(0);
-      }
+      // 배치로 모든 팔로우 데이터 가져오기 (병렬 처리)
+      const { 
+        success, 
+        followersCount: followers, 
+        followingCount: following 
+      } = await FollowService.getBatchFollowData(user.id);
 
-      // Get real following count
-      const { success: followingSuccess, count: following } = await FollowService.getFollowingCount(user.id);
-      if (followingSuccess) {
+      if (success) {
+        // 모든 상태를 한번에 업데이트
+        setFollowersCount(followers);
         setFollowingCount(following);
-        console.log('👥 ProfileScreen: Real following count:', following);
+        
+        // 캐시에 저장
+        followCacheStore.setCache(userId, {
+          followersCount: followers,
+          followingCount: following
+        });
+        
+        console.log('✅ ProfileScreen: Latest data loaded and cached:', {
+          followers,
+          following
+        });
       } else {
+        // 실패시 기본값 설정
+        setFollowersCount(0);
         setFollowingCount(0);
+        console.log('❌ ProfileScreen: Failed to load batch follow data');
       }
 
     } catch (err) {

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SocialService from '../services/social';
 import { supabase } from '../services/supabase';
+import popularAuthorsAlgorithm from '../utils/PopularAuthorsAlgorithm';
 
 export const useSocialStore = create()(
   persist(
@@ -239,131 +240,90 @@ export const useSocialStore = create()(
         }
       },
 
-      // 인기 작성자 로드
+      // 인기 작성자 로드 (개선된 알고리즘 사용)
       loadPopularAuthors: async () => {
         try {
-          console.log('🔄 Loading popular authors from Supabase...');
-          const { data, error } = await SocialService.getPopularAuthors();
-          console.log('🔍 SocialService.getPopularAuthors result:', { data: data?.length, error });
-          if (!error && data && data.length > 0) {
-            console.log('✅ Popular authors loaded successfully:', data.length, 'authors');
+          console.log('🔄 Loading popular authors with enhanced algorithm...');
+          
+          // 1. 모든 프로필 가져오기
+          const { data: allProfiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, user_id, username, avatar_url, bio, created_at')
+            .order('created_at', { ascending: true });
             
-            // Add public notes count to each author
-            const authorsWithNoteCount = await Promise.all(
-              data.map(async (author) => {
-                try {
-                  console.log(`📊 Counting public notes for author: ${author.username} (${author.user_id})`);
-                  const { count, error: countError } = await supabase
-                    .from('notes')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', author.user_id)
-                    .eq('is_public', true);
-                  
-                  console.log(`📊 Count result for ${author.username}:`, { count, countError });
-                  
-                  return {
-                    ...author,
-                    publicNotesCount: countError ? 0 : (count || 0)
-                  };
-                } catch (error) {
-                  console.error('Error getting note count for author:', author.user_id, error);
-                  return {
-                    ...author,
-                    publicNotesCount: 0
-                  };
-                }
-              })
-            );
-            
-            console.log('📊 Final authors with note counts:', authorsWithNoteCount.map(a => `${a.username}: ${a.publicNotesCount} notes`));
-            set({ popularAuthors: authorsWithNoteCount });
-          } else {
-            console.warn('Popular authors service returned no data, fetching unique profiles directly');
-            console.log('🔍 Going to fallback logic - error:', error, 'data length:', data?.length);
-            // Direct fallback to profiles table - get unique profiles only (one per user_id)
-            const { data: allProfiles, error: profilesError } = await supabase
-              .from('profiles')
-              .select('id, user_id, username, avatar_url, bio, created_at')
-              .order('created_at', { ascending: true }); // Get oldest profile for each user
-              
-            if (!profilesError && allProfiles) {
-              // Filter to unique user_ids (keep only the first/oldest profile per user)
-              const uniqueProfiles = [];
-              const seenUserIds = new Set();
-              
-              for (const profile of allProfiles) {
-                if (!seenUserIds.has(profile.user_id)) {
-                  seenUserIds.add(profile.user_id);
-                  uniqueProfiles.push(profile);
-                }
-              }
-              
-              // Get public notes count for each author
-              const authorsWithNoteCount = await Promise.all(
-                uniqueProfiles.slice(0, 5).map(async (profile) => {
-                  try {
-                    console.log(`📊 Counting public notes for user: ${profile.username} (${profile.user_id})`);
-                    const { count, error: countError } = await supabase
-                      .from('notes')
-                      .select('*', { count: 'exact', head: true })
-                      .eq('user_id', profile.user_id)
-                      .eq('is_public', true);
-                    
-                    console.log(`📊 Count result for ${profile.username}:`, { count, countError });
-                    
-                    return {
-                      ...profile,
-                      publicNotesCount: countError ? 0 : (count || 0)
-                    };
-                  } catch (error) {
-                    console.error('Error getting note count for user:', profile.user_id, error);
-                    return {
-                      ...profile,
-                      publicNotesCount: 0
-                    };
-                  }
-                })
-              );
-              
-              console.log('✅ Fallback: Loaded unique profiles as popular authors:', authorsWithNoteCount.length, 'out of', allProfiles.length, 'total profiles');
-              console.log('👥 Unique authors with note counts:', authorsWithNoteCount.map(p => `${p.username} (${p.publicNotesCount} notes)`));
-              set({ popularAuthors: authorsWithNoteCount });
-            } else {
-              console.error('❌ Failed to load any author data:', profilesError);
-              set({ popularAuthors: [] });
-            }
+          if (profilesError || !allProfiles) {
+            console.error('❌ Failed to load profiles:', profilesError);
+            set({ popularAuthors: [] });
+            return;
           }
+          
+          // 2. 각 작성자의 데이터 수집 및 인기도 점수 계산
+          const authorsWithData = await Promise.all(
+            allProfiles.map(async (author) => {
+              try {
+                console.log(`📊 Processing author: ${author.username}`);
+                
+                // 작성자의 모든 노트 가져오기
+                const { data: authorNotes, error: notesError } = await supabase
+                  .from('notes')
+                  .select('id, title, content, is_public, created_at')
+                  .eq('user_id', author.user_id);
+                
+                const notes = notesError ? [] : (authorNotes || []);
+                
+                // 임시 소셜 통계 생성 (실제 데이터가 구현될 때까지)
+                const socialStats = popularAuthorsAlgorithm.generateMockSocialStats(
+                  author, 
+                  notes.filter(n => n.is_public).length
+                );
+                
+                // 임시 팔로워 수 추가 (실제 데이터가 구현될 때까지)
+                const enhancedAuthor = {
+                  ...author,
+                  follower_count: Math.floor(Math.random() * 50) + 5, // 5-55 임시값
+                  verified: Math.random() > 0.8 // 20% 확률로 인증
+                };
+                
+                return {
+                  author: enhancedAuthor,
+                  notes,
+                  socialStats
+                };
+                
+              } catch (error) {
+                console.error(`Error processing author ${author.username}:`, error);
+                return {
+                  author,
+                  notes: [],
+                  socialStats: { totalStars: 0, totalForks: 0, totalViews: 0, totalComments: 0 }
+                };
+              }
+            })
+          );
+          
+          // 3. 인기도 알고리즘으로 정렬
+          console.log('🧮 Calculating popularity scores...');
+          const sortedAuthors = popularAuthorsAlgorithm.sortAuthorsByPopularity(authorsWithData);
+          
+          // 4. 추가 정보와 함께 결과 포맷팅
+          const finalAuthors = sortedAuthors.map(author => ({
+            ...author,
+            publicNotesCount: author.debug_info.public_note_count,
+            // 기존 호환성을 위해 추가
+            note_count: author.debug_info.note_count,
+            public_notes: author.debug_info.public_note_count
+          }));
+          
+          console.log('✅ Popular authors ranked by algorithm:');
+          finalAuthors.forEach((author, index) => {
+            console.log(`${index + 1}. ${author.username} - Score: ${author.popularity_score.toFixed(1)}`, author.debug_info);
+          });
+          
+          set({ popularAuthors: finalAuthors });
+          
         } catch (error) {
           console.error('❌ Popular authors load error:', error.message);
-          // Try direct profiles query as last resort with duplicate filtering
-          try {
-            const { data: allProfiles, error: profilesError } = await supabase
-              .from('profiles')
-              .select('id, user_id, username, avatar_url, bio, created_at')
-              .order('created_at', { ascending: true });
-              
-            if (!profilesError && allProfiles) {
-              // Filter to unique user_ids
-              const uniqueProfiles = [];
-              const seenUserIds = new Set();
-              
-              for (const profile of allProfiles) {
-                if (!seenUserIds.has(profile.user_id)) {
-                  seenUserIds.add(profile.user_id);
-                  uniqueProfiles.push(profile);
-                }
-              }
-              
-              console.log('✅ Emergency fallback: Loaded unique profiles:', uniqueProfiles.length, 'out of', allProfiles.length, 'total');
-              set({ popularAuthors: uniqueProfiles.slice(0, 5) });
-            } else {
-              console.error('❌ Emergency fallback failed:', profilesError);
-              set({ popularAuthors: [] });
-            }
-          } catch (fallbackError) {
-            console.error('❌ All fallbacks failed:', fallbackError);
-            set({ popularAuthors: [] });
-          }
+          set({ popularAuthors: [] });
         }
       },
 

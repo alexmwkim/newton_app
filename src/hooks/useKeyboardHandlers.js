@@ -26,13 +26,12 @@ export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputR
         setKeyboardHeight(keyboardHeight);
         setKeyboardScreenY(event.endCoordinates.screenY);
         
-        // Only scroll if input might be hidden by keyboard (more conservative)
-        // Let KeyboardAvoidingView handle most cases
-        if (keyboardHeight > 300) { // Only for larger keyboards
+        // 키보드가 나타날 때 자동 스크롤 (InputAccessoryView와 함께)
+        if (keyboardHeight > 200) { // 실제 키보드인 경우만
           setTimeout(() => {
-            console.log('🎹 Large keyboard detected, checking if scroll needed...');
-            // scrollToFocusedInput(keyboardHeight, true); // Disabled - let KeyboardAvoidingView handle
-          }, Platform.OS === 'ios' ? 300 : 350);
+            console.log('🎹 Keyboard detected, triggering auto-scroll...');
+            scrollToFocusedInput(keyboardHeight, true);
+          }, Platform.OS === 'ios' ? 200 : 300); // iOS는 더 빨리 반응
         }
       }
     );
@@ -53,29 +52,18 @@ export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputR
     };
   }, [focusedIndex, blocks]);
 
-  // Minimal auto-scroll - only when absolutely necessary
+  // Auto-scroll for InputAccessoryView compatibility
   const scrollToFocusedInput = useCallback((keyboardHeight, forceScroll = false) => {
-    console.log('📜 scrollToFocusedInput called - but DISABLED for stability');
-    return; // Completely disable automatic scrolling
+    console.log('📜 scrollToFocusedInput called with keyboard height:', keyboardHeight);
     
-    // if (!scrollRef.current || focusedIndex < -1 || keyboardHeight <= 0) return;
-    // 
-    // // Check if scroll should be prevented due to content size change
-    // if (preventNextScroll.current && !forceScroll) {
-    //   console.log('📜 Scroll prevented - content size change detected');
-    //   preventNextScroll.current = false;
-    //   return;
-    // }
-    // 
-    // // Prevent frequent scrolling during typing (reduced threshold for more responsive scrolling)
-    // const now = Date.now();
-    // if (!forceScroll && now - lastScrollTime.current < 500) {
-    //   console.log('📜 Scroll throttled - too frequent');
-    //   return;
-    // }
-    
-    console.log('📜 === ENHANCED AUTO-SCROLL START ===');
-    console.log('📜 focusedIndex:', focusedIndex, 'keyboardHeight:', keyboardHeight, 'forceScroll:', forceScroll);
+    if (!scrollRef.current || focusedIndex < -1 || keyboardHeight <= 0) {
+      console.log('📜 Scroll conditions not met, skipping');
+      return;
+    }
+
+    // InputAccessoryView를 고려한 간단한 자동 스크롤
+    const toolbarHeight = 44;
+    const extraPadding = 20;
     
     // Get the focused input element
     let targetRef = null;
@@ -97,61 +85,38 @@ export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputR
       return;
     }
     
-    // Single measurement attempt with proper delay
+    // 간단한 측정과 스크롤
     setTimeout(() => {
       targetRef.measureInWindow((x, y, width, height) => {
         const screenHeight = Dimensions.get('window').height;
+        const totalOccupiedHeight = keyboardHeight + toolbarHeight + extraPadding;
+        const availableHeight = screenHeight - totalOccupiedHeight;
         
-        console.log('📐 Measurement:', {
+        console.log('📐 Simple scroll calculation:', {
           screenHeight,
-          inputPosition: { x, y, width, height },
-          keyboardHeight
-        });
-        
-        // More accurate calculation for consistent behavior
-        const headerHeight = 80; // Header area
-        const toolbarHeight = Platform.OS === 'ios' ? 50 : 60;
-        const safePadding = 80; // Generous padding for comfortable typing
-        const totalBlockedHeight = keyboardHeight + toolbarHeight + safePadding;
-        const availableScreenHeight = screenHeight - totalBlockedHeight - headerHeight;
-        
-        // Adjust input position relative to header
-        const adjustedInputY = y - headerHeight;
-        const inputBottom = adjustedInputY + height;
-        
-        console.log('📐 Enhanced Calculation:', {
-          screenHeight,
-          headerHeight,
-          toolbarHeight,
           keyboardHeight,
-          totalBlockedHeight,
-          availableScreenHeight,
-          rawInputY: y,
-          adjustedInputY,
-          inputHeight: height,
-          inputBottom,
-          needsScroll: inputBottom > availableScreenHeight
+          toolbarHeight,
+          totalOccupiedHeight,
+          availableHeight,
+          inputY: y,
+          inputBottom: y + height
         });
         
-        // Check if input is blocked by keyboard area with consistent logic
-        if (inputBottom > availableScreenHeight || adjustedInputY < 0) {
-          // Update last scroll time
-          lastScrollTime.current = Date.now();
+        // 입력 필드가 키보드+툴바 영역에 가려지는지 확인
+        if (y + height > availableHeight) {
+          const scrollOffset = (y + height) - availableHeight + extraPadding;
           
-          // Get current scroll offset and calculate optimal position
           scrollRef.current.scrollTo({
-            y: Math.max(0, adjustedInputY - (availableScreenHeight * 0.3)), // Position input at 30% from top
+            y: scrollOffset,
             animated: true
           });
           
-          console.log('✅ Scrolling to optimal position for input visibility');
+          console.log('✅ Scrolled by:', scrollOffset);
         } else {
-          console.log('✅ Input is already visible - no scroll needed');
+          console.log('✅ Input is visible, no scroll needed');
         }
       });
-    }, 100); // Single attempt with delay
-    
-    console.log('📜 === ENHANCED AUTO-SCROLL END ===');
+    }, 150); // InputAccessoryView 렌더링 대기
   }, [focusedIndex, blocks, scrollRef, titleInputRef]);
 
   // Function to prevent next auto-scroll (for content size changes)

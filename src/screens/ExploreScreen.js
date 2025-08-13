@@ -13,16 +13,18 @@ import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import NotesService from '../services/notes';
 import Avatar from '../components/Avatar';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
+import trendingAlgorithm from '../utils/TrendingAlgorithm';
+import personalizedAlgorithm from '../utils/PersonalizedAlgorithm';
 
 
-const categories = ['Trending', 'Following', 'Idea', 'Routine', 'Journal'];
+const categories = ['For You', 'Trending', 'Following', 'Fresh', 'Creative', 'Tips'];
 
 const ExploreScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNavTab, setActiveNavTab] = useState(2); // Explore is index 2 (zap)
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('Trending');
+  const [activeCategory, setActiveCategory] = useState('For You');
   const [refreshing, setRefreshing] = useState(false);
   
   const { user, profile } = useAuth();
@@ -170,8 +172,156 @@ const ExploreScreen = ({ navigation }) => {
     loadData();
   }, [user?.id, loadFeed, loadPopularAuthors]);
   
+  // 카테고리별 노트 필터링 및 정렬
+  const getFilteredAndSortedNotes = async (notes, category) => {
+    if (!notes || notes.length === 0) return [];
+    
+    console.log(`🔍 Filtering notes for category: ${category}`);
+    console.log(`🔍 Total notes to filter: ${notes.length}`);
+    
+    // 노트에 trending 점수 계산 및 추가
+    const notesWithScores = notes.map(note => {
+      // 노트의 통계 정보 구성 (실제 DB에서 가져올 때 이 정보들을 포함해야 함)
+      const stats = {
+        stars: note.stars || note.star_count || Math.floor(Math.random() * 50), // 임시 랜덤값
+        forks: note.forks || note.fork_count || Math.floor(Math.random() * 20),
+        views: note.views || note.view_count || Math.floor(Math.random() * 200),
+        comments: note.comments || note.comment_count || Math.floor(Math.random() * 10),
+        shares: note.shares || note.share_count || Math.floor(Math.random() * 5)
+      };
+      
+      // 작성자 정보
+      const author = {
+        follower_count: note.profiles?.follower_count || Math.floor(Math.random() * 100),
+        reputation: note.profiles?.reputation || Math.floor(Math.random() * 10),
+        verified: note.profiles?.verified || false
+      };
+      
+      // Trending 점수 계산
+      const trendingScore = trendingAlgorithm.calculateTrendingScore(note, stats, author);
+      
+      return {
+        ...note,
+        stats,
+        trending_score: trendingScore,
+        engagement_score: trendingAlgorithm.calculateEngagementScore(stats),
+        velocity_score: trendingAlgorithm.calculateVelocityScore(stats, stats) // 임시로 같은 값 사용
+      };
+    });
+    
+    // 카테고리별 필터링 및 정렬
+    switch (category.toLowerCase()) {
+      case 'for you':
+        console.log('🎯 Applying For You personalized filter');
+        try {
+          // 사용자 행동 데이터 수집
+          const userData = await personalizedAlgorithm.collectUserBehaviorData(user?.id, notesStore, useSocialStore.getState());
+          
+          // 개인화된 피드 생성
+          const personalizedFeed = await personalizedAlgorithm.generatePersonalizedFeed(
+            notesWithScores, 
+            userData, 
+            user?.id
+          );
+          
+          return personalizedFeed;
+        } catch (error) {
+          console.error('❌ Error generating For You feed:', error);
+          // 폴백: 트렌딩 방식으로 정렬
+          return notesWithScores
+            .sort((a, b) => b.trending_score - a.trending_score)
+            .slice(0, 20);
+        }
+      
+      case 'trending':
+        console.log('🔥 Applying Trending filter');
+        return trendingAlgorithm.filterByCategory(notesWithScores, 'trending', 168); // 7일
+      
+      case 'following':
+        console.log('👥 Applying Following filter');
+        // TODO: 실제로는 팔로우하는 사용자의 노트만 필터링해야 함
+        // 임시로 모든 노트를 최신순으로 표시
+        return notesWithScores
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 20);
+      
+      case 'fresh':
+        console.log('🌱 Applying Fresh filter (24 hours)');
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        return notesWithScores
+          .filter(note => new Date(note.created_at) > oneDayAgo)
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 20);
+      
+      case 'creative':
+        console.log('🎨 Applying Creative filter');
+        return notesWithScores
+          .filter(note => 
+            note.category === 'creative' || 
+            note.tags?.includes('creative') ||
+            note.title?.toLowerCase().includes('creative') ||
+            note.content?.toLowerCase().includes('creative') ||
+            note.title?.toLowerCase().includes('art') ||
+            note.content?.toLowerCase().includes('design') ||
+            note.title?.toLowerCase().includes('idea') ||
+            note.content?.toLowerCase().includes('inspiration')
+          )
+          .sort((a, b) => b.trending_score - a.trending_score)
+          .slice(0, 20);
+      
+      case 'tips':
+        console.log('💡 Applying Tips filter');
+        return notesWithScores
+          .filter(note => 
+            note.category === 'tips' || 
+            note.tags?.includes('tip') ||
+            note.title?.toLowerCase().includes('tip') ||
+            note.content?.toLowerCase().includes('tip') ||
+            note.title?.toLowerCase().includes('how to') ||
+            note.content?.toLowerCase().includes('tutorial') ||
+            note.title?.toLowerCase().includes('guide') ||
+            note.content?.toLowerCase().includes('advice')
+          )
+          .sort((a, b) => b.trending_score - a.trending_score)
+          .slice(0, 20);
+      
+      default:
+        console.log('📋 Using default sorting (trending)');
+        return notesWithScores
+          .sort((a, b) => b.trending_score - a.trending_score)
+          .slice(0, 20);
+    }
+  };
+
+  // State for filtered notes
+  const [filteredNotes, setFilteredNotes] = useState([]);
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
+
+  // Get filtered and sorted notes based on active category
+  useEffect(() => {
+    const applyFilter = async () => {
+      if (exploreNotes.length === 0) {
+        setFilteredNotes([]);
+        return;
+      }
+      
+      setIsFilterLoading(true);
+      try {
+        const filtered = await getFilteredAndSortedNotes(exploreNotes, activeCategory);
+        setFilteredNotes(filtered);
+      } catch (error) {
+        console.error('❌ Error applying filter:', error);
+        setFilteredNotes(exploreNotes.slice(0, 20)); // Fallback
+      } finally {
+        setIsFilterLoading(false);
+      }
+    };
+
+    applyFilter();
+  }, [exploreNotes, activeCategory, user?.id]);
+  
   // Transform notes to match SwipeableNoteItem format (keep original note structure)
-  const transformedNotes = exploreNotes.map(note => ({
+  const transformedNotes = filteredNotes.map(note => ({
     ...note,
     // Ensure required fields for SwipeableNoteItem
     isPublic: true,
@@ -383,7 +533,7 @@ const ExploreScreen = ({ navigation }) => {
                 <>
                   {/* Popular Authors Section */}
                   {popularAuthors.length > 0 && (
-                    <View style={styles.section}>
+                    <View style={styles.popularAuthorsSection}>
                       <Text style={styles.sectionTitle}>Popular Notetakers</Text>
                       <ScrollView 
                         horizontal 
@@ -443,12 +593,47 @@ const ExploreScreen = ({ navigation }) => {
                               
                               console.log('🚀 FINAL NAVIGATION PARAMS:', JSON.stringify(navigationParams, null, 2));
                               
-                              try {
-                                navigation.navigate('userProfile', navigationParams);
-                              } catch (error) {
-                                console.error('Navigation error:', error);
-                                Alert.alert('Error', 'Failed to navigate to user profile: ' + error.message);
-                              }
+                              // PRELOAD BEFORE NAVIGATION for instant display
+                              const handleNavigation = async () => {
+                                try {
+                                  const followCacheStore = require('../store/FollowCacheStore').default;
+                                  const FollowService = require('../services/followClient').default;
+                                  const targetUserId = author.user_id || author.id;
+                                  
+                                  // Check if cache is missing and preload BEFORE navigation
+                                  const cachedData = followCacheStore.getFromCache(targetUserId);
+                                  
+                                  if (!cachedData) {
+                                    console.log('⚡ PRELOAD: No cache found, loading data BEFORE navigation...');
+                                    
+                                    try {
+                                      // Quick load before navigation
+                                      const result = await FollowService.getBatchFollowData(targetUserId, user?.id);
+                                      if (result.success) {
+                                        followCacheStore.setCache(targetUserId, {
+                                          followersCount: result.followersCount,
+                                          followingCount: result.followingCount,
+                                          isFollowing: result.isFollowing
+                                        });
+                                        console.log('⚡ PRELOAD: Data cached before navigation!');
+                                      }
+                                    } catch (loadError) {
+                                      console.log('⚡ PRELOAD: Quick load failed, navigating anyway');
+                                    }
+                                  } else {
+                                    console.log('⚡ PRELOAD: Cache exists, navigating immediately');
+                                  }
+                                  
+                                  // Navigate after preload attempt
+                                  navigation.navigate('userProfile', navigationParams);
+                                  
+                                } catch (error) {
+                                  console.error('Navigation error:', error);
+                                  Alert.alert('Error', 'Failed to navigate to user profile: ' + error.message);
+                                }
+                              };
+                              
+                              handleNavigation();
                             }}
                           >
                             <Avatar
@@ -485,17 +670,28 @@ const ExploreScreen = ({ navigation }) => {
 
                   {/* Social Feed */}
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>
-                      {activeCategory === 'Trending' ? 'Trending Notes' : 
-                       activeCategory === 'Following' ? 'Following' : 
-                       'Explore Notes'}
-                    </Text>
-                    {feedLoading && exploreNotes.length === 0 ? (
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>
+                        {activeCategory === 'For You' ? '🎯 For You' : 
+                         activeCategory === 'Trending' ? '🔥 Trending Notes' : 
+                         activeCategory === 'Following' ? '👥 Following' :
+                         activeCategory === 'Fresh' ? '🌱 Fresh Notes' :
+                         activeCategory === 'Creative' ? '🎨 Creative' :
+                         activeCategory === 'Tips' ? '💡 Tips & Guides' :
+                         'Explore Notes'}
+                      </Text>
+                      {filteredNotes.length > 0 && (
+                        <Text style={styles.sectionCount}>
+                          {filteredNotes.length} notes
+                        </Text>
+                      )}
+                    </View>
+                    {(feedLoading && exploreNotes.length === 0) || isFilterLoading ? (
                       <View style={styles.loadingState}>
                         <Text style={styles.loadingText}>Loading...</Text>
                       </View>
-                    ) : exploreNotes.length > 0 ? (
-                      exploreNotes.map((note) => {
+                    ) : filteredNotes.length > 0 ? (
+                      filteredNotes.map((note) => {
                         // Get consistent username using helper function
                         const noteAuthor = getConsistentUsername({
                           userId: note.user_id,
@@ -642,12 +838,27 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: Layout.spacing.xl,
   },
+  popularAuthorsSection: {
+    marginBottom: Layout.spacing.xl + Layout.spacing.md, // 32px + 16px = 48px (더 넓은 간격)
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.md,
+  },
   sectionTitle: {
     fontSize: Typography.fontSize.medium,
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
-    marginBottom: Layout.spacing.md,
+    marginBottom: Layout.spacing.md, // 16px 하단 여백 추가
+  },
+  sectionCount: {
+    fontSize: Typography.fontSize.small,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    fontWeight: Typography.fontWeight.normal,
   },
   floatingElements: {
     position: 'absolute',
@@ -796,6 +1007,7 @@ const styles = StyleSheet.create({
   authorsScrollContent: {
     paddingLeft: 0,
     paddingRight: 16,
+    paddingBottom: Layout.spacing.xs, // 4px로 최소화
   },
   authorCard: {
     alignItems: 'center',

@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotesStore } from '../store/NotesStore';
 import NotesService from '../services/notes';
 import FollowService from '../services/followClient';
+import followCacheStore from '../store/FollowCacheStore';
 
 // User data for display
 const createUserData = (username) => ({
@@ -124,12 +125,39 @@ const UserProfileScreen = ({ navigation, route }) => {
   const [readmeData, setReadmeData] = useState({ title: '', content: '' });
   const [highlightNotes, setHighlightNotes] = useState([]);
   
-  // Social features state - INITIALIZE WITH PROPER VALUE
-  const [isFollowing, setIsFollowing] = useState(!!profileData?.followed_at); // route에서 온 데이터로 초기화
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
+  // IMMEDIATE cache check + AGGRESSIVE loading for initial state
+  const getInitialFollowData = () => {
+    const targetUserId = profileData?.user_id || userId;
+    if (targetUserId) {
+      const cachedData = followCacheStore.getFromCache(targetUserId);
+      if (cachedData) {
+        console.log('⚡ INSTANT: Using cached data for immediate display:', cachedData);
+        return cachedData;
+      } else {
+        console.log('⚡ INSTANT: No cache found, will trigger immediate loading');
+        // Trigger immediate background loading without waiting
+        setTimeout(() => {
+          require('../services/followClient').default.getBatchFollowData(targetUserId, currentUser?.id).then(result => {
+            if (result.success) {
+              followCacheStore.setCache(targetUserId, result);
+              console.log('⚡ INSTANT: Background load completed, but UI may already be updated via other means');
+            }
+          });
+        }, 10); // Very quick background load
+      }
+    }
+    return { followersCount: 0, followingCount: 0, isFollowing: false };
+  };
+
+  const initialData = getInitialFollowData();
+
+  // Social features state - INITIALIZE WITH CACHED DATA
+  const [isFollowing, setIsFollowing] = useState(!!profileData?.followed_at || initialData.isFollowing);
+  const [followersCount, setFollowersCount] = useState(initialData.followersCount);
+  const [followingCount, setFollowingCount] = useState(initialData.followingCount);
   const [showFollowOptions, setShowFollowOptions] = useState(false);
-  const [statsLoaded, setStatsLoaded] = useState(false); // 통계 로딩 상태 추적
+  const [statsLoaded, setStatsLoaded] = useState(true); // 항상 즉시 true - UI 차단 방지
+  const [profileUIReady, setProfileUIReady] = useState(true); // UI 표시 준비 상태 - 즉시 true로 시작
 
   // IMMEDIATE DEBUG LOG
   console.log('🎯 UserProfileScreen IMMEDIATE INIT:', {
@@ -164,13 +192,18 @@ const UserProfileScreen = ({ navigation, route }) => {
   const displayUser = userProfile || userData;
   
   // Notes store for highlight functionality and current user data consistency
-  const { globalPublicNotes, publicNotes, getStarredNotes, starredNotes } = useNotesStore();
+  // TEMPORARILY DISABLED to test if this is causing delay
+  const notesStore = useNotesStore();
+  const { globalPublicNotes, publicNotes, getStarredNotes, starredNotes } = notesStore;
 
-  // Load user profile data
+  // Load user profile data - USE TRANSITION FOR NON-URGENT LOADING
   useEffect(() => {
     const loadData = async () => {
-      // CRITICAL: Load profile first, then notes (profile contains user_id needed for notes)
-      await loadUserProfile();
+      // Use startTransition to de-prioritize heavy loading
+      React.startTransition(() => {
+        // CRITICAL: Load profile first, then notes (profile contains user_id needed for notes)
+        loadUserProfile();
+      });
     };
     loadData();
   }, [userId, username]);
@@ -188,9 +221,8 @@ const UserProfileScreen = ({ navigation, route }) => {
         conditionMet: !isCurrentUser && (userProfile || profileData) && !statsLoaded
       });
       
-      if (!isCurrentUser && (userProfile || profileData) && !statsLoaded) {
-        console.log('🔄 FORCED: Loading social stats for non-current user');
-        setStatsLoaded(true); // 중복 실행 방지
+      if (!isCurrentUser && (userProfile || profileData)) {
+        console.log('🔄 FORCED: Loading social stats for non-current user (always run)');
         await loadRealSocialStats(userProfile || profileData);
       } else {
         console.log('❌ FORCE STATS: Condition not met for loading social stats');
@@ -202,7 +234,7 @@ const UserProfileScreen = ({ navigation, route }) => {
   // IMMEDIATE follow status check for profileData (route에서 온 데이터)
   useEffect(() => {
     const immediateFollowCheck = async () => {
-      if (!isCurrentUser && profileData?.user_id && !statsLoaded) {
+      if (!isCurrentUser && profileData?.user_id) {
         console.log('🚀 IMMEDIATE: Checking follow status for profileData user_id:', profileData.user_id);
         try {
           const { success, isFollowing: followStatus } = await FollowService.isFollowing(profileData.user_id);
@@ -231,18 +263,21 @@ const UserProfileScreen = ({ navigation, route }) => {
     } : 'null');
   }, [userProfile]);
 
-  // Load notes after profile is loaded (separate useEffect for proper sequencing)
+  // Load notes after profile is loaded - DELAYED for better UX
   useEffect(() => {
     const loadNotesAfterProfile = async () => {
       // Only load notes after we have profile data or confirmed current user
       if (isCurrentUser || userProfile) {
-        await loadUserPublicNotes();
+        // DELAY note loading to show profile info first
+        setTimeout(async () => {
+          await loadUserPublicNotes();
+        }, 100); // 100ms delay to prioritize profile display
       }
     };
     loadNotesAfterProfile();
   }, [userProfile, isCurrentUser]); // Trigger when profile loads or isCurrentUser changes
 
-  // Load starred notes count for other users - FORCED EXECUTION
+  // Load starred notes count for other users - DELAYED EXECUTION
   useEffect(() => {
     const loadStarredNotesCount = async () => {
       console.log('🔍 FORCE-DEBUGGING loadStarredNotesCount CONDITIONS:', {
@@ -258,35 +293,39 @@ const UserProfileScreen = ({ navigation, route }) => {
       
       if (!isCurrentUser && targetUserId) {
         console.log('🔍 EXECUTING loadStarredNotesCount for targetUserId:', targetUserId);
-        try {
-          console.log('⭐ DEBUGGING: Loading starred notes count for other user:', targetUserId);
-          console.log('⭐ DEBUGGING: profile details:', {
-            userProfileUsername: userProfile?.username,
-            profileDataUsername: profileData?.username,
-            targetUserId: targetUserId
-          });
+        
+        // DELAY starred notes loading to prioritize profile display
+        setTimeout(async () => {
+          try {
+            console.log('⭐ DEBUGGING: Loading starred notes count for other user:', targetUserId);
+            console.log('⭐ DEBUGGING: profile details:', {
+              userProfileUsername: userProfile?.username,
+              profileDataUsername: profileData?.username,
+              targetUserId: targetUserId
+            });
+            
+            const { data, error } = await NotesService.getStarredNotes(targetUserId, 50, 0);
           
-          const { data, error } = await NotesService.getStarredNotes(targetUserId, 50, 0);
-          
-          console.log('⭐ DEBUGGING: NotesService.getStarredNotes result:', {
-            hasData: !!data,
-            dataLength: data?.length || 0,
-            hasError: !!error,
-            errorMessage: error
-          });
-          
-          if (!error && data) {
-            setRealStarredNotesCount(data.length);
-            console.log('⭐ DEBUGGING: Set realStarredNotesCount to:', data.length, 'for user:', userProfile?.username || profileData?.username);
-            console.log('⭐ DEBUGGING: Starred notes details:', data.map(n => `${n.title}(${n.id})`));
-          } else {
-            console.log('⭐ DEBUGGING: Failed to load starred notes count, setting to 0. Error:', error);
+            console.log('⭐ DEBUGGING: NotesService.getStarredNotes result:', {
+              hasData: !!data,
+              dataLength: data?.length || 0,
+              hasError: !!error,
+              errorMessage: error
+            });
+            
+            if (!error && data) {
+              setRealStarredNotesCount(data.length);
+              console.log('⭐ DEBUGGING: Set realStarredNotesCount to:', data.length, 'for user:', userProfile?.username || profileData?.username);
+              console.log('⭐ DEBUGGING: Starred notes details:', data.map(n => `${n.title}(${n.id})`));
+            } else {
+              console.log('⭐ DEBUGGING: Failed to load starred notes count, setting to 0. Error:', error);
+              setRealStarredNotesCount(0);
+            }
+          } catch (error) {
+            console.error('⭐ DEBUGGING: Exception loading starred notes count:', error);
             setRealStarredNotesCount(0);
           }
-        } catch (error) {
-          console.error('⭐ DEBUGGING: Exception loading starred notes count:', error);
-          setRealStarredNotesCount(0);
-        }
+        }, 200); // 200ms delay for starred notes
       }
     };
     
@@ -433,59 +472,79 @@ Feel free to check out my public notes below!`;
         return;
       }
 
-      console.log('📊 UserProfileScreen: Loading real follow stats for user:', targetUserId);
+      console.log('🚀 UserProfileScreen: Loading batch follow data for user:', targetUserId);
 
+      // 먼저 캐시에서 확인
+      const cachedData = followCacheStore.getFromCache(targetUserId);
+      if (cachedData) {
+        console.log('⚡ Using cached follow data for instant display');
+        setFollowersCount(cachedData.followersCount);
+        setFollowingCount(cachedData.followingCount);
+        if (!isCurrentUser) {
+          setIsFollowing(cachedData.isFollowing);
+        }
+        
+        // 캐시된 데이터로 즉시 완료 - 백그라운드 업데이트 제거
+        setStatsLoaded(true);
+        return;
+      }
+
+      // 캐시가 없으면 즉시 로딩
+      await loadLatestFollowData(targetUserId);
+    } catch (err) {
+      console.error('❌ UserProfileScreen: Exception loading follow stats:', err);
+      setFollowersCount(0);
+      setFollowingCount(0);
+      setIsFollowing(false);
+    }
+  };
+
+  // 최신 팔로우 데이터 로딩 함수
+  const loadLatestFollowData = async (targetUserId) => {
+    try {
       // Initialize follows table if needed (first time setup)
       await FollowService.initializeFollowsTable();
 
-      // Get real followers count using user_id from profile
-      const { success: followersSuccess, count: followers } = await FollowService.getFollowersCount(targetUserId);
-      if (followersSuccess) {
+      // 배치로 모든 팔로우 데이터 가져오기 (병렬 처리)
+      const { 
+        success, 
+        followersCount: followers, 
+        followingCount: following, 
+        isFollowing: followingStatus 
+      } = await FollowService.getBatchFollowData(targetUserId, currentUser?.id);
+
+      if (success) {
+        // 모든 상태를 한번에 업데이트
         setFollowersCount(followers);
-        console.log('👥 UserProfileScreen: Real followers count:', followers);
-      } else {
-        setFollowersCount(0);
-      }
-
-      // Get real following count
-      const { success: followingSuccess, count: following } = await FollowService.getFollowingCount(targetUserId);
-      if (followingSuccess) {
         setFollowingCount(following);
-        console.log('👥 UserProfileScreen: Real following count:', following);
-      } else {
-        setFollowingCount(0);
-      }
-
-      // Check if current user is following this user (only if not current user)
-      if (!isCurrentUser) {
-        console.log('🔍 ENHANCED DEBUG: Checking follow status');
-        console.log('🔍 Target user ID:', targetUserId);
-        console.log('🔍 Current user ID:', currentUser?.id);
-        console.log('🔍 isCurrentUser flag:', isCurrentUser);
-        console.log('🔍 userProfile data:', userProfile ? {
-          user_id: userProfile.user_id,
-          username: userProfile.username
-        } : 'null');
         
-        const { success: followingCheckSuccess, isFollowing: followingStatus } = await FollowService.isFollowing(currentUser?.id, targetUserId);
-        console.log('🔍 FollowService.isFollowing response:', {
-          success: followingCheckSuccess,
+        // 현재 사용자가 아닌 경우에만 팔로우 상태 업데이트
+        if (!isCurrentUser) {
+          setIsFollowing(followingStatus);
+          console.log('✅ UserProfileScreen: Batch data loaded - Following status:', followingStatus);
+        }
+        
+        // 캐시에 저장
+        followCacheStore.setCache(targetUserId, {
+          followersCount: followers,
+          followingCount: following,
           isFollowing: followingStatus
         });
         
-        if (followingCheckSuccess) {
-          setIsFollowing(followingStatus);
-          console.log('👥 UserProfileScreen: Follow status FINAL result:', {
-            targetUserId,
-            currentUserId: currentUser?.id,
-            followingStatus,
-            meaning: followingStatus ? 'Current user IS following target user' : 'Current user is NOT following target user',
-            buttonWillShow: followingStatus ? 'Following' : 'Follow'
-          });
-        } else {
+        console.log('✅ UserProfileScreen: Latest data loaded and cached:', {
+          followers,
+          following,
+          isFollowing: followingStatus,
+          isCurrentUser
+        });
+      } else {
+        // 실패시 기본값 설정
+        setFollowersCount(0);
+        setFollowingCount(0);
+        if (!isCurrentUser) {
           setIsFollowing(false);
-          console.log('❌ Failed to check follow status, defaulting to false');
         }
+        console.log('❌ UserProfileScreen: Failed to load batch follow data');
       }
 
     } catch (err) {
@@ -673,8 +732,13 @@ Feel free to check out my public notes below!`;
         setIsFollowing(newFollowingStatus);
         console.log('✅ After setState called - new value should be:', newFollowingStatus);
         
-        // Refresh follower count
-        await loadRealSocialStats();
+        // 캐시 업데이트
+        followCacheStore.updateFollowCache(targetUserId, currentUser?.id, newFollowingStatus);
+        
+        // 백그라운드에서 최신 데이터로 새로고침
+        setTimeout(async () => {
+          await loadLatestFollowData(targetUserId);
+        }, 100);
       } else {
         // Revert optimistic update on error
         console.error('❌ Follow toggle failed:', error);
