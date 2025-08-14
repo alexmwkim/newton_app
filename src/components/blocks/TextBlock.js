@@ -35,7 +35,7 @@ const TextBlock = memo(({
   // 포커스 핸들러 최적화
   const handleFocus = useCallback(() => {
     console.log('🎯 TextBlock focused - should show toolbar, block ID:', block.id, 'index:', index);
-    console.log('🔧 TextInput inputAccessoryViewID:', 'newton-toolbar');
+    console.log('🔧 TextInput (no accessoryViewID specified)');
     console.log('🔧 isAuthor:', isAuthor, 'editable:', isAuthor !== false);
     console.log('🔧 Forcing keyboard focus...');
     onDismiss?.();
@@ -85,7 +85,6 @@ const TextBlock = memo(({
         textAlignVertical="top"
         scrollEnabled={false}
         editable={true} // 임시로 항상 편집 가능하게 설정
-        inputAccessoryViewID="newton-toolbar"
         placeholderTextColor="#999"
         showSoftInputOnFocus={true} // 키보드 강제 표시
         blurOnSubmit={false} // 엔터키 눌러도 키보드 유지

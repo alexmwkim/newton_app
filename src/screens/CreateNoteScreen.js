@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   ScrollView,
   Alert,
   TouchableWithoutFeedback,
-  InputAccessoryView
+  InputAccessoryView,
+  Keyboard
 } from 'react-native';
 // SafeArea fallback for projects without safe-area-context
 let useSafeAreaInsets;
@@ -37,7 +38,7 @@ import { useNoteInsertHandlers } from '../hooks/useNoteInsertHandlers';
 import { NoteBlockRenderer } from '../components/NoteBlockRenderer';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 
-const TOOLBAR_ID = 'newton-toolbar';
+const TOOLBAR_ID = 'create-note-toolbar';
 
 const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen, route }) => {
   const { user, loading: authLoading, initialized } = useAuth();
@@ -73,6 +74,12 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   const [hoveredBlockId, setHoveredBlockId] = useState(null);
   const [cardLayouts, setCardLayouts] = useState({});
   
+  // New drag system states (matching NoteDetailScreen)
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [hoverTargetBlockId, setHoverTargetBlockId] = useState(null);
+  const [dragMode, setDragMode] = useState('none');
+  const [blockPositions, setBlockPositions] = useState({});
+  
   const scrollRef = useRef(null);
   const titleInputRef = useRef(null);
   const insets = useSafeAreaInsets();
@@ -84,6 +91,66 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     scrollRef, 
     titleInputRef
   );
+
+  // Drag and drop utility functions (matching NoteDetailScreen)
+  const updateBlockLayoutMode = useCallback((blockId, layoutMode, groupId = null) => {
+    setBlocks(prev => prev.map(block => 
+      block.id === blockId 
+        ? { ...block, layoutMode, groupId }
+        : block
+    ));
+  }, []);
+
+  const reorderBlocks = useCallback((fromIndex, toIndex) => {
+    setBlocks(prev => {
+      const newBlocks = [...prev];
+      const [movedBlock] = newBlocks.splice(fromIndex, 1);
+      newBlocks.splice(toIndex, 0, movedBlock);
+      return newBlocks;
+    });
+  }, []);
+
+  const groupBlocks = useCallback((blockId1, blockId2) => {
+    const generateGroupId = () => `group-${Date.now()}-${Math.random()}`;
+    const groupId = generateGroupId();
+    setBlocks(prev => {
+      const block1Index = prev.findIndex(b => b.id === blockId1);
+      const block2Index = prev.findIndex(b => b.id === blockId2);
+      
+      if (block1Index === -1 || block2Index === -1) return prev;
+      
+      return prev.map(block => {
+        if (block.id === blockId1) {
+          return { ...block, layoutMode: 'grid-left', groupId };
+        } else if (block.id === blockId2) {
+          return { ...block, layoutMode: 'grid-right', groupId };
+        }
+        return block;
+      });
+    });
+  }, []);
+
+  const ungroupBlock = useCallback((blockId) => {
+    setBlocks(prev => prev.map(block => 
+      block.id === blockId 
+        ? { ...block, layoutMode: 'full', groupId: null }
+        : block
+    ));
+  }, []);
+
+  // Tracked setCardLayouts function (matching NoteDetailScreen)
+  const trackedSetCardLayouts = useCallback((newLayouts) => {
+    if (typeof newLayouts === 'function') {
+      setCardLayouts(prev => {
+        const result = newLayouts(prev);
+        console.log('🔧 CreateNote setCardLayouts function call: prev =', Object.keys(prev), '→ result =', Object.keys(result));
+        return result;
+      });
+    } else {
+      console.log('🔧 CreateNote setCardLayouts direct call:', Object.keys(newLayouts));
+      setCardLayouts(newLayouts);
+    }
+  }, []);
 
   const { handleAddCard, handleAddImage, handleKeyPress, handleDeleteBlock, handleTextChange } = useNoteInsertHandlers(
     blocks,
@@ -283,7 +350,6 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                 autoCorrect={false}
                 autoComplete="off"
                 spellCheck={false}
-                inputAccessoryViewID={TOOLBAR_ID}
               />
 
               {/* Content Blocks */}
@@ -310,8 +376,27 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                     setDraggingBlockId={setDraggingBlockId}
                     hoveredBlockId={hoveredBlockId}
                     setHoveredBlockId={setHoveredBlockId}
+                    // New drag and drop props (matching NoteDetailScreen)
+                    dragPosition={dragPosition}
+                    hoverTargetBlockId={hoverTargetBlockId}
+                    dragMode={dragMode}
+                    setDragPosition={setDragPosition}
+                    setHoverTargetBlockId={setHoverTargetBlockId}
+                    setDragMode={setDragMode}
+                    updateBlockLayoutMode={updateBlockLayoutMode}
+                    reorderBlocks={reorderBlocks}
+                    groupBlocks={groupBlocks}
+                    ungroupBlock={ungroupBlock}
+                    // Block position tracking
+                    blockPositions={blockPositions}
+                    setBlockPositions={(newPositions) => {
+                      console.log('📍 CreateNoteScreen setBlockPositions called');
+                      setBlockPositions(newPositions);
+                    }}
+                    // Simple card layout tracking
                     cardLayouts={cardLayouts}
-                    setCardLayouts={setCardLayouts}
+                    setCardLayouts={trackedSetCardLayouts}
+                    toolbarId={TOOLBAR_ID}
                   />
                 ))}
                 
@@ -344,7 +429,23 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     </SafeAreaView>
 
     {/* InputAccessoryView - 안정적인 렌더링 보장 */}
-    <InputAccessoryView nativeID={TOOLBAR_ID}>
+    {(() => {
+      const shouldShowToolbar = (user && !authLoading && initialized);
+      console.log('🔧 Toolbar render check:', {
+        user: !!user,
+        authLoading,
+        initialized,
+        shouldShowToolbar,
+        toolbarId: TOOLBAR_ID
+      });
+      return shouldShowToolbar;
+    })() && (
+      <InputAccessoryView 
+        nativeID={TOOLBAR_ID}
+        key={`toolbar-${TOOLBAR_ID}-${focusedIndex}`}
+      >
+        {/* 툴바 렌더링 확인용 로그 */}
+        {console.log('🔧 InputAccessoryView rendered with nativeID:', TOOLBAR_ID, 'focusedIndex:', focusedIndex)}
       <View style={{
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
@@ -377,6 +478,23 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
+              console.log('🔧 Adding grid at current line, index:', focusedIndex);
+              // Grid 추가 핸들러 필요 시 구현
+            }}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              backgroundColor: '#F0F0F0',
+              minWidth: 36,
+              minHeight: 36,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Icon name="grid" size={18} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
               console.log('🔧 Adding image at current line, index:', focusedIndex);
               handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
             }}
@@ -396,17 +514,26 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
         <TouchableOpacity
           onPress={() => {
             console.log('🔧 Done pressed - hiding keyboard');
-            // 키보드 숨기기
+            
+            // 1. 포커스된 입력 필드에서 blur
             if (focusedIndex === -1 && titleInputRef.current) {
               titleInputRef.current.blur();
             } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
               blocks[focusedIndex].ref.current.blur();
             }
+            
+            // 2. 강제로 키보드 숨기기
+            Keyboard.dismiss();
+            
+            // 3. 포커스 상태 초기화
+            setFocusedIndex(-1);
+            
+            console.log('🔧 Keyboard dismiss called');
           }}
           style={{
             padding: 8,
             borderRadius: 6,
-            backgroundColor: '#007AFF',
+            backgroundColor: 'rgba(235, 117, 75, 1)',
             minWidth: 60,
             minHeight: 36,
             justifyContent: 'center',
@@ -416,7 +543,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
         </TouchableOpacity>
       </View>
-    </InputAccessoryView>
+      </InputAccessoryView>
+    )}
     </>
   );
 };

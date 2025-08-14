@@ -9,7 +9,6 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../../../constants/Colors';
 import Layout from '../../../constants/Layout';
 
-const TOOLBAR_ID = 'newton-toolbar';
 
 const toolbarItems = [
   { id: 'bold', icon: 'bold', label: 'Bold' },
@@ -91,7 +90,7 @@ const NoteEditorToolbar = ({
   };
 
   return (
-    <View style={[styles.container, style]} inputAccessoryViewID={TOOLBAR_ID}>
+    <View style={[styles.container, style]}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -137,6 +136,4 @@ const styles = StyleSheet.create({
 
 NoteEditorToolbar.displayName = 'NoteEditorToolbar';
 
-// Export toolbar ID for InputAccessoryView
-export { TOOLBAR_ID };
 export default NoteEditorToolbar;

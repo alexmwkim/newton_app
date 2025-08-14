@@ -269,11 +269,37 @@ class NotesService {
       console.log('📝 파라미터 noteId:', noteId);
       console.log('📝 파라미터 updates:', JSON.stringify(updates, null, 2));
       
-      // 현재 사용자 ID 확인
-      const { data: authUser, error: authError } = await supabase.auth.getUser();
-      console.log('👤 현재 인증된 사용자 ID:', authUser?.user?.id);
+      // 현재 사용자 ID 확인 (재시도 로직 포함)
+      let authUser = null;
+      let authError = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const result = await supabase.auth.getUser();
+          authUser = result.data;
+          authError = result.error;
+          
+          if (!authError) {
+            console.log('👤 현재 인증된 사용자 ID:', authUser?.user?.id);
+            break;
+          }
+          
+          if (attempt < 3) {
+            console.log(`⏰ 인증 확인 재시도 ${attempt}/3...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        } catch (error) {
+          authError = error;
+          if (attempt < 3) {
+            console.log(`⏰ 인증 확인 재시도 ${attempt}/3 (네트워크 에러)...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
+      }
+      
       if (authError) {
         console.error('❌ 사용자 인증 확인 중 에러:', authError);
+        console.log('📝 인증 없이 노트 업데이트 계속 진행...');
       }
       
       const updateData = { 

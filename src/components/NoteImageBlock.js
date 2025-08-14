@@ -25,6 +25,9 @@ const NoteImageBlock = ({
 }) => {
   const imageRef = useRef(null);
   const styles = createNoteStyles;
+  
+  // 🔧 디버그 모드 (개발 시에만 true로 설정)
+  const DEBUG_DRAG = false;
 
   // 드래그 핸들러 - NoteCardBlock과 동일한 로직
   const currentHoverTarget = useRef(null);
@@ -40,7 +43,7 @@ const NoteImageBlock = ({
               ...prev,
               [block.id]: { x: pageX, y: pageY, width, height }
             }));
-            console.log(`✅ Image layout registered for ${block.id} - pageY: ${pageY}`);
+            DEBUG_DRAG && console.log(`✅ Image layout registered for ${block.id} - pageY: ${pageY}`);
           }
         });
       }
@@ -63,20 +66,36 @@ const NoteImageBlock = ({
   const panResponder = useMemo(() => 
     PanResponder.create({
       onStartShouldSetPanResponder: (evt, gestureState) => {
-        const hasLayouts = Object.keys(cardLayouts).length > 0;
-        const currentBlockHasLayout = cardLayouts[block.id] !== undefined;
-        return hasLayouts && currentBlockHasLayout;
+        console.log(`🎯 Image PanResponder START CHECK called for: ${block.id}`);
+        return true; // 항상 드래그 시작 허용
       },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         const { dx, dy } = gestureState;
         const movement = Math.sqrt(dx * dx + dy * dy);
-        const hasLayouts = Object.keys(cardLayouts).length > 0;
-        const currentBlockHasLayout = cardLayouts[block.id] !== undefined;
-        return hasLayouts && currentBlockHasLayout && movement > 5;
+        console.log(`🎯 Image PanResponder MOVE CHECK for ${block.id}: movement=${movement}`);
+        return movement > 5; // 레이아웃 조건 제거, 움직임만 확인
       },
       onPanResponderGrant: () => {
-        setDraggingBlockId(block.id);
         console.log(`👆 Image drag start: ${block.id}`);
+        console.log(`👆 Current layouts available:`, Object.keys(cardLayouts));
+        
+        // 레이아웃이 없으면 강제로 측정 시도
+        if (Object.keys(cardLayouts).length === 0) {
+          console.log(`👆 No layouts available, forcing measurement...`);
+          if (imageRef.current) {
+            imageRef.current.measure((x, y, width, height, pageX, pageY) => {
+              console.log(`👆 Emergency layout measurement for ${block.id}:`, { pageX, pageY, width, height });
+              if (height > 0) {
+                setCardLayouts(prev => ({
+                  ...prev,
+                  [block.id]: { x: pageX, y: pageY, width, height }
+                }));
+              }
+            });
+          }
+        }
+        
+        setDraggingBlockId(block.id);
       },
       onPanResponderMove: (e, gestureState) => {
         const dragY = e.nativeEvent.pageY;
@@ -207,7 +226,7 @@ const NoteImageBlock = ({
         dropPosition.current = 'after';
       },
       onPanResponderTerminate: () => {
-        console.log(`🚫 Image drag terminated for ${block.id}`);
+        DEBUG_DRAG && console.log(`🚫 Image drag terminated for ${block.id}`);
         setDraggingBlockId(null);
         setHoveredBlockId(null);
         currentHoverTarget.current = null;

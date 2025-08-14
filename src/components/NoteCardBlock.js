@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,12 @@ import {
   PanResponder,
   Animated,
   TouchableOpacity,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { Colors } from '../constants/Colors';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
-
-const TOOLBAR_ID = 'newton-toolbar';
 
 const NoteCardBlock = ({
   block,
@@ -33,354 +33,363 @@ const NoteCardBlock = ({
   scrollToFocusedInput,
   isAuthor = true,
   dismissMenus = () => {},
-  preventNextAutoScroll = () => {}
+  preventNextAutoScroll = () => {},
+  toolbarId = 'newton-toolbar'
 }) => {
   const cardRef = useRef(null);
   const styles = createNoteStyles;
+  
+  // 🔧 디버그 모드 (개발 시에만 true로 설정)
+  const DEBUG_DRAG = false;
 
   
-  // 강제로 측정 시도
-  React.useLayoutEffect(() => {
-    console.log(`🔧 useLayoutEffect triggered for ${block.id}`);
-    
-    const forceLayout = () => {
-      if (cardRef.current) {
-        console.log(`🔧 Force measuring ${block.id}`);
-        cardRef.current.measure((x, y, width, height, pageX, pageY) => {
-          console.log(`🔧 Force measure result for ${block.id}:`, { x, y, width, height, pageX, pageY });
-          if (height > 0 && pageY >= 0) { // pageY >= 0으로 변경 (0도 허용)
-            setCardLayouts(prev => ({
-              ...prev,
-              [block.id]: { x: pageX, y: pageY, width, height }
-            }));
-            console.log(`✅ Force layout registered for ${block.id} - pageY: ${pageY}`);
-          } else {
-            console.log(`❌ Force measure failed for ${block.id}: height=${height}, pageY=${pageY}`);
-          }
-        });
-      }
-    };
-    
-    // 여러 시점에서 측정
-    forceLayout();
-    setTimeout(forceLayout, 100);
-    setTimeout(forceLayout, 300);
-    setTimeout(forceLayout, 500);
-  }, []);
+  // 📏 통합된 레이아웃 측정 함수
+  const measureCardLayout = useCallback(() => {
+    if (cardRef.current) {
+      cardRef.current.measureInWindow((pageX, pageY, width, height) => {
+        if (height > 0 && pageY >= 0) {
+          setCardLayouts(prev => ({
+            ...prev,
+            [block.id]: { x: pageX, y: pageY, width, height }
+          }));
+          DEBUG_DRAG && console.log(`✅ Layout measured for ${block.id}:`, { pageX, pageY, width, height });
+        }
+      });
+    }
+  }, [block.id, setCardLayouts]);
 
-  // 📏 컴포넌트 마운트 및 레이아웃 측정
+  // 📏 컴포넌트 마운트 시 레이아웃 측정
   useEffect(() => {
-    console.log(`🔧 NoteCardBlock mounted for ${block.id}`);
+    // 초기 측정 (onLayout 이후 보완용)
+    const timeoutId = setTimeout(measureCardLayout, 100);
     
-    // 여러 번 측정 시도
-    const measureAttempts = [100, 300, 500, 1000];
-    const timeouts = [];
-    
-    const measureLayout = () => {
-      if (cardRef.current) {
-        console.log(`🔧 Attempting to measure ${block.id}`);
-        cardRef.current.measure((x, y, width, height, pageX, pageY) => {
-          console.log(`🔧 measure result for ${block.id}:`, { x, y, width, height, pageX, pageY });
-          if (height > 0 && pageY >= 0) { // pageY >= 0으로 변경
-            setCardLayouts(prev => ({
-              ...prev,
-              [block.id]: { x: pageX, y: pageY, width, height }
-            }));
-            console.log(`✅ Layout registered for ${block.id} via measure - pageY: ${pageY}`);
-          } else {
-            console.log(`❌ Invalid dimensions for ${block.id}: height=${height}, pageY=${pageY}`);
-          }
-        });
-      } else {
-        console.log(`❌ cardRef.current is null for ${block.id}`);
-      }
-    };
-    
-    // 즉시 측정 시도
-    measureLayout();
-    
-    // 여러 시점에서 측정 시도
-    measureAttempts.forEach(delay => {
-      const timeoutId = setTimeout(measureLayout, delay);
-      timeouts.push(timeoutId);
-    });
-    
-    // Clean up
     return () => {
-      console.log(`🧹 NoteCardBlock unmounting for ${block.id}`);
-      timeouts.forEach(clearTimeout);
+      clearTimeout(timeoutId);
       setCardLayouts(prev => {
         const updated = { ...prev };
         delete updated[block.id];
         return updated;
       });
     };
-  }, [block.id, setCardLayouts]);
+  }, [block.id, measureCardLayout]);
 
   // 🖐️ 드래그 핸들러
   const currentHoverTarget = useRef(null); // Store current hover target
   const dropPosition = useRef('after'); // Store drop position
+
+  // 📊 인덱스 계산 헬퍼 함수
+  const calculateFinalInsertIndex = useCallback((fromIndex, targetIndex, dropPos) => {
+    let finalIndex = targetIndex;
+    
+    if (dropPos === 'before') {
+      finalIndex = targetIndex;
+    } else if (dropPos === 'after') {
+      finalIndex = targetIndex + 1;
+    } else { // replace
+      finalIndex = targetIndex;
+    }
+    
+    // 앞에서 뒤로 이동할 때 인덱스 조정
+    if (fromIndex < finalIndex) {
+      finalIndex--;
+    }
+    
+    return Math.max(0, Math.min(finalIndex, blocksRef.current.length - 1));
+  }, []);
+  const cardLayoutsRef = useRef(cardLayouts); // Ref to avoid dependency issues
+  const blocksRef = useRef(blocks);
+  const setBlocksRef = useRef(setBlocks);
+  const setDraggingBlockIdRef = useRef(setDraggingBlockId);
+  const setHoveredBlockIdRef = useRef(setHoveredBlockId);
+  const isDraggingRef = useRef(false); // Flag to prevent multiple drag starts
   
-  // panResponder를 useMemo로 cardLayouts 변경 시마다 재생성
+  // Update refs when props change
+  useEffect(() => {
+    cardLayoutsRef.current = cardLayouts;
+    blocksRef.current = blocks;
+    setBlocksRef.current = setBlocks;
+    setDraggingBlockIdRef.current = setDraggingBlockId;
+    setHoveredBlockIdRef.current = setHoveredBlockId;
+  }, [cardLayouts, blocks, setBlocks, setDraggingBlockId, setHoveredBlockId]);
+  
+  // panResponder를 useMemo로 deps 최소화
   const panResponder = useMemo(() => 
     PanResponder.create({
       onStartShouldSetPanResponder: (evt, gestureState) => {
-        const hasLayouts = Object.keys(cardLayouts).length > 0;
-        const currentBlockHasLayout = cardLayouts[block.id] !== undefined;
-        return hasLayouts && currentBlockHasLayout;
+        // 초기 터치 감지만 하고, 실제 드래그는 onMoveShouldSetPanResponder에서 결정
+        return true;
       },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         const { dx, dy } = gestureState;
         const movement = Math.sqrt(dx * dx + dy * dy);
-        const hasLayouts = Object.keys(cardLayouts).length > 0;
-        const currentBlockHasLayout = cardLayouts[block.id] !== undefined;
-        return hasLayouts && currentBlockHasLayout && movement > 5;
+        const hasLayoutData = cardLayoutsRef.current[block.id] !== undefined;
+        
+        const shouldActivateDrag = hasLayoutData && movement > 5;
+        DEBUG_DRAG && console.log(`🎯 Move check for ${block.id}: movement=${movement.toFixed(1)}, hasLayout=${hasLayoutData}, activate=${shouldActivateDrag}`);
+        return shouldActivateDrag;
       },
       onPanResponderGrant: () => {
-        setDraggingBlockId(block.id);
-        console.log(`👆 Drag start: ${block.id}`);
+        if (isDraggingRef.current) {
+          console.log(`🚫 DRAG ALREADY ACTIVE for ${block.id}`);
+          return;
+        }
+        DEBUG_DRAG && console.log(`🚀 DRAG START: ${block.id}`);
+        DEBUG_DRAG && console.log(`🚀 Current layouts available:`, Object.keys(cardLayoutsRef.current));
+        
+        // 레이아웃이 없으면 강제로 측정 시도
+        if (Object.keys(cardLayoutsRef.current).length === 0) {
+          console.log(`🚀 No layouts available, forcing measurement...`);
+          if (cardRef.current) {
+            cardRef.current.measure((x, y, width, height, pageX, pageY) => {
+              console.log(`🚀 Emergency layout measurement for ${block.id}:`, { pageX, pageY, width, height });
+              if (height > 0) {
+                cardLayoutsRef.current = {
+                  ...cardLayoutsRef.current,
+                  [block.id]: { x: pageX, y: pageY, width, height }
+                };
+              }
+            });
+          }
+        }
+        
+        isDraggingRef.current = true;
+        setDraggingBlockIdRef.current(block.id);
       },
       onPanResponderMove: (e, gestureState) => {
         const dragY = e.nativeEvent.pageY;
+        const currentCardLayouts = cardLayoutsRef.current;
         
-        if (Object.keys(cardLayouts).length === 0) {
-          console.warn('⚠️ cardLayouts not ready for drag operation');
+        if (Object.keys(currentCardLayouts).length === 0) {
           return;
         }
-        
-        console.log(`🎯 Drag move - dragY: ${dragY}, available layouts:`, Object.keys(cardLayouts));
-        console.log(`🎯 All cardLayouts:`, cardLayouts);
-        
-        // 먼저 원본 dragY로 테스트 (조정 없음)
-        console.log(`🎯 Testing with raw dragY: ${dragY}`);
         
         // 드랍 존을 더 자세히 계산 (카드 위, 카드 사이, 카드 아래)
         let foundTarget = null;
         let currentDropPosition = 'after'; // 'before', 'after', 'replace'
         
-        // 모든 카드에 대해 세밀한 드랍 존 체크
-        const sortedCards = Object.entries(cardLayouts)
+        // 모든 블록에 대해 세밀한 드랍 존 체크 (카드, 텍스트, 이미지 모두 포함)
+        const sortedBlocks = Object.entries(currentCardLayouts)
           .filter(([id]) => id !== block.id)
           .sort(([,a], [,b]) => a.y - b.y);
         
-        console.log(`🔍 Detailed zone check for dragY=${dragY}`);
-        console.log(`🔍 Sorted cards (by y):`, sortedCards.map(([id, layout]) => `${id}: y=${layout.y}, h=${layout.height}`));
+        // console.log(`🔍 Detailed zone check for dragY=${dragY}`);
+        // console.log(`🔍 Sorted cards (by y):`, sortedCards.map(([id, layout]) => `${id}: y=${layout.y}, h=${layout.height}`));
         
-        for (let i = 0; i < sortedCards.length; i++) {
-          const [id, layout] = sortedCards[i];
+        for (let i = 0; i < sortedBlocks.length; i++) {
+          const [id, layout] = sortedBlocks[i];
           
           // 각 카드를 3개 영역으로 나눔 - 더 큰 드롭존으로 수정
           const topZone = layout.y - 50;        // 카드 위 (before) - 범위 확대
           const middleZone = layout.y + layout.height/2;  // 카드 중간 (replace)
           const bottomZone = layout.y + layout.height + 50; // 카드 아래 (after) - 범위 확대
           
-          console.log(`🎯 Check ${id}: topZone=${Math.round(topZone)} <= ${Math.round(dragY)} <= ${Math.round(bottomZone)} ?`);
+          // console.log(`🎯 Check ${id}: topZone=${Math.round(topZone)} <= ${Math.round(dragY)} <= ${Math.round(bottomZone)} ?`);
           
           if (dragY >= topZone && dragY <= bottomZone) {
             foundTarget = id;
             
             if (dragY < middleZone - 20) {
               currentDropPosition = 'before';
-              console.log(`🎯 ✅ Drop BEFORE ${id} (dragY=${Math.round(dragY)} < middleZone-20=${Math.round(middleZone-20)})`);
+              // console.log(`🎯 ✅ Drop BEFORE ${id} (dragY=${Math.round(dragY)} < middleZone-20=${Math.round(middleZone-20)})`);
             } else if (dragY > middleZone + 20) {
               currentDropPosition = 'after';
-              console.log(`🎯 ✅ Drop AFTER ${id} (dragY=${Math.round(dragY)} > middleZone+20=${Math.round(middleZone+20)})`);
+              // console.log(`🎯 ✅ Drop AFTER ${id} (dragY=${Math.round(dragY)} > middleZone+20=${Math.round(middleZone+20)})`);
             } else {
               currentDropPosition = 'replace';
-              console.log(`🎯 ✅ Drop REPLACE ${id} (middle zone)`);
+              // console.log(`🎯 ✅ Drop REPLACE ${id} (middle zone)`);
             }
             break;
           } else {
-            console.log(`🎯 ❌ ${id} - dragY ${Math.round(dragY)} not in range [${Math.round(topZone)}, ${Math.round(bottomZone)}]`);
+            // console.log(`🎯 ❌ ${id} - dragY ${Math.round(dragY)} not in range [${Math.round(topZone)}, ${Math.round(bottomZone)}]`);
           }
         }
         
         // 실제 카드 위치를 기반으로 한 fallback 로직 (항상 실행)
         if (!foundTarget || true) { // 디버깅을 위해 항상 실행
-          const sortedCardEntries = Object.entries(cardLayouts)
+          const sortedBlockEntries = Object.entries(currentCardLayouts)
             .filter(([id]) => id !== block.id)
             .sort(([,a], [,b]) => a.y - b.y);
           
-          console.log(`🔄 ALWAYS running fallback logic - sorted cards:`, sortedCardEntries.map(([id, layout]) => `${id}: y=${Math.round(layout.y)}`));
+          // console.log(`🔄 ALWAYS running fallback logic - sorted blocks:`, sortedBlockEntries.map(([id, layout]) => `${id}: y=${Math.round(layout.y)}`));
           
-          if (sortedCardEntries.length === 0) {
+          if (sortedBlockEntries.length === 0) {
             foundTarget = 'FIRST';
             currentDropPosition = 'before';
-            console.log(`🎯 No other cards, drop at FIRST`);
+            // console.log(`🎯 No other cards, drop at FIRST`);
           } else {
-            const firstCard = sortedCardEntries[0];
-            const lastCard = sortedCardEntries[sortedCardEntries.length - 1];
+            const firstBlock = sortedBlockEntries[0];
+            const lastBlock = sortedBlockEntries[sortedBlockEntries.length - 1];
             
-            console.log(`🔄 Range check: dragY=${Math.round(dragY)}, firstCard.y=${Math.round(firstCard[1].y)}, lastCard.maxY=${Math.round(lastCard[1].y + lastCard[1].height)}`);
+            // console.log(`🔄 Range check: dragY=${Math.round(dragY)}, firstCard.y=${Math.round(firstCard[1].y)}, lastCard.maxY=${Math.round(lastCard[1].y + lastCard[1].height)}`);
             
-            if (dragY < firstCard[1].y - 20) {
-              // Above first card
-              foundTarget = firstCard[0];
+            if (dragY < firstBlock[1].y - 20) {
+              // Above first block
+              foundTarget = firstBlock[0];
               currentDropPosition = 'before';
-              console.log(`🎯 ⬆️ Drop BEFORE first card ${firstCard[0]}`);
-            } else if (dragY > lastCard[1].y + lastCard[1].height + 20) {
-              // Below last card
-              foundTarget = lastCard[0];
+              // console.log(`🎯 ⬆️ Drop BEFORE first block ${firstBlock[0]}`);
+            } else if (dragY > lastBlock[1].y + lastBlock[1].height + 20) {
+              // Below last block
+              foundTarget = lastBlock[0];
               currentDropPosition = 'after';
-              console.log(`🎯 ⬇️ Drop AFTER last card ${lastCard[0]}`);
+              // console.log(`🎯 ⬇️ Drop AFTER last block ${lastBlock[0]}`);
             } else {
-              // Find the card this dragY is closest to
+              // Find the block this dragY is closest to
               let bestMatch = null;
               let bestDistance = Infinity;
               let bestPosition = 'after';
               
-              for (let i = 0; i < sortedCardEntries.length; i++) {
-                const [id, layout] = sortedCardEntries[i];
-                const cardTop = layout.y;
-                const cardBottom = layout.y + layout.height;
-                const cardCenter = layout.y + layout.height / 2;
+              for (let i = 0; i < sortedBlockEntries.length; i++) {
+                const [id, layout] = sortedBlockEntries[i];
+                const blockTop = layout.y;
+                const blockBottom = layout.y + layout.height;
+                const blockCenter = layout.y + layout.height / 2;
                 
-                // Calculate distance to this card's zones
-                const distanceToTop = Math.abs(dragY - cardTop);
-                const distanceToCenter = Math.abs(dragY - cardCenter);  
-                const distanceToBottom = Math.abs(dragY - cardBottom);
+                // Calculate distance to this block's zones
+                const distanceToTop = Math.abs(dragY - blockTop);
+                const distanceToCenter = Math.abs(dragY - blockCenter);  
+                const distanceToBottom = Math.abs(dragY - blockBottom);
                 
-                console.log(`🔍 ${id}: top=${Math.round(cardTop)}, center=${Math.round(cardCenter)}, bottom=${Math.round(cardBottom)}`);
-                console.log(`🔍 ${id}: distToTop=${Math.round(distanceToTop)}, distToCenter=${Math.round(distanceToCenter)}, distToBottom=${Math.round(distanceToBottom)}`);
+                // Check if this block is a text block (no replace for text blocks)
+                const targetBlock = blocksRef.current.find(b => b.id === id);
+                const isTextBlock = targetBlock?.type === 'text';
+                
+                // console.log(`🔍 ${id}: top=${Math.round(blockTop)}, center=${Math.round(blockCenter)}, bottom=${Math.round(blockBottom)}, isText=${isTextBlock}`);
+                // console.log(`🔍 ${id}: distToTop=${Math.round(distanceToTop)}, distToCenter=${Math.round(distanceToCenter)}, distToBottom=${Math.round(distanceToBottom)}`);
                 
                 // Check if this is the best match
                 if (distanceToTop < bestDistance) {
                   bestMatch = id;
                   bestDistance = distanceToTop;
                   bestPosition = 'before';
-                  console.log(`🎯 NEW BEST: ${id} BEFORE (distance: ${Math.round(distanceToTop)})`);
+                  // console.log(`🎯 NEW BEST: ${id} BEFORE (distance: ${Math.round(distanceToTop)})`);
                 }
-                if (distanceToCenter < bestDistance) {
+                // Only allow center/replace for non-text blocks
+                if (!isTextBlock && distanceToCenter < bestDistance) {
                   bestMatch = id;
                   bestDistance = distanceToCenter;
                   bestPosition = 'replace';
-                  console.log(`🎯 NEW BEST: ${id} REPLACE (distance: ${Math.round(distanceToCenter)})`);
+                  // console.log(`🎯 NEW BEST: ${id} REPLACE (distance: ${Math.round(distanceToCenter)})`);
                 }
                 if (distanceToBottom < bestDistance) {
                   bestMatch = id;
                   bestDistance = distanceToBottom;
                   bestPosition = 'after';
-                  console.log(`🎯 NEW BEST: ${id} AFTER (distance: ${Math.round(distanceToBottom)})`);
+                  // console.log(`🎯 NEW BEST: ${id} AFTER (distance: ${Math.round(distanceToBottom)})`);
                 }
               }
               
-              foundTarget = bestMatch || firstCard[0];
+              foundTarget = bestMatch || firstBlock[0];
               currentDropPosition = bestPosition;
-              console.log(`🎯 🎯 Best match: ${foundTarget} with position ${currentDropPosition} (distance: ${Math.round(bestDistance)})`);
+              // console.log(`🎯 🎯 Best match: ${foundTarget} with position ${currentDropPosition} (distance: ${Math.round(bestDistance)})`);
             }
           }
         }
 
-        console.log(`🎯 Found target: ${foundTarget}, position: ${currentDropPosition}`);
+        // console.log(`🎯 Found target: ${foundTarget}, position: ${currentDropPosition}`);
         
         // Store current target and position in refs for reliable access in release
         currentHoverTarget.current = foundTarget;
         dropPosition.current = currentDropPosition;
 
         if (hoveredBlockId !== foundTarget) {
-          setHoveredBlockId(foundTarget);
+          setHoveredBlockIdRef.current(foundTarget);
           if (foundTarget) {
-            console.log(`🧲 Hovered over ${foundTarget}`);
+            // console.log(`🧲 Hovered over ${foundTarget}`);
           }
         }
       },
       onPanResponderRelease: () => {
         // Use ref values for reliable hover target and drop position
-        const currentDraggingId = draggingBlockId;
+        const currentDraggingId = block.id; // Use current block ID directly
         const currentHoveredId = currentHoverTarget.current;
         const currentDropPosition = dropPosition.current;
         
-        console.log(`\n🎯 === DRAG RELEASE for ${block.id} ===`);
-        console.log(`🎯 draggingBlockId: ${currentDraggingId}`);
-        console.log(`🎯 hoveredId: ${currentHoveredId}`);
-        console.log(`🎯 dropPosition: ${currentDropPosition}`);
-        console.log(`🎯 Condition check: ${!!(currentDraggingId && currentHoveredId)}`);
+        DEBUG_DRAG && console.log(`🏁 DRAG END: dragging=${currentDraggingId}, target=${currentHoveredId}, position=${currentDropPosition}`);
         
-        if (currentDraggingId && currentHoveredId) {
-          console.log(`🔧 === REORDER CALCULATION START ===`);
-          console.log(`🔧 dragging=${currentDraggingId}, target=${currentHoveredId}, position=${currentDropPosition}`);
-          console.log(`🔧 Current blocks order:`, blocks.map((b, i) => `${i}:${b.id}(${b.type})`));
+        // console.log(`\n🎯 === DRAG RELEASE for ${block.id} ===`);
+        // console.log(`🎯 draggingBlockId: ${currentDraggingId}`);
+        // console.log(`🎯 hoveredId: ${currentHoveredId}`);
+        // console.log(`🎯 dropPosition: ${currentDropPosition}`);
+        // console.log(`🎯 Condition check: ${!!(currentDraggingId && currentHoveredId)}`);
+        
+        if (currentDraggingId && currentHoveredId && blocksRef.current.length > 0) {
+          // console.log(`🔧 === REORDER CALCULATION START ===`);
+          // console.log(`🔧 dragging=${currentDraggingId}, target=${currentHoveredId}, position=${currentDropPosition}`);
+          // console.log(`🔧 Current blocks order:`, blocks.map((b, i) => `${i}:${b.id}(${b.type})`));
           
-          const fromIndex = blocks.findIndex(b => b.id === currentDraggingId);
-          const originalTargetIndex = blocks.findIndex(b => b.id === currentHoveredId);
+          const fromIndex = blocksRef.current.findIndex(b => b.id === currentDraggingId);
+          const originalTargetIndex = blocksRef.current.findIndex(b => b.id === currentHoveredId);
           
-          console.log(`🔧 fromIndex: ${fromIndex}, originalTargetIndex: ${originalTargetIndex}`);
+          // 현재 드래그하는 블록이 여전히 존재하는지 확인
+          if (fromIndex === -1) {
+            console.warn(`⚠️ Drag cancelled - block ${currentDraggingId} no longer exists`);
+            setDraggingBlockId(null);
+            setHoveredBlockId(null);
+            return;
+          }
           
-          if (fromIndex !== -1) {
-            // 🎯 새로운 접근: 원본 배열에서 직접 최종 위치 계산
+          // console.log(`🔧 fromIndex: ${fromIndex}, originalTargetIndex: ${originalTargetIndex}`);
+          
+          if (fromIndex !== -1 && originalTargetIndex !== -1) {
+            // 🎯 헬퍼 함수를 사용한 최종 인덱스 계산
             let finalInsertIndex = 0;
             
             if (currentHoveredId === 'FIRST') {
               finalInsertIndex = 0;
-              console.log(`✅ Moving to FIRST position: index 0`);
             } else if (currentHoveredId === 'LAST') {
-              finalInsertIndex = blocks.length - 1; // 마지막 위치
-              console.log(`✅ Moving to LAST position: index ${finalInsertIndex}`);
+              finalInsertIndex = blocksRef.current.length - 1;
             } else if (originalTargetIndex !== -1) {
-              // 원본 배열에서의 위치를 기준으로 최종 위치 계산
-              if (currentDropPosition === 'before') {
-                finalInsertIndex = originalTargetIndex;
-                if (fromIndex < originalTargetIndex) {
-                  finalInsertIndex--; // 앞에서 뒤로 이동 시 인덱스 조정
-                }
-                console.log(`✅ Moving BEFORE ${currentHoveredId}: finalIndex ${finalInsertIndex}`);
-              } else if (currentDropPosition === 'after') {
-                finalInsertIndex = originalTargetIndex + 1;
-                if (fromIndex < originalTargetIndex) {
-                  finalInsertIndex--; // 앞에서 뒤로 이동 시 인덱스 조정
-                }
-                console.log(`✅ Moving AFTER ${currentHoveredId}: finalIndex ${finalInsertIndex}`);
-              } else { // replace
-                finalInsertIndex = originalTargetIndex;
-                if (fromIndex < originalTargetIndex) {
-                  finalInsertIndex--; // 앞에서 뒤로 이동 시 인덱스 조정
-                }
-                console.log(`✅ Moving to REPLACE ${currentHoveredId}: finalIndex ${finalInsertIndex}`);
-              }
+              finalInsertIndex = calculateFinalInsertIndex(fromIndex, originalTargetIndex, currentDropPosition);
             }
-            
-            // 배열 범위 검증
-            finalInsertIndex = Math.max(0, Math.min(finalInsertIndex, blocks.length - 1));
-            console.log(`🔧 Final validated insertIndex: ${finalInsertIndex}`);
+            // console.log(`🔧 Final validated insertIndex: ${finalInsertIndex}`);
             
             // 실제 배열 재정렬
-            const updated = [...blocks];
+            const updated = [...blocksRef.current];
             const [moved] = updated.splice(fromIndex, 1);
             updated.splice(finalInsertIndex, 0, moved);
             
-            console.log(`🔧 Final blocks order:`, updated.map((b, i) => `${i}:${b.id}(${b.type})`));
-            console.log(`🔧 === REORDER CALCULATION END ===`);
+            // console.log(`🔧 Final blocks order:`, updated.map((b, i) => `${i}:${b.id}(${b.type})`));
+            // console.log(`🔧 === REORDER CALCULATION END ===`);
             
             console.log(`🚀 CALLING setBlocks with new order...`);
-            setBlocks(updated);
-            console.log(`✅ Reordered ${currentDraggingId} from index ${fromIndex} to ${finalInsertIndex}`);
+            setBlocksRef.current(updated);
+            // console.log(`✅ Reordered ${currentDraggingId} from index ${fromIndex} to ${finalInsertIndex}`);
           } else {
-            console.error(`❌ Could not find dragging block ${currentDraggingId} in blocks array`);
+            // 드래그 중에 블록이 사라지거나 변경된 경우 안전하게 처리
+            if (fromIndex === -1) {
+              console.warn(`⚠️ Dragging block ${currentDraggingId} not found in blocks array - may have been deleted or modified`);
+            }
+            if (originalTargetIndex === -1 && currentHoveredId !== 'FIRST' && currentHoveredId !== 'LAST') {
+              console.warn(`⚠️ Target block ${currentHoveredId} not found in blocks array`);
+            }
+            // 드래그 상태만 정리하고 계속 진행
           }
         } else {
-          console.log(`❌ DRAG RELEASE SKIPPED:`);
-          console.log(`❌ currentDraggingId: ${currentDraggingId} (${typeof currentDraggingId})`);  
-          console.log(`❌ currentHoveredId: ${currentHoveredId} (${typeof currentHoveredId})`);
-          console.log(`❌ Both must be truthy for reorder to execute`);
+          // console.log(`❌ DRAG RELEASE SKIPPED:`);
+          // console.log(`❌ currentDraggingId: ${currentDraggingId} (${typeof currentDraggingId})`);  
+          // console.log(`❌ currentHoveredId: ${currentHoveredId} (${typeof currentHoveredId})`);
+          // console.log(`❌ Both must be truthy for reorder to execute`);
         }
 
-        console.log(`🧹 Cleaning up drag state...`);
+        // console.log(`🧹 Cleaning up drag state...`);
         setDraggingBlockId(null);
         setHoveredBlockId(null);
         currentHoverTarget.current = null; // Reset refs
         dropPosition.current = 'after';
-        console.log(`🧹 Drag cleanup complete`);
+        isDraggingRef.current = false; // Reset drag flag
+        // console.log(`🧹 Drag cleanup complete`);
       },
       onPanResponderTerminate: () => {
-        console.log(`🚫 Drag terminated for ${block.id}`);
+        // console.log(`🚫 Drag terminated for ${block.id}`);
         setDraggingBlockId(null);
         setHoveredBlockId(null);
         currentHoverTarget.current = null; // Reset refs
         dropPosition.current = 'after';
+        isDraggingRef.current = false; // Reset drag flag
       },
       onPanResponderTerminationRequest: () => false, // Don't allow termination during drag
     })
-  , [cardLayouts, block.id, draggingBlockId, hoveredBlockId, setDraggingBlockId, setHoveredBlockId]);
+  , [block.id]);
 
   const isDragging = draggingBlockId === block.id;
   const isHovered = hoveredBlockId === block.id;
@@ -410,12 +419,12 @@ const NoteCardBlock = ({
       // onLayout은 로컬 좌표를 제공하므로 measureInWindow로 글로벌 좌표 얻기
       if (cardRef.current) {
         cardRef.current.measureInWindow((pageX, pageY, pageWidth, pageHeight) => {
-          console.log(`📐 measureInWindow for ${block.id}:`, { pageX, pageY, pageWidth, pageHeight });
+          // console.log(`📐 measureInWindow for ${block.id}:`, { pageX, pageY, pageWidth, pageHeight });
           setCardLayouts(prev => ({
             ...prev,
             [block.id]: { x: pageX, y: pageY, width: pageWidth, height: pageHeight }
           }));
-          console.log(`✅ Layout registered for ${block.id} via onLayout+measureInWindow - pageY: ${pageY}`);
+          // console.log(`✅ Layout registered for ${block.id} via onLayout+measureInWindow - pageY: ${pageY}`);
         });
       } else {
         // fallback to local coordinates
@@ -423,7 +432,7 @@ const NoteCardBlock = ({
           ...prev,
           [block.id]: { x, y, width, height }
         }));
-        console.log(`✅ Layout registered for ${block.id} via onLayout (local coords)`);
+        // console.log(`✅ Layout registered for ${block.id} via onLayout (local coords)`);
       }
     } else {
       console.log(`❌ onLayout failed for ${block.id}: height=${height}`);
@@ -435,6 +444,9 @@ const NoteCardBlock = ({
       ref={cardRef}
       {...panResponder.panHandlers}
       onLayout={handleLayout}
+      onTouchStart={(e) => {
+        console.log(`🎯 Card TOUCH START: ${block.id}`);
+      }}
       style={[
         styles.cardBlock,
         layoutStyle,
@@ -451,20 +463,21 @@ const NoteCardBlock = ({
           value={block.content}
           onChangeText={(text) => handleTextChange(block.id, text)}
           onPressIn={() => {
-            console.log('🎯 TextInput pressed in card:', block.id);
+            // console.log('🎯 TextInput pressed in card:', block.id);
             dismissMenus();
           }}
           onFocus={() => {
-            console.log('🎯 TextInput focused in card:', block.id, 'index:', index);
+            console.log(`🔧 Card TextInput focused - block: ${block.id}, index: ${index}, toolbarId: ${toolbarId}`);
             dismissMenus();
             setFocusedIndex(index);
+            
             // Let KeyboardAvoidingView handle the positioning
           }}
           onKeyPress={({ nativeEvent }) => {
             handleKeyPress(block, index, nativeEvent.key);
           }}
           onContentSizeChange={({ nativeEvent }) => {
-            console.log('📏 TextInput content size changed:', nativeEvent.contentSize);
+            // console.log('📏 TextInput content size changed:', nativeEvent.contentSize);
             // No action needed - KeyboardAvoidingView handles positioning
           }}
           autoCorrect={false}
@@ -472,7 +485,7 @@ const NoteCardBlock = ({
           spellCheck={false}
           scrollEnabled={false}
           editable={isAuthor && !isDragging}
-          inputAccessoryViewID="newton-toolbar"
+          inputAccessoryViewID={toolbarId}
           placeholderTextColor={Colors.secondaryText}
         />
         {isAuthor && (

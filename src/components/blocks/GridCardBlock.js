@@ -74,7 +74,6 @@ const GridCardBlock = memo(({
           spellCheck={false}
           scrollEnabled={false}
           editable={isAuthor}
-          inputAccessoryViewID="newton-toolbar"
           placeholderTextColor={Colors.secondaryText}
         />
         {isAuthor && (

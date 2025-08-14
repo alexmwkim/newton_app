@@ -1,12 +1,10 @@
 import React, { useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, Image, PanResponder, Dimensions, Text } from 'react-native';
+import { View, TextInput, TouchableOpacity, Image, PanResponder, Dimensions, Text, Keyboard, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 import NoteCardBlock from './NoteCardBlock';
 import NoteImageBlock from './NoteImageBlock';
-
-const TOOLBAR_ID = 'newton-toolbar';
 
 export const NoteBlockRenderer = ({
   block,
@@ -48,15 +46,11 @@ export const NoteBlockRenderer = ({
   setHoveredBlockId = () => {},
   isAuthor = true,
   dismissMenus = () => {},
-  preventNextAutoScroll = () => {}
+  preventNextAutoScroll = () => {},
+  toolbarId = 'newton-toolbar'
 }) => {
-  console.log('🔧 NoteBlockRenderer called for block:', block.id, 'type:', block.type);
   const styles = createNoteStyles;
   const blockRef = useRef(null);
-  console.log('🔧 blockRef created:', !!blockRef.current);
-
-  // Direct measurement logging for debugging
-  console.log('🔧 Block type:', block.type, 'ID:', block.id);
   
   if (block.type === 'card') {
     console.log('🎯 CARD block detected in NoteBlockRenderer:', block.id);
@@ -234,11 +228,27 @@ export const NoteBlockRenderer = ({
   };
 
   if (block.type === 'text') {
-    console.log('🔧 Rendering TEXT block:', block.id);
+    
+    // 텍스트 블록 레이아웃 측정 (드롭 존으로 사용)
+    const handleTextLayout = (event) => {
+      const { height, width } = event.nativeEvent.layout;
+      
+      if (height > 0 && blockRef.current) {
+        blockRef.current.measureInWindow((pageX, pageY, pageWidth, pageHeight) => {
+          console.log('📏 Text block layout measured:', block.id, { pageX, pageY, pageWidth, pageHeight });
+          setCardLayouts(prev => ({
+            ...prev,
+            [block.id]: { x: pageX, y: pageY, width: pageWidth, height: pageHeight }
+          }));
+        });
+      }
+    };
+    
     return (
       <View
         key={block.id}
         ref={blockRef}
+        onLayout={handleTextLayout}
       >
         <TextInput
           ref={block.ref}
@@ -252,9 +262,10 @@ export const NoteBlockRenderer = ({
             dismissMenus();
           }}
           onFocus={() => {
-            console.log('🎯 Text block focused, index:', index, 'type:', block.type);
+            console.log('🔧 Text block focused - index:', index, 'type:', block.type, 'toolbarId:', toolbarId);
             dismissMenus();
             setFocusedIndex(index);
+            
             // Let KeyboardAvoidingView handle the positioning
           }}
           onKeyPress={({ nativeEvent }) => {
@@ -262,7 +273,17 @@ export const NoteBlockRenderer = ({
           }}
           onContentSizeChange={({ nativeEvent }) => {
             console.log('📏 Text block content size changed:', nativeEvent.contentSize);
-            // No action needed - KeyboardAvoidingView handles positioning
+            // Re-measure layout when content size changes
+            setTimeout(() => {
+              if (blockRef.current) {
+                blockRef.current.measureInWindow((pageX, pageY, pageWidth, pageHeight) => {
+                  setCardLayouts(prev => ({
+                    ...prev,
+                    [block.id]: { x: pageX, y: pageY, width: pageWidth, height: pageHeight }
+                  }));
+                });
+              }
+            }, 50);
           }}
           autoCorrect={false}
           autoComplete="off"
@@ -270,14 +291,11 @@ export const NoteBlockRenderer = ({
           textAlignVertical="top"
           scrollEnabled={false}
           editable={isAuthor}
-          inputAccessoryViewID={TOOLBAR_ID}
+          inputAccessoryViewID={toolbarId}
         />
       </View>
     );
   } else if (block.type === 'card') {
-    console.log('🔧 Rendering CARD block with dedicated component:', block.id);
-    console.log('🔧 cardLayouts prop:', typeof cardLayouts, Object.keys(cardLayouts).length);
-    console.log('🔧 setCardLayouts prop:', typeof setCardLayouts);
     
     return (
       <NoteCardBlock
@@ -302,6 +320,7 @@ export const NoteBlockRenderer = ({
         isAuthor={isAuthor}
         dismissMenus={dismissMenus}
         preventNextAutoScroll={preventNextAutoScroll}
+        toolbarId={toolbarId}
       />
     );
   } else if (block.type === 'grid-card') {
@@ -333,7 +352,7 @@ export const NoteBlockRenderer = ({
             spellCheck={false}
             scrollEnabled={false}
             editable={isAuthor}
-            inputAccessoryViewID={TOOLBAR_ID}
+            inputAccessoryViewID={toolbarId}
             placeholderTextColor={Colors.secondaryText}
           />
           {isAuthor && (
@@ -345,7 +364,6 @@ export const NoteBlockRenderer = ({
       </View>
     );
   } else if (block.type === 'image') {
-    console.log('🔧 Rendering IMAGE block with dedicated component:', block.id);
     
     return (
       <NoteImageBlock

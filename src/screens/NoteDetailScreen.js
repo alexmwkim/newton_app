@@ -13,7 +13,8 @@ import {
   Text,
   ActivityIndicator,
   Modal,
-  Image
+  Image,
+  Keyboard
 } from 'react-native';
 // SafeArea fallback for projects without safe-area-context
 let useSafeAreaInsets;
@@ -41,7 +42,7 @@ import { noteDetailStyles } from '../styles/NoteDetailStyles';
 import Avatar from '../components/Avatar';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 
-const TOOLBAR_ID = 'newton-toolbar';
+const TOOLBAR_ID = 'note-detail-toolbar';
 
 // Normalize note data outside component to prevent recreation
 const normalizeNote = (noteData) => {
@@ -700,7 +701,6 @@ const NoteDetailScreen = ({
                 autoComplete="off"
                 spellCheck={false}
                 editable={isAuthor}
-                inputAccessoryViewID={TOOLBAR_ID}
               />
 
               {/* Content Blocks */}
@@ -762,6 +762,7 @@ const NoteDetailScreen = ({
                     isAuthor={isAuthor}
                     dismissMenus={dismissMenus}
                     preventNextAutoScroll={preventNextAutoScroll}
+                    toolbarId={TOOLBAR_ID}
                     />
                   </View>
                 ))}
@@ -792,8 +793,22 @@ const NoteDetailScreen = ({
     </SafeAreaView>
 
     {/* InputAccessoryView - 강화된 렌더링 보장 */}
-    <InputAccessoryView nativeID={TOOLBAR_ID}>
-      {console.log('🔧 InputAccessoryView rendering with ID:', TOOLBAR_ID, 'isAuthor:', isAuthor)}
+    {(() => {
+      const shouldShowToolbar = isAuthor;
+      console.log('🔧 NoteDetail Toolbar render check:', {
+        isAuthor,
+        shouldShowToolbar,
+        toolbarId: TOOLBAR_ID,
+        focusedIndex
+      });
+      return shouldShowToolbar;
+    })() && (
+      <InputAccessoryView 
+        key={`toolbar-${TOOLBAR_ID}-${focusedIndex}`}
+        nativeID={TOOLBAR_ID}
+      >
+        {/* 툴바 렌더링 확인용 로그 */}
+        {console.log('🔧 NoteDetail InputAccessoryView rendered with nativeID:', TOOLBAR_ID, 'focusedIndex:', focusedIndex)}
       <View style={{
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
@@ -868,15 +883,24 @@ const NoteDetailScreen = ({
         <TouchableOpacity
           onPress={() => {
             console.log('🔧 Done pressed - hiding keyboard');
-            // 키보드 숨기기 - 현재 포커스된 입력 필드에서 포커스 해제
+            
+            // 1. 포커스된 입력 필드에서 blur
             if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
               blocks[focusedIndex].ref.current.blur();
             }
+            
+            // 2. 강제로 키보드 숨기기
+            Keyboard.dismiss();
+            
+            // 3. 포커스 상태 초기화
+            setFocusedIndex(-1);
+            
+            console.log('🔧 Keyboard dismiss called');
           }}
           style={{
             padding: 8,
             borderRadius: 6,
-            backgroundColor: '#007AFF',
+            backgroundColor: 'rgba(235, 117, 75, 1)',
             minWidth: 60,
             minHeight: 36,
             justifyContent: 'center',
@@ -886,7 +910,8 @@ const NoteDetailScreen = ({
           <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
         </TouchableOpacity>
       </View>
-    </InputAccessoryView>
+      </InputAccessoryView>
+    )}
 
     {/* Page Info Modal */}
     <Modal

@@ -25,7 +25,7 @@ export const TextBlockProps = {
   keyboardConfig: {          // Keyboard configuration
     visible: false,
     height: 0,
-    accessoryViewID: 'newton-toolbar'
+    accessoryViewID: null
   }
 };
 
@@ -131,7 +131,7 @@ export const groupBlockProps = (allProps) => {
       visible: allProps.keyboardVisible || false,
       height: allProps.keyboardHeight || 0,
       scrollToInput: allProps.scrollToFocusedInput || (() => {}),
-      accessoryViewID: 'newton-toolbar'
+      accessoryViewID: null
     },
     
     // 이벤트 핸들러

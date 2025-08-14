@@ -68,14 +68,23 @@ class AuthService {
 
   // 사용자 세션 가져오기
   async getSession() {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
 
-      return { session, error: null };
-    } catch (error) {
-      console.error('Get session error:', error);
-      return { session: null, error: error.message };
+        return { session, error: null };
+      } catch (error) {
+        console.error(`Get session error (attempt ${attempt}/3):`, error);
+        
+        if (attempt < 3 && (error.message?.includes('Network request failed') || error.name?.includes('Fetch'))) {
+          console.log(`⏰ 세션 확인 재시도 ${attempt}/3...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+        
+        return { session: null, error: error.message };
+      }
     }
   }
 
