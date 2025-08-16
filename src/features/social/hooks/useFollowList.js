@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '../../../contexts/AuthContext';
-import FollowService from '../../../services/followClient';
+import UnifiedFollowService from '../../../services/UnifiedFollowService';
 import logger from '../../../utils/Logger';
 
 export const useFollowList = (userId, type = 'followers') => {
@@ -29,10 +29,10 @@ export const useFollowList = (userId, type = 'followers') => {
 
       let userList = [];
       if (type === 'followers') {
-        const result = await FollowService.getFollowers(userId);
+        const result = await UnifiedFollowService.getFollowers(userId);
         userList = result.success ? result.data : [];
       } else {
-        const result = await FollowService.getFollowing(userId);
+        const result = await UnifiedFollowService.getFollowing(userId);
         userList = result.success ? result.data : [];
       }
 
@@ -43,7 +43,7 @@ export const useFollowList = (userId, type = 'followers') => {
         const followingStatus = {};
         for (const user of userList) {
           try {
-            const status = await FollowService.isFollowing(currentUser.id, user.user_id || user.id);
+            const status = await UnifiedFollowService.isFollowing(currentUser.id, user.user_id || user.id);
             followingStatus[user.user_id || user.id] = status.data || false;
           } catch (error) {
             logger.warn('📋 Failed to check following status for:', user.username);
@@ -91,10 +91,10 @@ export const useFollowList = (userId, type = 'followers') => {
 
       let result;
       if (isCurrentlyFollowing) {
-        result = await FollowService.unfollowUser(currentUser.id, targetUserId);
+        result = await UnifiedFollowService.unfollowUser(currentUser.id, targetUserId);
         logger.debug('👥 Unfollowed user:', targetUserId);
       } else {
-        result = await FollowService.followUser(currentUser.id, targetUserId);
+        result = await UnifiedFollowService.followUser(currentUser.id, targetUserId);
         logger.debug('👥 Followed user:', targetUserId);
       }
 
@@ -163,7 +163,7 @@ export const useFollowList = (userId, type = 'followers') => {
     }
 
     try {
-      const result = await FollowService.removeFollower(userId, followerUserId);
+      const result = await UnifiedFollowService.removeFollower(userId, followerUserId);
       
       if (result.success) {
         setUsers(prev => prev.filter(user => 

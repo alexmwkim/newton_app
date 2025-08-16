@@ -14,7 +14,7 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import Avatar from '../components/Avatar';
-import FollowService from '../services/followClient';
+import UnifiedFollowService from '../services/UnifiedFollowService';
 import { useAuth } from '../contexts/AuthContext';
 
 /**
@@ -40,24 +40,30 @@ const FollowListScreen = ({ navigation, route }) => {
     try {
       setLoading(true);
       
+      console.log(`🔍 FOLLOW LIST: Loading ${type} for userId:`, userId);
+      
       let userList = [];
       if (type === 'followers') {
-        const result = await FollowService.getFollowers(userId);
+        const result = await UnifiedFollowService.getFollowers(userId);
+        console.log(`🔍 FOLLOW LIST: getFollowers result:`, { success: result.success, dataLength: result.data?.length, data: result.data });
         userList = result.success ? result.data : [];
       } else {
-        const result = await FollowService.getFollowing(userId);
+        const result = await UnifiedFollowService.getFollowing(userId);
+        console.log(`🔍 FOLLOW LIST: getFollowing result:`, { success: result.success, dataLength: result.data?.length, data: result.data });
         userList = result.success ? result.data : [];
       }
+      
+      console.log(`🔍 FOLLOW LIST: Final userList length:`, userList.length);
 
       // 각 유저에 대한 현재 사용자의 팔로우 상태 확인 (병렬 처리)
       const followingStateMap = {};
       
       if (currentUser?.id) {
         const followingPromises = userList.map(user => {
-          const targetUserId = user.follower_id || user.following_id;
-          return FollowService.isFollowing(currentUser.id, targetUserId)
+          const targetUserId = user.user_id || user.follower_id || user.following_id;
+          return UnifiedFollowService.isFollowing(currentUser.id, targetUserId)
             .then(result => {
-              followingStateMap[targetUserId] = result.success ? result.isFollowing : false;
+              followingStateMap[targetUserId] = result.success ? result.data : false;
             })
             .catch(err => {
               console.warn(`Failed to check follow status for ${targetUserId}:`, err);
@@ -99,7 +105,7 @@ const FollowListScreen = ({ navigation, route }) => {
         [targetUserId]: !isCurrentlyFollowing
       }));
 
-      const { success, isFollowing: newFollowingStatus, error } = await FollowService.toggleFollow(currentUser.id, targetUserId);
+      const { success, isFollowing: newFollowingStatus, error } = await UnifiedFollowService.toggleFollow(currentUser.id, targetUserId);
       
       if (success) {
         setFollowingStates(prev => ({
@@ -148,9 +154,9 @@ const FollowListScreen = ({ navigation, route }) => {
     setShowFollowOptions(null);
     
     const targetUser = users.find(user => 
-      (user.follower_id || user.following_id) === targetUserId
+      (user.user_id || user.follower_id || user.following_id) === targetUserId
     );
-    const targetUsername = targetUser?.profiles?.username || 'this user';
+    const targetUsername = targetUser?.username || targetUser?.profiles?.username || 'this user';
     
     Alert.alert(
       'Unfollow User',
@@ -173,7 +179,7 @@ const FollowListScreen = ({ navigation, route }) => {
                 [targetUserId]: false
               }));
 
-              const { success, error } = await FollowService.unfollowUser(currentUser.id, targetUserId);
+              const { success, error } = await UnifiedFollowService.unfollowUser(currentUser.id, targetUserId);
 
               if (!success) {
                 // 에러 시 상태 되돌리기
@@ -202,9 +208,9 @@ const FollowListScreen = ({ navigation, route }) => {
   const handleMute = (targetUserId) => {
     setShowFollowOptions(null);
     const targetUser = users.find(user => 
-      (user.follower_id || user.following_id) === targetUserId
+      (user.user_id || user.follower_id || user.following_id) === targetUserId
     );
-    const targetUsername = targetUser?.profiles?.username || 'this user';
+    const targetUsername = targetUser?.username || targetUser?.profiles?.username || 'this user';
     
     Alert.alert(
       'Mute User',
@@ -255,8 +261,8 @@ const FollowListScreen = ({ navigation, route }) => {
   };
 
   const renderUserItem = ({ item }) => {
-    // FollowService에서 반환하는 데이터 구조에 맞춰 userId 추출
-    const userId = item.follower_id || item.following_id;
+    // UnifiedFollowService에서 반환하는 데이터 구조에 맞춰 userId 추출
+    const userId = item.user_id || item.follower_id || item.following_id;
     const userProfile = item.profiles || item;
     const isFollowing = followingStates[userId];
     
@@ -281,7 +287,7 @@ const FollowListScreen = ({ navigation, route }) => {
         <View style={styles.userInfo}>
           <Avatar
             imageUrl={userProfile.avatar_url}
-            username={userProfile.username || userProfile.full_name}
+            username={userProfile.username || userProfile.bio}
             size="large"
             style={styles.avatar}
           />
@@ -409,7 +415,7 @@ const FollowListScreen = ({ navigation, route }) => {
       {/* 유저 목록 */}
       <FlatList
         data={users}
-        keyExtractor={(item) => item.follower_id || item.following_id}
+        keyExtractor={(item) => item.user_id || item.follower_id || item.following_id || Math.random().toString()}
         renderItem={renderUserItem}
         ListEmptyComponent={renderEmptyState}
         refreshing={refreshing}

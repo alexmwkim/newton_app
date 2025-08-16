@@ -12,13 +12,16 @@
 import { supabase } from './supabase';
 import ValidationUtils from './ValidationUtils';
 import logger from '../utils/Logger';
+import notificationService from './notifications';
 
 class UnifiedFollowService {
   constructor() {
     this.cache = new Map();
-    this.cacheTimeout = 2 * 60 * 1000; // 2분 캐시 (팔로우 상태는 자주 변경됨)
+    this.cacheTimeout = 10 * 60 * 1000; // 10분 캐시 (팔로우 데이터는 안정적이므로 더 긴 캐시 유지)
     this.maxCacheSize = 500; // 팔로우 관계는 많을 수 있음
     this.batchSize = 50;
+    this.maxRetries = 2; // 최대 재시도 횟수
+    this.retryDelay = 1000; // 재시도 지연 시간 (1초)
     
     logger.debug('🔧 Initializing UnifiedFollowService');
   }
@@ -67,6 +70,42 @@ class UnifiedFollowService {
     }
     keysToDelete.forEach(key => this.cache.delete(key));
     logger.debug(`🗑️ Cleared ${keysToDelete.length} cache entries for user: ${userId}`);
+  }
+
+  /**
+   * 팔로우 액션 후 캐시를 선택적으로 업데이트 (전체 삭제 대신 증분 업데이트)
+   */
+  updateCacheAfterFollow(followerId, followingId, isNewFollow) {
+    try {
+      // 1. 팔로우 상태 캐시 업데이트
+      const followStateKey = this.getCacheKey('isFollowing', { followerId, followingId });
+      this.setCache(followStateKey, isNewFollow);
+      
+      // 2. 팔로워 수 캐시 증분 업데이트 (팔로잉 당하는 사람의 팔로워 수)
+      const followingUserFollowersKey = this.getCacheKey('followersCount', { userId: followingId });
+      const followingUserFollowersCache = this.getFromCache(followingUserFollowersKey);
+      if (followingUserFollowersCache !== null) {
+        const newCount = Math.max(0, followingUserFollowersCache + (isNewFollow ? 1 : -1));
+        this.setCache(followingUserFollowersKey, newCount);
+        logger.debug(`📊 Updated followers count for ${followingId}: ${followingUserFollowersCache} → ${newCount}`);
+      }
+      
+      // 3. 팔로잉 수 캐시 증분 업데이트 (팔로우 하는 사람의 팔로잉 수)
+      const followerUserFollowingKey = this.getCacheKey('followingCount', { userId: followerId });
+      const followerUserFollowingCache = this.getFromCache(followerUserFollowingKey);
+      if (followerUserFollowingCache !== null) {
+        const newCount = Math.max(0, followerUserFollowingCache + (isNewFollow ? 1 : -1));
+        this.setCache(followerUserFollowingKey, newCount);
+        logger.debug(`📊 Updated following count for ${followerId}: ${followerUserFollowingCache} → ${newCount}`);
+      }
+      
+      logger.debug(`✅ Smart cache update completed - ${isNewFollow ? 'follow' : 'unfollow'} action`);
+    } catch (error) {
+      logger.error('❌ Error in smart cache update, falling back to cache clear:', error);
+      // 오류 발생 시 안전하게 관련 캐시만 삭제
+      this.clearCacheForUser(followerId);
+      this.clearCacheForUser(followingId);
+    }
   }
 
   /**
@@ -174,9 +213,16 @@ class UnifiedFollowService {
         return { success: false, error: error.message };
       }
 
-      // 캐시 업데이트
-      this.clearCacheForUser(sanitizedFollowerId);
-      this.clearCacheForUser(sanitizedFollowingId);
+      // 캐시 업데이트 - 선택적 클리어 (관련된 특정 캐시만 업데이트)
+      this.updateCacheAfterFollow(sanitizedFollowerId, sanitizedFollowingId, true);
+
+      // 노티피케이션 생성 (백그라운드에서 비동기 실행)
+      console.log('🚨 FOLLOW SUCCESS: About to create notification!', {
+        follower: sanitizedFollowerId,
+        following: sanitizedFollowingId,
+        timestamp: new Date().toISOString()
+      });
+      this.createFollowNotificationAsync(sanitizedFollowerId, sanitizedFollowingId);
 
       logger.debug(`✅ User ${sanitizedFollowerId} followed ${sanitizedFollowingId}`);
       return { success: true, data, error: null };
@@ -219,9 +265,8 @@ class UnifiedFollowService {
         return { success: false, error: error.message };
       }
 
-      // 캐시 업데이트
-      this.clearCacheForUser(sanitizedFollowerId);
-      this.clearCacheForUser(sanitizedFollowingId);
+      // 캐시 업데이트 - 선택적 클리어 (관련된 특정 캐시만 업데이트)
+      this.updateCacheAfterFollow(sanitizedFollowerId, sanitizedFollowingId, false);
 
       logger.debug(`✅ User ${sanitizedFollowerId} unfollowed ${sanitizedFollowingId}`);
       return { success: true, error: null };
@@ -251,11 +296,13 @@ class UnifiedFollowService {
         return { success: true, count: cached, error: null };
       }
 
-      // DB 조회
-      const { count, error } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', sanitizedUserId);
+      // DB 조회 (재시도 로직 적용)
+      const { count, error } = await this.withRetry(async () => {
+        return await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', sanitizedUserId);
+      }, 'getFollowersCount');
 
       if (error) {
         logger.error('❌ Error getting followers count:', error);
@@ -273,6 +320,47 @@ class UnifiedFollowService {
     } catch (error) {
       logger.error('❌ Exception in getFollowersCount:', error);
       return { success: false, count: 0, error: error.message };
+    }
+  }
+
+  /**
+   * 팔로우 토글 (팔로우/언팔로우 자동 선택)
+   */
+  async toggleFollow(followerId, followingId) {
+    try {
+      logger.debug(`🔄 Toggle follow: ${followerId} → ${followingId}`);
+      
+      // 현재 팔로우 상태 확인
+      const { success: checkSuccess, data: isFollowing, error: checkError } = await this.isFollowing(followerId, followingId);
+      
+      if (!checkSuccess || checkError) {
+        logger.error('❌ Failed to check follow status for toggle:', checkError);
+        return { success: false, error: checkError };
+      }
+
+      if (isFollowing) {
+        // 현재 팔로우 중이면 언팔로우
+        const result = await this.unfollowUser(followerId, followingId);
+        return { 
+          success: result.success, 
+          isFollowing: false, 
+          data: result.data, 
+          error: result.error 
+        };
+      } else {
+        // 현재 팔로우하지 않으면 팔로우
+        const result = await this.followUser(followerId, followingId);
+        return { 
+          success: result.success, 
+          isFollowing: true, 
+          data: result.data, 
+          error: result.error 
+        };
+      }
+
+    } catch (error) {
+      logger.error('❌ Exception in toggleFollow:', error);
+      return { success: false, isFollowing: false, error: error.message };
     }
   }
 
@@ -295,11 +383,13 @@ class UnifiedFollowService {
         return { success: true, count: cached, error: null };
       }
 
-      // DB 조회
-      const { count, error } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('follower_id', sanitizedUserId);
+      // DB 조회 (재시도 로직 적용)
+      const { count, error } = await this.withRetry(async () => {
+        return await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', sanitizedUserId);
+      }, 'getFollowingCount');
 
       if (error) {
         logger.error('❌ Error getting following count:', error);
@@ -337,6 +427,7 @@ class UnifiedFollowService {
       const cacheKey = this.getCacheKey('followers', { userId: sanitizedUserId, limit, offset });
       const cached = this.getFromCache(cacheKey);
       if (cached !== null) {
+        logger.debug(`📦 Cache hit: returning ${cached.length} followers for ${sanitizedUserId}`);
         return { success: true, data: cached, error: null };
       }
 
@@ -344,13 +435,7 @@ class UnifiedFollowService {
         .from('follows')
         .select(`
           follower_id,
-          created_at,
-          profiles:profiles!follows_follower_id_fkey (
-            user_id,
-            username,
-            full_name,
-            avatar_url
-          )
+          created_at
         `)
         .eq('following_id', sanitizedUserId)
         .order('created_at', { ascending: false })
@@ -361,18 +446,50 @@ class UnifiedFollowService {
         return { success: false, data: [], error: error.message };
       }
 
-      // 데이터 정규화
-      const followers = data.map(follow => ({
-        user_id: follow.follower_id,
-        username: follow.profiles?.username,
-        full_name: follow.profiles?.full_name,
-        avatar_url: follow.profiles?.avatar_url,
-        followed_at: follow.created_at
-      }));
+      // 별도로 profiles 데이터 가져오기 (JOIN 오류 방지)
+      let followers = [];
+      if (data && data.length > 0) {
+        const followerIds = data.map(f => f.follower_id);
+        logger.debug('📋 Follower IDs to fetch profiles:', followerIds);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, avatar_url, bio')
+          .in('user_id', followerIds);
+
+        if (profilesError) {
+          logger.error('❌ Error getting follower profiles:', profilesError);
+          // 프로필 데이터 없이 기본 구조로 반환
+          followers = data.map(follow => ({
+            user_id: follow.follower_id,
+            username: null,
+            bio: null,
+            avatar_url: null,
+            followed_at: follow.created_at
+          }));
+        } else {
+          // profiles 데이터와 follows 데이터 조합
+          const profileMap = new Map(profilesData.map(p => [p.user_id, p]));
+          
+          followers = data.map(follow => {
+            const profile = profileMap.get(follow.follower_id);
+            return {
+              user_id: follow.follower_id,
+              username: profile?.username,
+              bio: profile?.bio,
+              avatar_url: profile?.avatar_url,
+              followed_at: follow.created_at
+            };
+          });
+        }
+      }
 
       // 캐시 저장 (작은 목록만)
       if (followers.length <= 20) {
         this.setCache(cacheKey, followers);
+        logger.debug(`📦 Cached ${followers.length} followers for ${sanitizedUserId}`);
+      } else {
+        logger.debug(`📦 Skip caching ${followers.length} followers (too large) for ${sanitizedUserId}`);
       }
 
       logger.debug(`✅ Got ${followers.length} followers for ${sanitizedUserId}`);
@@ -401,6 +518,7 @@ class UnifiedFollowService {
       const cacheKey = this.getCacheKey('following', { userId: sanitizedUserId, limit, offset });
       const cached = this.getFromCache(cacheKey);
       if (cached !== null) {
+        logger.debug(`📦 Cache hit: returning ${cached.length} following for ${sanitizedUserId}`);
         return { success: true, data: cached, error: null };
       }
 
@@ -408,13 +526,7 @@ class UnifiedFollowService {
         .from('follows')
         .select(`
           following_id,
-          created_at,
-          profiles:profiles!follows_following_id_fkey (
-            user_id,
-            username,
-            full_name,
-            avatar_url
-          )
+          created_at
         `)
         .eq('follower_id', sanitizedUserId)
         .order('created_at', { ascending: false })
@@ -425,18 +537,50 @@ class UnifiedFollowService {
         return { success: false, data: [], error: error.message };
       }
 
-      // 데이터 정규화
-      const following = data.map(follow => ({
-        user_id: follow.following_id,
-        username: follow.profiles?.username,
-        full_name: follow.profiles?.full_name,
-        avatar_url: follow.profiles?.avatar_url,
-        followed_at: follow.created_at
-      }));
+      // 별도로 profiles 데이터 가져오기 (JOIN 오류 방지)
+      let following = [];
+      if (data && data.length > 0) {
+        const followingIds = data.map(f => f.following_id);
+        logger.debug('📋 Following IDs to fetch profiles:', followingIds);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, avatar_url, bio')
+          .in('user_id', followingIds);
+
+        if (profilesError) {
+          logger.error('❌ Error getting following profiles:', profilesError);
+          // 프로필 데이터 없이 기본 구조로 반환
+          following = data.map(follow => ({
+            user_id: follow.following_id,
+            username: null,
+            bio: null,
+            avatar_url: null,
+            followed_at: follow.created_at
+          }));
+        } else {
+          // profiles 데이터와 follows 데이터 조합
+          const profileMap = new Map(profilesData.map(p => [p.user_id, p]));
+          
+          following = data.map(follow => {
+            const profile = profileMap.get(follow.following_id);
+            return {
+              user_id: follow.following_id,
+              username: profile?.username,
+              bio: profile?.bio,
+              avatar_url: profile?.avatar_url,
+              followed_at: follow.created_at
+            };
+          });
+        }
+      }
 
       // 캐시 저장 (작은 목록만)
       if (following.length <= 20) {
         this.setCache(cacheKey, following);
+        logger.debug(`📦 Cached ${following.length} following for ${sanitizedUserId}`);
+      } else {
+        logger.debug(`📦 Skip caching ${following.length} following (too large) for ${sanitizedUserId}`);
       }
 
       logger.debug(`✅ Got ${following.length} following for ${sanitizedUserId}`);
@@ -595,6 +739,102 @@ class UnifiedFollowService {
   clearAllCache() {
     this.cache.clear();
     logger.debug('🗑️ Cleared all follow cache');
+  }
+
+  /**
+   * 캐시 무효화 - 데이터베이스 변경 후 관련 캐시만 선택적으로 무효화
+   */
+  invalidateRelatedCache(followerId, followingId) {
+    const keysToInvalidate = [
+      this.getCacheKey('isFollowing', { followerId, followingId }),
+      this.getCacheKey('followersCount', { userId: followingId }),
+      this.getCacheKey('followingCount', { userId: followerId }),
+      this.getCacheKey('followers', { userId: followingId }),
+      this.getCacheKey('following', { userId: followerId })
+    ];
+    
+    keysToInvalidate.forEach(key => {
+      // 정확한 키 매칭을 위해 전체 키로 검색
+      for (const cacheKey of this.cache.keys()) {
+        if (cacheKey.startsWith(key.split(':').slice(0, -1).join(':'))) {
+          this.cache.delete(cacheKey);
+        }
+      }
+    });
+    
+    logger.debug(`🔄 Invalidated cache for follow relationship: ${followerId} ↔ ${followingId}`);
+  }
+
+  /**
+   * 네트워크 오류 시 재시도 로직
+   */
+  async withRetry(operation, operationName) {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        
+        // 네트워크 오류인지 확인
+        const isNetworkError = error.message?.includes('Network request failed') || 
+                              error.code === '' || 
+                              !error.code;
+        
+        if (!isNetworkError || attempt === this.maxRetries) {
+          throw error;
+        }
+        
+        logger.warn(`⚠️ ${operationName} failed (attempt ${attempt}/${this.maxRetries}), retrying...`, error.message);
+        
+        // 재시도 전 지연
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+      }
+    }
+    
+    throw lastError;
+  }
+
+  /**
+   * 팔로우 노티피케이션 생성 (비동기)
+   */
+  createFollowNotificationAsync(followerId, followingId) {
+    console.log('🚀 NOTIFICATION TRIGGER: createFollowNotificationAsync called', { 
+      followerId, 
+      followingId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 백그라운드에서 실행하여 팔로우 액션 속도에 영향 주지 않음
+    setTimeout(async () => {
+      try {
+        console.log('🔔 NOTIFICATION: Starting creation process...', { followerId, followingId });
+        
+        // 노티피케이션 서비스 상태 확인
+        console.log('📋 NotificationService status:', {
+          isInitialized: notificationService.isInitialized,
+          realtimeEnabled: notificationService.realtimeEnabled,
+          channelErrorCount: notificationService.channelErrorCount
+        });
+        
+        const result = await notificationService.createFollowNotification(followerId, followingId);
+        
+        console.log('📱 NOTIFICATION RESULT:', result);
+        
+        if (result.success) {
+          console.log('✅ Follow notification created successfully');
+          console.log('   Notification data:', result.data);
+        } else if (result.isSelfFollow) {
+          console.log('ℹ️ Self-follow notification skipped');
+        } else {
+          console.error('❌ Failed to create follow notification:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception creating follow notification:', error);
+        console.error('   Error details:', error.stack);
+      }
+    }, 100); // 100ms 지연으로 UI 응답성 보장
   }
 }
 

@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import { NewtonLogo } from './NewtonLogo';
+import NotificationBell from './NotificationBell';
 
 const HeaderComponent = ({ onBackPress, onNotificationsPress, onMenuPress, onLogoPress }) => {
   return (
@@ -21,13 +22,13 @@ const HeaderComponent = ({ onBackPress, onNotificationsPress, onMenuPress, onLog
       </TouchableOpacity>
       
       <View style={styles.rightIcons}>
-        <TouchableOpacity 
+        <NotificationBell 
           onPress={onNotificationsPress}
-          accessibilityLabel="Notifications"
-          style={styles.iconButton}
-        >
-          <Icon name="bell" size={24} color={Colors.textBlack} />
-        </TouchableOpacity>
+          size={24}
+          color={Colors.textBlack}
+          showBadge={true}
+          animateOnNewNotification={true}
+        />
         
         <TouchableOpacity 
           onPress={onMenuPress}

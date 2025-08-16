@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import FollowService from '../../../services/followClient';
+import UnifiedFollowService from '../../../services/UnifiedFollowService';
 import logger from '../../../utils/Logger';
 
 export const useUserSocialData = (userProfile, profileData, isCurrentUser) => {
@@ -36,9 +36,9 @@ export const useUserSocialData = (userProfile, profileData, isCurrentUser) => {
 
         // 팔로워/팔로잉 수 조회
         const [followersResult, followingResult, followStatusResult] = await Promise.all([
-          FollowService.getFollowersCount(targetUserId),
-          FollowService.getFollowingCount(targetUserId),
-          currentUser?.id ? FollowService.isFollowing(currentUser.id, targetUserId) : { success: true, isFollowing: false }
+          UnifiedFollowService.getFollowersCount(targetUserId),
+          UnifiedFollowService.getFollowingCount(targetUserId),
+          currentUser?.id ? UnifiedFollowService.isFollowing(currentUser.id, targetUserId) : { success: true, isFollowing: false }
         ]);
 
         // 팔로워 수 설정
@@ -55,8 +55,8 @@ export const useUserSocialData = (userProfile, profileData, isCurrentUser) => {
 
         // 팔로우 상태 설정
         if (followStatusResult.success) {
-          setIsFollowing(followStatusResult.isFollowing);
-          logger.debug('👥 Follow status loaded:', followStatusResult.isFollowing);
+          setIsFollowing(followStatusResult.data);
+          logger.debug('👥 Follow status loaded:', followStatusResult.data);
         }
 
         setSocialLoaded(true);
@@ -92,14 +92,14 @@ export const useUserSocialData = (userProfile, profileData, isCurrentUser) => {
       setFollowersCount(isFollowing ? followersCount - 1 : followersCount + 1);
 
       // 실제 API 호출
-      const result = await FollowService.toggleFollow(currentUser.id, targetUserId);
+      const result = await UnifiedFollowService.toggleFollow(currentUser.id, targetUserId);
 
       if (result.success) {
         setIsFollowing(result.isFollowing);
         logger.info('✅ Follow status updated:', result.isFollowing);
         
         // 팔로워 수 새로고침
-        const followersResult = await FollowService.getFollowersCount(targetUserId);
+        const followersResult = await UnifiedFollowService.getFollowersCount(targetUserId);
         if (followersResult.success) {
           setFollowersCount(followersResult.count);
         }

@@ -45,27 +45,42 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
   useEffect(() => {
     console.log('🚀 HomeScreen initialized (admin services disabled in client mode)');
     
+    // 네트워크 진단 실행
+    const runDiagnostics = async () => {
+      try {
+        const NetworkDiagnostics = require('../utils/networkDiagnostics').default;
+        const results = await NetworkDiagnostics.runFullDiagnostics();
+        
+        if (!results.supabase?.success) {
+          console.warn('⚠️ Supabase connection issues detected:', results.recommendations);
+        }
+      } catch (error) {
+        console.error('❌ Diagnostics failed:', error);
+      }
+    };
+    
+    runDiagnostics();
+    
     // PRELOAD: 현재 사용자의 팔로우 데이터를 미리 캐시
     if (user?.id) {
       try {
         console.log('⚡ PRELOAD: Loading follow data for instant Profile access');
-        const followCacheStore = require('../store/FollowCacheStore').default;
-        const FollowService = require('../services/followClient').default;
+        const UnifiedFollowService = require('../services/UnifiedFollowService').default;
         
-        // 이미 캐시에 있는지 확인
-        if (!followCacheStore.getFromCache(user.id)) {
-          FollowService.getBatchFollowData(user.id).then(result => {
-            if (result.success) {
-              followCacheStore.setCache(user.id, {
-                followersCount: result.followersCount,
-                followingCount: result.followingCount,
-                isFollowing: false
-              });
-              console.log('⚡ PRELOAD: Follow data cached on app start');
-            }
-          }).catch(err => {
-            console.log('⚡ PRELOAD: Failed to cache follow data (non-critical)');
-          });
+        // 캐시 확인 후 필요한 경우에만 백그라운드 로딩
+        const cachedData = UnifiedFollowService.getFromCache(UnifiedFollowService.getCacheKey('followersCount', { userId: user.id }));
+        if (!cachedData) {
+          // 백그라운드에서 조용히 로딩 (UI 차단 없음)
+          setTimeout(() => {
+            Promise.all([
+              UnifiedFollowService.getFollowersCount(user.id),
+              UnifiedFollowService.getFollowingCount(user.id)
+            ]).then(() => {
+              console.log('⚡ PRELOAD: Follow data cached for Profile screen');
+            }).catch(() => {
+              console.log('⚡ PRELOAD: Background caching failed (non-critical)');
+            });
+          }, 1000); // 1초 지연으로 앱 시작 성능에 영향 최소화
         } else {
           console.log('⚡ PRELOAD: Follow data already cached');
         }

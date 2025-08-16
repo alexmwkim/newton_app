@@ -13,13 +13,8 @@ import {
   InputAccessoryView,
   Keyboard
 } from 'react-native';
-// SafeArea fallback for projects without safe-area-context
-let useSafeAreaInsets;
-try {
-  useSafeAreaInsets = require('react-native-safe-area-context').useSafeAreaInsets;
-} catch (e) {
-  useSafeAreaInsets = () => ({ bottom: 34, top: 44, left: 0, right: 0 });
-}
+// SafeArea fallback
+const useSafeAreaInsets = () => ({ bottom: 34, top: 44, left: 0, right: 0 });
 import Icon from 'react-native-vector-icons/Feather';
 import { Colors } from '../constants/Colors';
 import SingleToggleComponent from '../components/SingleToggleComponent';

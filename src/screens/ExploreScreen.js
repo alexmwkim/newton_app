@@ -596,26 +596,25 @@ const ExploreScreen = ({ navigation }) => {
                               // PRELOAD BEFORE NAVIGATION for instant display
                               const handleNavigation = async () => {
                                 try {
-                                  const followCacheStore = require('../store/FollowCacheStore').default;
-                                  const FollowService = require('../services/followClient').default;
+                                  const UnifiedFollowService = require('../services/UnifiedFollowService').default;
                                   const targetUserId = author.user_id || author.id;
                                   
                                   // Check if cache is missing and preload BEFORE navigation
-                                  const cachedData = followCacheStore.getFromCache(targetUserId);
+                                  const cachedData = UnifiedFollowService.getFromCache(targetUserId);
                                   
                                   if (!cachedData) {
                                     console.log('⚡ PRELOAD: No cache found, loading data BEFORE navigation...');
                                     
                                     try {
-                                      // Quick load before navigation
-                                      const result = await FollowService.getBatchFollowData(targetUserId, user?.id);
-                                      if (result.success) {
-                                        followCacheStore.setCache(targetUserId, {
-                                          followersCount: result.followersCount,
-                                          followingCount: result.followingCount,
-                                          isFollowing: result.isFollowing
-                                        });
-                                        console.log('⚡ PRELOAD: Data cached before navigation!');
+                                      // Quick load before navigation using UnifiedFollowService
+                                      const [followersCount, followingCount, isFollowingResult] = await Promise.all([
+                                        UnifiedFollowService.getFollowersCount(targetUserId),
+                                        UnifiedFollowService.getFollowingCount(targetUserId),
+                                        user?.id ? UnifiedFollowService.isFollowing(user.id, targetUserId) : Promise.resolve({ success: true, isFollowing: false })
+                                      ]);
+                                      
+                                      if (followersCount !== undefined && followingCount !== undefined) {
+                                        console.log('⚡ PRELOAD: Data cached by UnifiedFollowService before navigation!');
                                       }
                                     } catch (loadError) {
                                       console.log('⚡ PRELOAD: Quick load failed, navigating anyway');

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import FollowService from '../../../services/followClient';
+import UnifiedFollowService from '../../../services/UnifiedFollowService';
 
 /**
  * 소셜 기능 (팔로우/팔로워) 관리를 위한 커스텀 훅
@@ -25,23 +25,23 @@ export const useSocialData = (userId, currentUserId) => {
     try {
       // 팔로워/팔로잉 수 가져오기
       const [followersResult, followingResult, isFollowingResult] = await Promise.all([
-        FollowService.getFollowerCount(userId),
-        FollowService.getFollowingCount(userId),
+        UnifiedFollowService.getFollowersCount(userId),
+        UnifiedFollowService.getFollowingCount(userId),
         currentUserId && currentUserId !== userId 
-          ? FollowService.isFollowing(currentUserId, userId)
+          ? UnifiedFollowService.isFollowing(currentUserId, userId)
           : Promise.resolve({ data: false, error: null })
       ]);
 
       if (followersResult.error) {
         console.error('Followers count error:', followersResult.error);
       } else {
-        setFollowersCount(followersResult.data || 0);
+        setFollowersCount(followersResult.count || 0);
       }
 
       if (followingResult.error) {
         console.error('Following count error:', followingResult.error);
       } else {
-        setFollowingCount(followingResult.data || 0);
+        setFollowingCount(followingResult.count || 0);
       }
 
       if (isFollowingResult.error) {
@@ -70,14 +70,14 @@ export const useSocialData = (userId, currentUserId) => {
       
       if (isFollowing) {
         // 언팔로우
-        result = await FollowService.unfollowUser(currentUserId, userId);
+        result = await UnifiedFollowService.unfollowUser(currentUserId, userId);
         if (!result.error) {
           setIsFollowing(false);
           setFollowersCount(prev => Math.max(0, prev - 1));
         }
       } else {
         // 팔로우
-        result = await FollowService.followUser(currentUserId, userId);
+        result = await UnifiedFollowService.followUser(currentUserId, userId);
         if (!result.error) {
           setIsFollowing(true);
           setFollowersCount(prev => prev + 1);

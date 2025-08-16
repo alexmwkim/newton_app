@@ -1,84 +1,169 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+/**
+ * NotificationsScreen
+ * Display and manage all user notifications
+ */
+
+import React, { useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { useNotifications } from '../hooks/useNotifications';
+import NotificationItem from '../components/NotificationItem';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
-import Layout from '../constants/Layout';
 
 const NotificationsScreen = ({ navigation }) => {
-  // Mock notification data - empty for now to show empty state
-  const [notifications, setNotifications] = useState([]);
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    hasMore,
+    loadMore,
+    refresh,
+    markAllAsRead,
+    hasUnread
+  } = useNotifications();
 
-  const handleBackPress = () => {
-    navigation.goBack();
-  };
+  // Refresh when screen focused
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('📱 NotificationsScreen focused, refreshing...');
+      refresh();
+    });
 
-  const handleMorePress = () => {
-    console.log('More options pressed');
-    // TODO: Show notification settings or options
-  };
+    return unsubscribe;
+  }, [navigation, refresh]);
 
-  const handleCreateNote = () => {
-    console.log('Create note pressed');
-    navigation.navigate('createNote');
-  };
+  // Refresh handler
+  const handleRefresh = useCallback(async () => {
+    console.log('🔄 Refreshing notifications...');
+    await refresh();
+  }, [refresh]);
 
-  // Empty state component with Newton's hand-written style
-  const EmptyState = () => (
-    <View style={styles.emptyStateContainer}>
-      {/* Hand-drawn style swirl icon inspired by Newton logo */}
-      <View style={styles.emptyStateIcon}>
-        <Text style={styles.emptyStateSwirl}>∽</Text>
+  // Load more handler
+  const handleLoadMore = useCallback(async () => {
+    if (!isLoading && hasMore) {
+      console.log('📄 Loading more notifications...');
+      await loadMore();
+    }
+  }, [isLoading, hasMore, loadMore]);
+
+  // Mark all as read handler
+  const handleMarkAllAsRead = useCallback(async () => {
+    if (!hasUnread) return;
+
+    Alert.alert(
+      'Mark All as Read',
+      'Are you sure you want to mark all notifications as read?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            const result = await markAllAsRead();
+            if (!result.success) {
+              Alert.alert('Error', 'Failed to mark notifications as read.');
+            }
+          },
+        },
+      ]
+    );
+  }, [hasUnread, markAllAsRead]);
+
+  // Header component
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Icon name="arrow-left" size={24} color={Colors.textBlack} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Notifications</Text>
       </View>
       
-      <Text style={styles.emptyStateTitle}>All caught up!</Text>
-      <Text style={styles.emptyStateSubtitle}>Ready to make good new days</Text>
-      
-      <Text style={styles.emptyStateDescription}>
-        Notifications about your notes, mentions, and followers will appear here
-      </Text>
-      
-      {/* Optional call-to-action */}
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateNote}>
-        <Icon name="plus" size={16} color={Colors.mainBackground} />
-        <Text style={styles.createButtonText}>Create New Note</Text>
-      </TouchableOpacity>
+      {hasUnread && (
+        <TouchableOpacity
+          onPress={handleMarkAllAsRead}
+          style={styles.markAllButton}
+        >
+          <Text style={styles.markAllText}>Mark All Read</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
+  // Empty state component
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Icon name="bell-off" size={64} color={Colors.lightGray} />
+      <Text style={styles.emptyTitle}>No notifications</Text>
+      <Text style={styles.emptySubtitle}>
+        New stars and follows will appear here
+      </Text>
+    </View>
+  );
+
+  // Footer loading component
+  const renderFooter = () => {
+    if (!isLoading || notifications.length === 0) return null;
+    
+    return (
+      <View style={styles.footer}>
+        <ActivityIndicator size="small" color={Colors.primary} />
+        <Text style={styles.footerText}>Loading more...</Text>
+      </View>
+    );
+  };
+
+  // Notification item renderer
+  const renderNotificationItem = useCallback(({ item, index }) => (
+    <NotificationItem
+      notification={item}
+      onPress={() => {
+        // Navigate to related screen when notification clicked
+        console.log('Notification pressed:', item);
+        // TODO: Implement navigation logic based on notification type
+      }}
+    />
+  ), []);
+
+  // Key extractor
+  const keyExtractor = useCallback((item) => item.id, []);
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <TouchableOpacity style={styles.moreButton} onPress={handleMorePress}>
-            <Icon name="more-horizontal" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {notifications.length === 0 ? (
-            <EmptyState />
-          ) : (
-            // TODO: Render notifications list when we have data
-            <View style={styles.notificationsList}>
-              {notifications.map((notification, index) => (
-                <View key={index} style={styles.notificationItem}>
-                  {/* Notification item content */}
-                </View>
-              ))}
-            </View>
-          )}
-        </ScrollView>
-      </View>
+      {renderHeader()}
+      
+      <FlatList
+        data={notifications}
+        renderItem={renderNotificationItem}
+        keyExtractor={keyExtractor}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading && notifications.length === 0}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.1}
+        ListEmptyComponent={!isLoading ? renderEmptyState : null}
+        ListFooterComponent={renderFooter}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : styles.listContainer}
+      />
     </SafeAreaView>
   );
 };
@@ -86,125 +171,82 @@ const NotificationsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.mainBackground,
-  },
-  content: {
-    flex: 1,
-    maxWidth: 480,
-    alignSelf: 'center',
-    width: '100%',
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
-    paddingVertical: Layout.spacing.md,
-    paddingTop: Layout.spacing.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize.medium,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    letterSpacing: -0.3,
-  },
-  moreButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
+    marginRight: 8,
   },
-  scrollView: {
-    flex: 1,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textBlack,
+    ...Typography.title,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: Layout.screen.padding,
+  markAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.primary,
   },
-  
-  // Empty State Styles
-  emptyStateContainer: {
+  markAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.white,
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: Layout.spacing.xxl,
-    paddingHorizontal: Layout.spacing.xl,
   },
-  emptyStateIcon: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
+  emptyState: {
     alignItems: 'center',
-    backgroundColor: Colors.noteCard,
-    borderRadius: 40,
-    marginBottom: Layout.spacing.xl,
+    paddingHorizontal: 40,
   },
-  emptyStateSwirl: {
-    fontSize: 40,
-    color: Colors.secondaryText,
-    fontFamily: Typography.fontFamily.primary,
-    transform: [{ rotate: '15deg' }],
-  },
-  emptyStateTitle: {
-    fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    marginBottom: Layout.spacing.sm,
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textBlack,
+    marginTop: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  emptyStateSubtitle: {
-    fontSize: Typography.fontSize.body,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.secondaryText,
-    marginBottom: Layout.spacing.lg,
-    textAlign: 'center',
-  },
-  emptyStateDescription: {
-    fontSize: Typography.fontSize.small,
-    fontFamily: Typography.fontFamily.primary,
+  emptySubtitle: {
+    fontSize: 14,
     color: Colors.secondaryText,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: Layout.spacing.xl,
-    paddingHorizontal: Layout.spacing.lg,
   },
-  createButton: {
+  footer: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.floatingButton,
-    paddingHorizontal: Layout.spacing.lg,
-    paddingVertical: Layout.spacing.md,
-    borderRadius: 25,
-    gap: Layout.spacing.xs,
+    paddingVertical: 16,
   },
-  createButtonText: {
-    fontSize: Typography.fontSize.body,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.mainBackground,
-  },
-  
-  // Future: Notifications List Styles
-  notificationsList: {
-    paddingTop: Layout.spacing.md,
-  },
-  notificationItem: {
-    backgroundColor: Colors.noteCard,
-    borderRadius: 12,
-    padding: Layout.spacing.md,
-    marginBottom: Layout.spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
+  footerText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: Colors.secondaryText,
   },
 });
 

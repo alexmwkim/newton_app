@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SocialService from '../services/social';
 import { supabase } from '../services/supabase';
 import popularAuthorsAlgorithm from '../utils/PopularAuthorsAlgorithm';
+import notificationService from '../services/notifications';
+import UnifiedFollowService from '../services/UnifiedFollowService';
 
 export const useSocialStore = create()(
   persist(
@@ -114,6 +116,34 @@ export const useSocialStore = create()(
             throw new Error(error);
           }
 
+          // 📢 노티피케이션 생성 - 노트 소유자에게 알림
+          try {
+            // 노트 정보를 가져와서 소유자 ID 확인
+            const { data: note } = await supabase
+              .from('notes')
+              .select('user_id')
+              .eq('id', noteId)
+              .single();
+              
+            if (note && note.user_id !== userId) {
+              // 자신의 노트가 아닌 경우에만 알림 생성
+              const notificationResult = await notificationService.createStarNotification(
+                noteId, 
+                userId, 
+                note.user_id
+              );
+              
+              if (!notificationResult.success && !notificationResult.isSelfStar) {
+                console.warn('⚠️ Failed to create star notification:', notificationResult.error);
+              } else if (notificationResult.success && !notificationResult.isDuplicate) {
+                console.log('✅ Star notification created successfully');
+              }
+            }
+          } catch (notificationError) {
+            // 알림 생성 실패는 전체 작업을 실패시키지 않음
+            console.warn('⚠️ Star notification creation failed:', notificationError);
+          }
+
           return data;
         } catch (error) {
           console.error('Star note error:', error);
@@ -179,6 +209,52 @@ export const useSocialStore = create()(
               }
             }
           }));
+
+          // 📢 노티피케이션 생성 - 원본 노트 소유자에게 알림
+          try {
+            // 노트 정보를 가져와서 소유자 ID 확인
+            const { data: note } = await supabase
+              .from('notes')
+              .select('user_id')
+              .eq('id', noteId)
+              .single();
+              
+            if (note && note.user_id !== userId) {
+              // Get current user's profile for username
+              const { data: currentUserProfile } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('user_id', userId)
+                .single();
+              
+              const currentUsername = currentUserProfile?.username || `User-${userId.substring(0, 8)}`;
+              
+              // 자신의 노트가 아닌 경우에만 알림 생성
+              const notificationResult = await notificationService.createNotification({
+                recipientId: note.user_id,
+                senderId: userId,
+                type: 'fork',
+                title: 'Your note was forked',
+                message: `${currentUsername} forked your note`,
+                data: {
+                  note_title: note.title,
+                  sender_username: currentUsername,
+                  sender_id: userId
+                },
+                relatedNoteId: noteId,
+                relatedUserId: userId
+              });
+              
+              if (!notificationResult.success) {
+                console.warn('⚠️ Failed to create fork notification:', notificationResult.error);
+              } else if (notificationResult.success && !notificationResult.isDuplicate) {
+                console.log('✅ Fork notification created successfully');
+              }
+            }
+          } catch (notificationError) {
+            // 알림 생성 실패는 전체 작업을 실패시키지 않음
+            console.warn('⚠️ Fork notification creation failed:', notificationError);
+          }
 
           return data;
         } catch (error) {
@@ -456,6 +532,57 @@ export const useSocialStore = create()(
           feedOffset: 0,
           feedHasMore: true,
         });
+      },
+
+      // 팔로우 관련 액션 추가
+      followUser: async (followerId, followingId) => {
+        try {
+          const result = await UnifiedFollowService.followUser(followerId, followingId);
+          
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          // 📢 노티피케이션 생성 - 팔로우된 사용자에게 알림
+          try {
+            const notificationResult = await notificationService.createFollowNotification(
+              followerId,
+              followingId
+            );
+            
+            if (!notificationResult.success && !notificationResult.isSelfFollow) {
+              console.warn('⚠️ Failed to create follow notification:', notificationResult.error);
+            } else if (notificationResult.success && !notificationResult.isDuplicate) {
+              console.log('✅ Follow notification created successfully');
+            }
+          } catch (notificationError) {
+            console.warn('⚠️ Follow notification creation failed:', notificationError);
+          }
+
+          return result;
+        } catch (error) {
+          console.error('Follow user error:', error);
+          throw error;
+        }
+      },
+
+      unfollowUser: async (followerId, followingId) => {
+        try {
+          return await UnifiedFollowService.unfollowUser(followerId, followingId);
+        } catch (error) {
+          console.error('Unfollow user error:', error);
+          throw error;
+        }
+      },
+
+      isFollowingUser: async (followerId, followingId) => {
+        try {
+          const result = await UnifiedFollowService.isFollowing(followerId, followingId);
+          return result.data || false;
+        } catch (error) {
+          console.error('Check following status error:', error);
+          return false;
+        }
       },
 
       // 유틸리티 함수들

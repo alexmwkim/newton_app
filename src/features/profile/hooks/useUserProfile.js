@@ -8,7 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useNotesStore } from '../../../store/NotesStore';
 import UnifiedProfileService from '../../../services/UnifiedProfileService';
 import OptimizedNotesService from '../../../services/OptimizedNotesService';
-import FollowService from '../../../services/followClient';
+import UnifiedFollowService from '../../../services/UnifiedFollowService';
 import logger from '../../../utils/Logger';
 
 export const useUserProfile = (userId, username, profileData, routeIsCurrentUser) => {

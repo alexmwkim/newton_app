@@ -12,8 +12,7 @@ import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUt
 import { useAuth } from '../contexts/AuthContext';
 import { useNotesStore } from '../store/NotesStore';
 import NotesService from '../services/notes';
-import FollowService from '../services/followClient';
-import followCacheStore from '../store/FollowCacheStore';
+import UnifiedFollowService from '../services/UnifiedFollowService';
 
 // User data for display
 const createUserData = (username) => ({
@@ -129,32 +128,43 @@ const UserProfileScreen = ({ navigation, route }) => {
   const getInitialFollowData = () => {
     const targetUserId = profileData?.user_id || userId;
     if (targetUserId) {
-      const cachedData = followCacheStore.getFromCache(targetUserId);
+      const cachedData = UnifiedFollowService.getFromCache(targetUserId);
       if (cachedData) {
-        console.log('⚡ INSTANT: Using cached data for immediate display:', cachedData);
-        return cachedData;
+        console.log('⚡ INSTANT: Using UnifiedFollowService cached data:', cachedData);
+        return {
+          followersCount: cachedData.followersCount,
+          followingCount: cachedData.followingCount,
+          isFollowing: cachedData.isFollowing
+        };
       } else {
-        console.log('⚡ INSTANT: No cache found, will trigger immediate loading');
-        // Trigger immediate background loading without waiting
-        setTimeout(() => {
-          require('../services/followClient').default.getBatchFollowData(targetUserId, currentUser?.id).then(result => {
-            if (result.success) {
-              followCacheStore.setCache(targetUserId, result);
-              console.log('⚡ INSTANT: Background load completed, but UI may already be updated via other means');
+        console.log('⚡ INSTANT: No cache found, will trigger UnifiedFollowService loading');
+        // 백그라운드에서 즉시 로딩
+        setTimeout(async () => {
+          try {
+            const followingCount = await UnifiedFollowService.getFollowingCount(targetUserId);
+            const followersCount = await UnifiedFollowService.getFollowersCount(targetUserId);
+            const isFollowing = currentUser?.id ? await UnifiedFollowService.isFollowing(currentUser.id, targetUserId) : { isFollowing: false };
+            
+            if (followingCount.success && followersCount.success) {
+              console.log('⚡ INSTANT: UnifiedFollowService background load completed');
             }
-          });
-        }, 10); // Very quick background load
+          } catch (error) {
+            console.error('⚡ INSTANT: Background load failed:', error);
+          }
+        }, 10);
       }
     }
-    return { followersCount: 0, followingCount: 0, isFollowing: false };
+    return { followersCount: null, followingCount: null, isFollowing: null };
   };
 
   const initialData = getInitialFollowData();
 
   // Social features state - INITIALIZE WITH CACHED DATA
-  const [isFollowing, setIsFollowing] = useState(!!profileData?.followed_at || initialData.isFollowing);
-  const [followersCount, setFollowersCount] = useState(initialData.followersCount);
-  const [followingCount, setFollowingCount] = useState(initialData.followingCount);
+  const [isFollowing, setIsFollowing] = useState(
+    !!profileData?.followed_at || (initialData.isFollowing !== null ? initialData.isFollowing : false)
+  );
+  const [followersCount, setFollowersCount] = useState(initialData.followersCount || 0);
+  const [followingCount, setFollowingCount] = useState(initialData.followingCount || 0);
   const [showFollowOptions, setShowFollowOptions] = useState(false);
   const [statsLoaded, setStatsLoaded] = useState(true); // 항상 즉시 true - UI 차단 방지
   const [profileUIReady, setProfileUIReady] = useState(true); // UI 표시 준비 상태 - 즉시 true로 시작
@@ -173,11 +183,11 @@ const UserProfileScreen = ({ navigation, route }) => {
       if (!isCurrentUser && profileData?.user_id && !profileData?.followed_at) {
         console.log('🚀🚀 DIRECT: No followed_at field, checking follow status NOW');
         try {
-          const result = await FollowService.isFollowing(currentUser?.id, profileData.user_id);
+          const result = await UnifiedFollowService.isFollowing(currentUser?.id, profileData.user_id);
           console.log('🚀🚀 DIRECT result:', result);
           if (result.success) {
-            console.log('🚀🚀 DIRECT: Setting isFollowing to:', result.isFollowing);
-            setIsFollowing(result.isFollowing);
+            console.log('🚀🚀 DIRECT: Setting isFollowing to:', result.data);
+            setIsFollowing(result.data);
           }
         } catch (error) {
           console.error('🚀🚀 DIRECT error:', error);
@@ -237,7 +247,7 @@ const UserProfileScreen = ({ navigation, route }) => {
       if (!isCurrentUser && profileData?.user_id) {
         console.log('🚀 IMMEDIATE: Checking follow status for profileData user_id:', profileData.user_id);
         try {
-          const { success, isFollowing: followStatus } = await FollowService.isFollowing(profileData.user_id);
+          const { success, isFollowing: followStatus } = await UnifiedFollowService.isFollowing(currentUser?.id, profileData.user_id);
           console.log('🚀 IMMEDIATE follow check result:', { success, followStatus });
           
           if (success) {
@@ -465,26 +475,22 @@ Feel free to check out my public notes below!`;
       });
       
       if (!targetUserId) {
-        console.log('📊 UserProfileScreen: No valid userId for social stats');
-        setFollowersCount(0);
-        setFollowingCount(0);
-        setIsFollowing(false);
+        console.log('📊 UserProfileScreen: No valid userId for social stats - keeping current values');
         return;
       }
 
       console.log('🚀 UserProfileScreen: Loading batch follow data for user:', targetUserId);
 
-      // 먼저 캐시에서 확인
-      const cachedData = followCacheStore.getFromCache(targetUserId);
+      // 먼저 UnifiedFollowService 캐시에서 확인
+      const cachedData = UnifiedFollowService.getFromCache(targetUserId);
       if (cachedData) {
-        console.log('⚡ Using cached follow data for instant display');
+        console.log('⚡ Using UnifiedFollowService cached follow data for instant display');
         setFollowersCount(cachedData.followersCount);
         setFollowingCount(cachedData.followingCount);
         if (!isCurrentUser) {
           setIsFollowing(cachedData.isFollowing);
         }
         
-        // 캐시된 데이터로 즉시 완료 - 백그라운드 업데이트 제거
         setStatsLoaded(true);
         return;
       }
@@ -493,25 +499,24 @@ Feel free to check out my public notes below!`;
       await loadLatestFollowData(targetUserId);
     } catch (err) {
       console.error('❌ UserProfileScreen: Exception loading follow stats:', err);
-      setFollowersCount(0);
-      setFollowingCount(0);
-      setIsFollowing(false);
+      // 예외 발생시에도 현재 상태 유지 - 0으로 재설정하지 않음
     }
   };
 
   // 최신 팔로우 데이터 로딩 함수
   const loadLatestFollowData = async (targetUserId) => {
     try {
-      // Initialize follows table if needed (first time setup)
-      await FollowService.initializeFollowsTable();
-
-      // 배치로 모든 팔로우 데이터 가져오기 (병렬 처리)
-      const { 
-        success, 
-        followersCount: followers, 
-        followingCount: following, 
-        isFollowing: followingStatus 
-      } = await FollowService.getBatchFollowData(targetUserId, currentUser?.id);
+      // UnifiedFollowService로 배치 데이터 가져오기 (병렬 처리)
+      const [followersResult, followingResult, followingStatusResult] = await Promise.all([
+        UnifiedFollowService.getFollowersCount(targetUserId),
+        UnifiedFollowService.getFollowingCount(targetUserId),
+        currentUser?.id && !isCurrentUser ? UnifiedFollowService.isFollowing(currentUser.id, targetUserId) : Promise.resolve({ isFollowing: false })
+      ]);
+      
+      const success = followersResult.success && followingResult.success;
+      const followers = followersResult.count || 0;
+      const following = followingResult.count || 0;
+      const followingStatus = followingStatusResult.data || false;
 
       if (success) {
         // 모든 상태를 한번에 업데이트
@@ -524,12 +529,7 @@ Feel free to check out my public notes below!`;
           console.log('✅ UserProfileScreen: Batch data loaded - Following status:', followingStatus);
         }
         
-        // 캐시에 저장
-        followCacheStore.setCache(targetUserId, {
-          followersCount: followers,
-          followingCount: following,
-          isFollowing: followingStatus
-        });
+        // UnifiedFollowService 캐시에 이미 저장됨 (내부적으로 처리)
         
         console.log('✅ UserProfileScreen: Latest data loaded and cached:', {
           followers,
@@ -538,20 +538,13 @@ Feel free to check out my public notes below!`;
           isCurrentUser
         });
       } else {
-        // 실패시 기본값 설정
-        setFollowersCount(0);
-        setFollowingCount(0);
-        if (!isCurrentUser) {
-          setIsFollowing(false);
-        }
-        console.log('❌ UserProfileScreen: Failed to load batch follow data');
+        console.log('❌ UserProfileScreen: Failed to load batch follow data - keeping current values');
+        // 실패시 현재 상태 유지 - 0으로 재설정하지 않음
       }
 
     } catch (err) {
       console.error('❌ UserProfileScreen: Exception loading follow stats:', err);
-      setFollowersCount(0);
-      setFollowingCount(0);
-      setIsFollowing(false);
+      // 예외 발생시에도 현재 상태 유지 - 0으로 재설정하지 않음
     }
   };
   
@@ -702,49 +695,44 @@ Feel free to check out my public notes below!`;
   const handleFollowPress = async () => {
     try {
       const targetUserId = userProfile?.user_id || profileData?.user_id;
-      if (!targetUserId) {
-        console.error('❌ No user_id to follow/unfollow');
+      if (!targetUserId || !currentUser?.id) {
+        console.error('❌ Missing user IDs for follow action');
         return;
       }
 
-      console.log('👥 Toggle follow for user:', targetUserId, 'current status:', isFollowing);
-      
-      // Show loading state (optional - could add loading indicator)
-      const originalFollowing = isFollowing;
-      const originalCount = followersCount;
-      
-      // Optimistic update
-      setIsFollowing(!isFollowing);
-      setFollowersCount(isFollowing ? followersCount - 1 : followersCount + 1);
-      
-      // Perform actual follow/unfollow using current user ID and target user ID
-      console.log('🔍 FollowService.toggleFollow params:', {
-        currentUserId: currentUser?.id,
-        targetUserId: targetUserId
+      console.log('⚡ INSTANT FOLLOW TOGGLE:', {
+        currentUserId: currentUser.id,
+        targetUserId,
+        currentlyFollowing: isFollowing
       });
       
-      const { success, isFollowing: newFollowingStatus, error } = await FollowService.toggleFollow(currentUser?.id, targetUserId);
+      // 🚀 ULTRA-OPTIMIZED: 즉시 UI 업데이트 + 백그라운드 DB 처리
+      const { instantFollowToggle } = require('../utils/optimizedFollowActions');
       
-      if (success) {
-        // Update with actual result
-        console.log('✅ Follow toggle successful! Setting isFollowing to:', newFollowingStatus);
-        console.log('✅ Before setState - current isFollowing:', isFollowing);
-        setIsFollowing(newFollowingStatus);
-        console.log('✅ After setState called - new value should be:', newFollowingStatus);
+      const result = await instantFollowToggle(
+        isFollowing,
+        currentUser.id,
+        targetUserId,
+        {
+          setIsFollowing,
+          setFollowersCount,
+          currentFollowersCount: followersCount
+        },
+        UnifiedFollowService
+      );
+      
+      if (result.success) {
+        console.log('✅ INSTANT TOGGLE: Success! New state:', result.newState);
         
-        // 캐시 업데이트
-        followCacheStore.updateFollowCache(targetUserId, currentUser?.id, newFollowingStatus);
-        
-        // 백그라운드에서 최신 데이터로 새로고침
+        // 🔥 백그라운드 새로고침 (UI는 이미 완벽하게 업데이트됨)
         setTimeout(async () => {
+          console.log('🔄 Background data sync...');
           await loadLatestFollowData(targetUserId);
         }, 100);
+        
       } else {
-        // Revert optimistic update on error
-        console.error('❌ Follow toggle failed:', error);
-        setIsFollowing(originalFollowing);
-        setFollowersCount(originalCount);
-        Alert.alert('Error', error || 'Failed to update follow status');
+        console.error('❌ INSTANT TOGGLE: Failed:', result.error);
+        Alert.alert('Error', result.error || 'Failed to update follow status');
       }
       
     } catch (error) {
@@ -975,14 +963,14 @@ Feel free to check out my public notes below!`;
             <View style={styles.socialStats}>
               <TouchableOpacity onPress={handleFollowersPress}>
                 <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followersCount}</Text>
+                  <Text style={styles.statNumber}>{typeof followersCount === 'number' ? followersCount : 0}</Text>
                   <Text style={styles.statLabel}> followers</Text>
                 </Text>
               </TouchableOpacity>
               <Text style={styles.statSeparator}>  </Text>
               <TouchableOpacity onPress={handleFollowingPress}>
                 <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followingCount}</Text>
+                  <Text style={styles.statNumber}>{typeof followingCount === 'number' ? followingCount : 0}</Text>
                   <Text style={styles.statLabel}> following</Text>
                 </Text>
               </TouchableOpacity>

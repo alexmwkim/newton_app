@@ -159,7 +159,16 @@ const TabNavigator = ({ logout }) => {
       setParams: (params) => {
         setScreenProps({ ...screenProps, ...params });
       },
-      isFocused: () => true
+      isFocused: () => true,
+      addListener: (eventName, callback) => {
+        // Mock implementation for focus events
+        if (eventName === 'focus') {
+          // Call immediately since we don't have real navigation focus events
+          callback();
+        }
+        // Return unsubscribe function
+        return () => {};
+      }
     };
     
     switch (currentScreen) {
