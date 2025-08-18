@@ -30,7 +30,7 @@ export const instantUnfollow = async (
     
     // 2. 백그라운드에서 실제 언팔로우 실행
     console.log('🚀 INSTANT UNFOLLOW: Executing database action...');
-    const result = await UnifiedFollowService.unfollowUser(currentUserId, targetUserId);
+    const result = await UnifiedFollowService.toggleFollow(currentUserId, targetUserId);
     
     if (result.success) {
       console.log('✅ INSTANT UNFOLLOW: Database action successful');
@@ -146,11 +146,8 @@ export const instantFollowToggle = async (
     const startTime = performance.now();
     let result;
     
-    if (isCurrentlyFollowing) {
-      result = await UnifiedFollowService.unfollowUser(currentUserId, targetUserId);
-    } else {
-      result = await UnifiedFollowService.followUser(currentUserId, targetUserId);
-    }
+    // Use toggleFollow for all cases to maintain consistency
+    result = await UnifiedFollowService.toggleFollow(currentUserId, targetUserId);
     
     const endTime = performance.now();
     const responseTime = endTime - startTime;

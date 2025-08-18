@@ -105,19 +105,43 @@ const FollowListScreen = ({ navigation, route }) => {
         [targetUserId]: !isCurrentlyFollowing
       }));
 
+      // 언팔로우하는 경우 즉시 리스트에서 제거 (낙관적 업데이트)
+      if (isCurrentlyFollowing && type === 'following') {
+        setUsers(prevUsers => prevUsers.filter(user => {
+          const userIdToCheck = user.user_id || user.follower_id || user.following_id;
+          return userIdToCheck !== targetUserId;
+        }));
+      }
+
       const { success, isFollowing: newFollowingStatus, error } = await UnifiedFollowService.toggleFollow(currentUser.id, targetUserId);
       
       if (success) {
+        // 팔로우 상태 업데이트
         setFollowingStates(prev => ({
           ...prev,
           [targetUserId]: newFollowingStatus
         }));
+        
+        // 언팔로우한 경우: following 리스트에서 해당 유저 제거
+        if (!newFollowingStatus && type === 'following') {
+          setUsers(prevUsers => prevUsers.filter(user => {
+            const userIdToCheck = user.user_id || user.follower_id || user.following_id;
+            return userIdToCheck !== targetUserId;
+          }));
+          console.log(`✅ Removed user ${targetUserId} from following list via toggle`);
+        }
       } else {
         // 에러 시 상태 되돌리기
         setFollowingStates(prev => ({
           ...prev,
           [targetUserId]: isCurrentlyFollowing
         }));
+        
+        // 언팔로우 시도였다면 사용자를 다시 리스트에 추가 (롤백)
+        if (isCurrentlyFollowing && type === 'following') {
+          await loadUserList(); // 전체 리스트 다시 로드 (안전한 롤백)
+        }
+        
         console.error('Follow toggle failed:', error);
         Alert.alert('Error', 'Failed to update follow status');
       }
@@ -127,6 +151,11 @@ const FollowListScreen = ({ navigation, route }) => {
         ...prev,
         [targetUserId]: followingStates[targetUserId]
       }));
+      
+      // 언팔로우 시도였다면 사용자를 다시 리스트에 추가 (롤백)
+      if (isCurrentlyFollowing && type === 'following') {
+        await loadUserList(); // 전체 리스트 다시 로드 (안전한 롤백)
+      }
       
       console.error('Follow toggle failed:', error);
       Alert.alert('Error', 'Failed to update follow status');
@@ -178,15 +207,32 @@ const FollowListScreen = ({ navigation, route }) => {
                 ...prev,
                 [targetUserId]: false
               }));
+              
+              // 즉시 following 리스트에서 제거 (낙관적 업데이트)
+              if (type === 'following') {
+                setUsers(prevUsers => prevUsers.filter(user => {
+                  const userIdToCheck = user.user_id || user.follower_id || user.following_id;
+                  return userIdToCheck !== targetUserId;
+                }));
+              }
 
-              const { success, error } = await UnifiedFollowService.unfollowUser(currentUser.id, targetUserId);
+              const { success, error } = await UnifiedFollowService.toggleFollow(currentUser.id, targetUserId);
 
-              if (!success) {
+              if (success) {
+                // 성공: 낙관적 업데이트가 이미 완료됨
+                console.log(`✅ Successfully unfollowed user ${targetUserId}`);
+              } else {
                 // 에러 시 상태 되돌리기
                 setFollowingStates(prev => ({
                   ...prev,
                   [targetUserId]: true
                 }));
+                
+                // 리스트도 복구
+                if (type === 'following') {
+                  await loadUserList(); // 전체 리스트 다시 로드 (안전한 롤백)
+                }
+                
                 console.error('Unfollow failed:', error);
                 Alert.alert('Error', 'Failed to unfollow user');
               }
@@ -196,6 +242,12 @@ const FollowListScreen = ({ navigation, route }) => {
                 ...prev,
                 [targetUserId]: true
               }));
+              
+              // 리스트도 복구
+              if (type === 'following') {
+                await loadUserList(); // 전체 리스트 다시 로드 (안전한 롤백)
+              }
+              
               console.error('Unfollow failed:', error);
               Alert.alert('Error', 'Failed to unfollow user');
             }
@@ -304,29 +356,44 @@ const FollowListScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* 팔로우 버튼 - 현재 사용자 자신에게는 표시하지 않음 */}
+        {/* 소셜미디어 표준 UX 패턴 적용 */}
         {!isCurrentUser && (
-          <TouchableOpacity
-            style={[
-              styles.followButton,
-              isFollowing && styles.followingButton
-            ]}
-            onPress={(event) => {
-              if (isFollowing) {
-                handleFollowingButtonPress(userId, event);
-              } else {
-                handleFollowToggle(userId);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.followButtonText,
-              isFollowing && styles.followingButtonText
-            ]}>
-              {isFollowing ? 'Following' : 'Follow'}
-            </Text>
-          </TouchableOpacity>
+          <>
+            {/* Following 리스트: 내가 팔로우하는 모든 사용자에게 언팔로우 버튼 */}
+            {type === 'following' && (
+              <TouchableOpacity
+                style={[styles.followButton, styles.followingButton]}
+                onPress={(event) => handleFollowingButtonPress(userId, event)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.followButtonText, styles.followingButtonText]}>
+                  Following
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Followers 리스트: 일방적 팔로우인 경우에만 Follow Back 버튼 */}
+            {type === 'followers' && !isFollowing && (
+              <TouchableOpacity
+                style={styles.followButton}
+                onPress={() => handleFollowToggle(userId)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.followButtonText}>
+                  Follow Back
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Followers 리스트: 상호 팔로우인 경우 버튼 없음 (깔끔한 UI) */}
+            {type === 'followers' && isFollowing && (
+              <View style={styles.mutualFollowIndicator}>
+                <Text style={styles.mutualFollowText}>
+                  Mutual
+                </Text>
+              </View>
+            )}
+          </>
         )}
         
 
@@ -580,6 +647,24 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: Colors.secondaryText, // Gray text for Following button
+  },
+
+  // 상호 팔로우 표시
+  mutualFollowIndicator: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mutualFollowText: {
+    fontSize: 13,
+    color: Colors.secondaryText,
+    fontFamily: 'Avenir Next',
+    fontWeight: '500',
+    opacity: 0.7,
   },
 
   // 옵션 메뉴 - UserProfileScreen과 동일한 스타일

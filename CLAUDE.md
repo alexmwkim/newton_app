@@ -283,3 +283,4 @@ Since this is a mobile-first React Native + Expo project:
 - Proposed both short-term and long-term strategies for implementing a seamless content insertion experience
 - 응 앞으로 새로운 파일을 만들때 이미 존재하면 그 파일을 수정해서 작업해. 계속 새로운 파일을 만들지말고.
 - 내가 요청하는 내용만 그대로 점검하지말고 전체적인 코드를 분석을해서, 리팩토링되었던 코드들과 기존에 남아있는 코드들, 중복되는지, 불필요한지. 페이지마다 잘 적용되고 있는지 서로 상호작용을 하고있는지를 전체적으로 구조를 파악하고 점검해서 오류의 원인을 찾아내거나 해결책을 찾는 방법으로 문제를 해결해야지, 내가 요청한 오류만 단순히 해석하는 방법은 앞으로 하지마. 그러니까 앱이 전체적으로 지저분해지고 구조도 변경되고 그러고있어.전체적인 구조를 시스테미컬한 견해로 작업을해.
+- 앞으로 sql문제라면 나한테 입력할 정보를 줘. 내가직접 하면되

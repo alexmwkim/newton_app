@@ -26,6 +26,7 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
     refresh,
     reset
   } = useNotificationStore();
@@ -83,6 +84,13 @@ export const useNotifications = () => {
     return await deleteNotification(notificationId, user.id);
   }, [user?.id, deleteNotification]);
 
+  // 모든 알림 삭제
+  const handleDeleteAllNotifications = useCallback(async () => {
+    if (!user?.id) return;
+    
+    return await deleteAllNotifications(user.id);
+  }, [user?.id, deleteAllNotifications]);
+
   // 읽지 않은 알림 수 업데이트
   const updateUnreadCount = useCallback(async () => {
     if (!user?.id) return;
@@ -130,6 +138,7 @@ export const useNotifications = () => {
     markAsRead: handleMarkAsRead,
     markAllAsRead: handleMarkAllAsRead,
     deleteNotification: handleDeleteNotification,
+    deleteAllNotifications: handleDeleteAllNotifications,
     updateUnreadCount,
 
     // 유틸리티

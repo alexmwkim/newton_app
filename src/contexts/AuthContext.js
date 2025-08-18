@@ -107,10 +107,11 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       
-      const { data: profileData, error } = await ProfileService.getProfile(userId);
+      // 🔧 FIX: ProfileService.getProfile()은 직접 데이터를 반환하므로 디스트럭처링 불필요
+      const profileData = await ProfileService.getProfile(userId);
       
-      if (error || !profileData) {
-        console.log('❌ Profile not found, creating new profile...', error);
+      if (!profileData) {
+        console.log('❌ Profile not found, creating new profile...');
         // Profile doesn't exist, create it
         await createUserProfile(userId);
         return;

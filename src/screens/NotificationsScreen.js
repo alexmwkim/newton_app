@@ -30,7 +30,9 @@ const NotificationsScreen = ({ navigation }) => {
     loadMore,
     refresh,
     markAllAsRead,
-    hasUnread
+    hasUnread,
+    deleteNotification,
+    deleteAllNotifications
   } = useNotifications();
 
   // Refresh when screen focused
@@ -79,6 +81,51 @@ const NotificationsScreen = ({ navigation }) => {
     );
   }, [hasUnread, markAllAsRead]);
 
+  // Delete all notifications handler
+  const handleDeleteAll = useCallback(async () => {
+    if (notifications.length === 0) return;
+
+    Alert.alert(
+      'Delete All Notifications',
+      'Are you sure you want to delete all notifications? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ Starting bulk delete of all notifications');
+              
+              const result = await deleteAllNotifications();
+              
+              if (result?.success) {
+                console.log(`✅ Successfully deleted ${result.deletedCount} notifications`);
+                
+                // Refresh the list
+                console.log('🔄 Refreshing notifications list...');
+                await refresh();
+                
+                // Show success message
+                if (result.deletedCount > 0) {
+                  Alert.alert('Success', `Deleted ${result.deletedCount} notifications.`);
+                } else {
+                  Alert.alert('Info', 'No notifications to delete.');
+                }
+              } else {
+                console.error('❌ Failed to delete notifications:', result?.error);
+                Alert.alert('Error', result?.error || 'Failed to delete all notifications.');
+              }
+            } catch (error) {
+              console.error('❌ Error deleting all notifications:', error);
+              Alert.alert('Error', 'Failed to delete all notifications.');
+            }
+          },
+        },
+      ]
+    );
+  }, [notifications, deleteAllNotifications, refresh]);
+
   // Header component
   const renderHeader = () => (
     <View style={styles.header}>
@@ -92,14 +139,25 @@ const NotificationsScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Notifications</Text>
       </View>
       
-      {hasUnread && (
-        <TouchableOpacity
-          onPress={handleMarkAllAsRead}
-          style={styles.markAllButton}
-        >
-          <Text style={styles.markAllText}>Mark All Read</Text>
-        </TouchableOpacity>
-      )}
+      <View style={styles.headerRight}>
+        {hasUnread && (
+          <TouchableOpacity
+            onPress={handleMarkAllAsRead}
+            style={styles.markAllButton}
+          >
+            <Text style={styles.markAllText}>Mark All Read</Text>
+          </TouchableOpacity>
+        )}
+        
+        {notifications.length > 0 && (
+          <TouchableOpacity
+            onPress={handleDeleteAll}
+            style={styles.deleteAllButton}
+          >
+            <Icon name="trash-2" size={20} color={Colors.danger} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -138,8 +196,10 @@ const NotificationsScreen = ({ navigation }) => {
     />
   ), []);
 
-  // Key extractor
-  const keyExtractor = useCallback((item) => item.id, []);
+  // Key extractor - use index as fallback for duplicate IDs
+  const keyExtractor = useCallback((item, index) => {
+    return item.id ? `${item.id}_${index}` : `notification_${index}`;
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -186,6 +246,12 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   backButton: {
     width: 40,
@@ -210,6 +276,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: Colors.white,
+  },
+  deleteAllButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: Colors.background,
   },
   listContainer: {
     paddingBottom: 20,

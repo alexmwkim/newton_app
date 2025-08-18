@@ -21,11 +21,11 @@ if (__DEV__) {
   global.runQuickTest = quickTest.runQuickTest;
   global.testNotificationSystem = quickTest.testNotificationSystem;
   
-  // Auto-run basic network test on app start (after a delay)
-  setTimeout(() => {
-    console.log('\n🚀 Running automatic network diagnostic...');
-    quickTest.runQuickTest();
-  }, 2000);
+  // 🚨 DISABLED: Auto-run causing follow data deletion
+  // setTimeout(() => {
+  //   console.log('\n🚀 Running automatic network diagnostic...');
+  //   quickTest.runQuickTest();
+  // }, 2000);
   
   // Initialize system integration testing
   const integrationTest = require('./src/utils/systemIntegrationTest');
@@ -90,27 +90,25 @@ if (__DEV__) {
   // Initialize working pattern restorer
   const revertToWorkingPattern = require('./src/utils/revertToWorkingPattern');
   
-  // Auto-run system integration test (after network test)
-  setTimeout(() => {
-    console.log('\n🧪 Running system integration test...');
-    integrationTest.runFullIntegrationTest();
-  }, 5000);
+  // 🚨 DISABLED: All auto-run tests causing follow data deletion
+  // setTimeout(() => {
+  //   console.log('\n🧪 Running system integration test...');
+  //   integrationTest.runFullIntegrationTest();
+  // }, 5000);
   
-  // Auto-run notification RLS test (after app loads)
-  setTimeout(() => {
-    console.log('\n🔔 Testing notification system after RLS fix...');
-    if (global.quickNotificationTest) {
-      global.quickNotificationTest();
-    }
-  }, 8000);
+  // setTimeout(() => {
+  //   console.log('\n🔔 Testing notification system after RLS fix...');
+  //   if (global.quickNotificationTest) {
+  //     global.quickNotificationTest();
+  //   }
+  // }, 8000);
   
-  // Auto-run follow cache fix (after notification test)
-  setTimeout(() => {
-    console.log('\n🔧 Fixing follow cache inconsistency...');
-    if (global.fixFollowCacheIssue) {
-      global.fixFollowCacheIssue();
-    }
-  }, 12000);
+  // setTimeout(() => {
+  //   console.log('\n🔧 Fixing follow cache inconsistency...');
+  //   if (global.fixFollowCacheIssue) {
+  //     global.fixFollowCacheIssue();
+  //   }
+  // }, 12000);
 }
 
 function AppContent() {

@@ -543,21 +543,8 @@ export const useSocialStore = create()(
             throw new Error(result.error);
           }
 
-          // 📢 노티피케이션 생성 - 팔로우된 사용자에게 알림
-          try {
-            const notificationResult = await notificationService.createFollowNotification(
-              followerId,
-              followingId
-            );
-            
-            if (!notificationResult.success && !notificationResult.isSelfFollow) {
-              console.warn('⚠️ Failed to create follow notification:', notificationResult.error);
-            } else if (notificationResult.success && !notificationResult.isDuplicate) {
-              console.log('✅ Follow notification created successfully');
-            }
-          } catch (notificationError) {
-            console.warn('⚠️ Follow notification creation failed:', notificationError);
-          }
+          // 📢 노티피케이션은 데이터베이스 트리거에서 자동 생성됨 (중복 방지)
+          console.log('ℹ️ Follow notification will be created by database trigger');
 
           return result;
         } catch (error) {

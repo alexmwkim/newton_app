@@ -40,7 +40,7 @@ class FollowCacheStore {
     if (now - timestamp > this.cacheTimeout) {
       this.cache.delete(key);
       console.log('🗑️ Follow cache expired for user:', userId);
-      return null;
+      return undefined; // null 대신 undefined 반환으로 "캐시 없음" 상태 표현
     }
 
     console.log('⚡ Follow cache hit for user:', userId, data);

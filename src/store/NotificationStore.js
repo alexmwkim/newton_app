@@ -128,14 +128,28 @@ export const useNotificationStore = create()(
 
           const newNotifications = result.data || [];
           
-          set(state => ({
-            notifications: refresh 
-              ? newNotifications 
-              : [...state.notifications, ...newNotifications],
-            currentPage: page + 1,
-            hasMore: newNotifications.length === pageSize,
-            isLoading: false
-          }));
+          set(state => {
+            let allNotifications;
+            if (refresh) {
+              allNotifications = newNotifications;
+            } else {
+              allNotifications = [...state.notifications, ...newNotifications];
+            }
+            
+            // 중복 제거 - ID 기준으로 unique notifications만 유지
+            const uniqueNotifications = allNotifications.filter((notification, index, self) => 
+              index === self.findIndex(n => n.id === notification.id)
+            );
+            
+            console.log(`📱 Loaded ${newNotifications.length} new, ${uniqueNotifications.length} total unique notifications`);
+            
+            return {
+              notifications: uniqueNotifications,
+              currentPage: page + 1,
+              hasMore: newNotifications.length === pageSize,
+              isLoading: false
+            };
+          });
 
           console.log(`✅ Loaded ${newNotifications.length} notifications`);
           return { success: true, data: newNotifications };
@@ -295,6 +309,37 @@ export const useNotificationStore = create()(
         }
       },
 
+      // 모든 알림 삭제
+      deleteAllNotifications: async (userId) => {
+        try {
+          // 낙관적 업데이트
+          const originalNotifications = get().notifications;
+          const originalUnreadCount = get().unreadCount;
+
+          set({
+            notifications: [],
+            unreadCount: 0
+          });
+
+          const result = await notificationService.deleteAllNotifications(userId);
+          
+          if (!result.success) {
+            // 롤백
+            set({
+              notifications: originalNotifications,
+              unreadCount: originalUnreadCount
+            });
+            throw new Error(result.error);
+          }
+
+          console.log(`🗑️ Deleted ${result.deletedCount} notifications`);
+          return result;
+        } catch (error) {
+          console.error('❌ Failed to delete all notifications:', error);
+          return { success: false, error: error.message };
+        }
+      },
+
       // 새 알림 추가 (실시간)
       addNotification: (notification) => {
         set(state => ({
@@ -315,17 +360,26 @@ export const useNotificationStore = create()(
 
           console.log('📡 Starting realtime notification subscription...');
 
-          // 전역 콜백 등록
+          // 전역 콜백 등록 (중복 방지)
           if (typeof global !== 'undefined') {
             if (!global.notificationCallbacks) {
               global.notificationCallbacks = [];
+              console.log('🚀 Initialized global notification callbacks array');
             }
             
+            // 기존 콜백 제거 (중복 방지)
+            global.notificationCallbacks = global.notificationCallbacks.filter(
+              cb => cb.name !== 'notificationStoreCallback'
+            );
+            
             const callback = (notification) => {
+              console.log('📨 Global callback received notification:', notification);
               get().addNotification(notification);
             };
+            callback.name = 'notificationStoreCallback'; // 식별을 위한 이름 추가
             
             global.notificationCallbacks.push(callback);
+            console.log(`📡 Registered notification callback. Total callbacks: ${global.notificationCallbacks.length}`);
           }
 
           // 서비스에서 실시간 구독 시작
@@ -356,7 +410,11 @@ export const useNotificationStore = create()(
 
           // 전역 콜백 정리
           if (typeof global !== 'undefined' && global.notificationCallbacks) {
-            global.notificationCallbacks = [];
+            // 특정 콜백만 제거 (다른 컴포넌트의 콜백은 유지)
+            global.notificationCallbacks = global.notificationCallbacks.filter(
+              cb => cb.name !== 'notificationStoreCallback'
+            );
+            console.log(`🧹 Cleaned up notification callbacks. Remaining: ${global.notificationCallbacks.length}`);
           }
 
           set({ 

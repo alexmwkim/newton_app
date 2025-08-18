@@ -135,6 +135,23 @@ const NotificationItem = React.memo(({
   
   const senderName = getSenderName();
   
+  // Debug logging for follow notifications specifically
+  if (notification.type === 'follow') {
+    console.log('🐛 FOLLOW NOTIFICATION DEBUG:', {
+      notificationId: notification.id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      recipient_id: notification.recipient_id,
+      sender_id: notification.sender_id,
+      sender: sender,
+      senderUsername: sender?.username,
+      senderName: senderName,
+      notificationData: notificationData,
+      finalDisplayMessage: `${senderName} started following you`
+    });
+  }
+  
   // Debug logging for troubleshooting
   if (senderName === 'Unknown User') {
     console.log('🐛 NotificationItem debug - Unknown User:', {
@@ -158,11 +175,12 @@ const NotificationItem = React.memo(({
       activeOpacity={0.7}
     >
       <View style={styles.content}>
-        {/* Sender avatar (for follow notifications) */}
-        {notification.type === 'follow' && sender?.avatar_url ? (
+        {/* Sender avatar - always show if sender exists */}
+        {sender?.user_id ? (
           <Avatar 
-            uri={sender.avatar_url}
-            size={44}
+            imageUrl={sender.avatar_url}
+            username={senderName}
+            size="large"
             style={styles.avatar}
           />
         ) : (
@@ -189,17 +207,12 @@ const NotificationItem = React.memo(({
             styles.message,
             !notification.is_read && styles.unreadMessage
           ]}>
-            {notification.message}
+            {senderName} {notification.type === 'follow' ? 'started following you' : notification.message.replace('Someone', senderName)}
           </Text>
           <View style={styles.metaContainer}>
             <Text style={styles.timeText}>
               {formatTimeAgo(notification.created_at)}
             </Text>
-            {notification.priority === 'high' && (
-              <View style={styles.priorityBadge}>
-                <Text style={styles.priorityText}>High</Text>
-              </View>
-            )}
           </View>
         </View>
 
@@ -270,18 +283,6 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 12,
     color: Colors.lightGray,
-  },
-  priorityBadge: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   rightContainer: {
     alignItems: 'center',

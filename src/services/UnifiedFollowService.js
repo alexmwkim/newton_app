@@ -40,6 +40,8 @@ class UnifiedFollowService {
     const { data, timestamp } = cached;
     if (Date.now() - timestamp > this.cacheTimeout) {
       this.cache.delete(key);
+      logger.debug(`⏰ Cache expired for key: ${key} - triggering fresh DB query`);
+      // 🔧 FIX: 캐시 만료 시 null 반환으로 변경하여 "데이터 없음"이 아닌 "캐시 없음"을 명확히 구분
       return null;
     }
 
@@ -137,6 +139,7 @@ class UnifiedFollowService {
       const cacheKey = this.getCacheKey('isFollowing', { followerId: sanitizedFollowerId, followingId: sanitizedFollowingId });
       const cached = this.getFromCache(cacheKey);
       if (cached !== null) {
+        logger.debug(`📦 Cache hit for follow status: ${sanitizedFollowerId} → ${sanitizedFollowingId} = ${cached}`);
         return { success: true, data: cached, error: null };
       }
 
@@ -172,6 +175,18 @@ class UnifiedFollowService {
    */
   async followUser(followerId, followingId) {
     try {
+      // 🚨 CRITICAL DEBUG: 팔로우 호출 추적
+      console.log('🔥🔥🔥 FOLLOW STARTING 🔥🔥🔥', {
+        followerId,
+        followingId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // 추가 추적
+      if (typeof global?.trackFollow === 'function') {
+        global.trackFollow('🔥 FOLLOW STARTING', { followerId, followingId });
+      }
+      
       // 입력 검증
       const followerValidation = ValidationUtils.validateUUID(followerId);
       const followingValidation = ValidationUtils.validateUUID(followingId);
@@ -198,7 +213,23 @@ class UnifiedFollowService {
         return { success: false, error: 'Already following this user' };
       }
 
-      // 팔로우 생성
+      // 인증 컨텍스트 확인 및 강제 동기화
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        logger.error('❌ Authentication context missing for follow operation');
+        return { success: false, error: 'Authentication required' };
+      }
+
+      // RLS 정책 검증: 현재 사용자가 follower_id와 일치하는지 확인
+      if (currentUser.id !== sanitizedFollowerId) {
+        logger.error('❌ RLS Policy violation: auth.uid() != follower_id', {
+          authUserId: currentUser.id,
+          followerId: sanitizedFollowerId
+        });
+        return { success: false, error: 'Unauthorized follow operation' };
+      }
+
+      // 팔로우 생성 (인증 컨텍스트 확인 후 안전하게 생성)
       const { data, error } = await supabase
         .from('follows')
         .insert([{
@@ -209,20 +240,25 @@ class UnifiedFollowService {
         .single();
 
       if (error) {
+        // 중복 키 에러인 경우 이미 팔로우 중으로 처리
+        if (error.code === '23505') {
+          logger.warn('⚠️ Follow relationship already exists:', { followerId: sanitizedFollowerId, followingId: sanitizedFollowingId });
+          return { success: false, error: 'Already following this user' };
+        }
+        
         logger.error('❌ Error creating follow:', error);
         return { success: false, error: error.message };
       }
 
-      // 캐시 업데이트 - 선택적 클리어 (관련된 특정 캐시만 업데이트)
-      this.updateCacheAfterFollow(sanitizedFollowerId, sanitizedFollowingId, true);
+      // 캐시 무효화 - 팔로우 관련 모든 캐시 클리어
+      this.invalidateFollowCaches(sanitizedFollowerId, sanitizedFollowingId);
 
-      // 노티피케이션 생성 (백그라운드에서 비동기 실행)
-      console.log('🚨 FOLLOW SUCCESS: About to create notification!', {
+      // 노티피케이션은 데이터베이스 트리거에서 자동 생성됨 (중복 방지)
+      console.log('🚨 FOLLOW SUCCESS: Notification will be created by database trigger', {
         follower: sanitizedFollowerId,
         following: sanitizedFollowingId,
         timestamp: new Date().toISOString()
       });
-      this.createFollowNotificationAsync(sanitizedFollowerId, sanitizedFollowingId);
 
       logger.debug(`✅ User ${sanitizedFollowerId} followed ${sanitizedFollowingId}`);
       return { success: true, data, error: null };
@@ -238,6 +274,30 @@ class UnifiedFollowService {
    */
   async unfollowUser(followerId, followingId) {
     try {
+      // 🚨 CRITICAL DEBUG: 호출 스택 추적
+      console.log('💥💥💥 UNFOLLOW STARTING 💥💥💥', {
+        followerId,
+        followingId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // 추가 추적
+      if (typeof global?.trackFollow === 'function') {
+        global.trackFollow('💥 UNFOLLOW STARTING', { followerId, followingId });
+      }
+      
+      logger.debug(`🔍 UNFOLLOW DEBUG START: followerId=${followerId}, followingId=${followingId}`);
+      
+      // 현재 인증 상태 먼저 확인
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        logger.error('❌ No authenticated user found');
+        return { success: false, error: 'Authentication required' };
+      }
+      
+      logger.debug(`🔍 CURRENT AUTH USER: ${currentUser.id}`);
+      logger.debug(`🔍 UNFOLLOW PARAMS: follower=${followerId}, following=${followingId}`);
+      
       // 입력 검증
       const followerValidation = ValidationUtils.validateUUID(followerId);
       const followingValidation = ValidationUtils.validateUUID(followingId);
@@ -253,11 +313,35 @@ class UnifiedFollowService {
       const sanitizedFollowerId = followerValidation.sanitized;
       const sanitizedFollowingId = followingValidation.sanitized;
 
-      // 언팔로우 실행
+      // 🔧 CRITICAL FIX: 인증된 사용자 ID를 강제로 사용 (보안 강화)
+      // 전달받은 followerId 대신 현재 인증된 사용자 ID 사용
+      const authenticatedFollowerId = currentUser.id;
+      
+      logger.debug('🔍 UNFOLLOW AUTH FIX:', {
+        originalFollowerId: sanitizedFollowerId,
+        authenticatedFollowerId: authenticatedFollowerId,
+        followingId: sanitizedFollowingId,
+        usingAuthenticated: true
+      });
+      
+      if (sanitizedFollowerId !== authenticatedFollowerId) {
+        logger.warn('⚠️ SECURITY: followerId mismatch - using authenticated user ID', {
+          provided: sanitizedFollowerId,
+          authenticated: authenticatedFollowerId
+        });
+      }
+
+      // 언팔로우 실행 (인증된 사용자 ID로 안전하게 삭제)
+      console.log('🚨 EXECUTING UNFOLLOW:', {
+        authenticatedFollowerId,
+        sanitizedFollowingId,
+        query: `DELETE FROM follows WHERE follower_id='${authenticatedFollowerId}' AND following_id='${sanitizedFollowingId}'`
+      });
+      
       const { error } = await supabase
         .from('follows')
         .delete()
-        .eq('follower_id', sanitizedFollowerId)
+        .eq('follower_id', authenticatedFollowerId)  // 🔧 인증된 사용자 ID 사용
         .eq('following_id', sanitizedFollowingId);
 
       if (error) {
@@ -265,15 +349,59 @@ class UnifiedFollowService {
         return { success: false, error: error.message };
       }
 
-      // 캐시 업데이트 - 선택적 클리어 (관련된 특정 캐시만 업데이트)
-      this.updateCacheAfterFollow(sanitizedFollowerId, sanitizedFollowingId, false);
+      // 캐시 무효화 - 팔로우 관련 모든 캐시 클리어
+      this.invalidateFollowCaches(authenticatedFollowerId, sanitizedFollowingId);
 
-      logger.debug(`✅ User ${sanitizedFollowerId} unfollowed ${sanitizedFollowingId}`);
+      logger.debug(`✅ User ${authenticatedFollowerId} unfollowed ${sanitizedFollowingId}`);
       return { success: true, error: null };
 
     } catch (error) {
       logger.error('❌ Exception in unfollowUser:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 팔로우 상태 토글 (팔로우 <-> 언팔로우)
+   * @param {string} followerId - 팔로우하는 사용자 ID (현재 로그인한 사용자)
+   * @param {string} followingId - 팔로우당하는 사용자 ID (대상 사용자)
+   */
+  async toggleFollow(followerId, followingId) {
+    try {
+      logger.debug(`🔄 Toggle follow: ${followerId} → ${followingId}`);
+      
+      // 현재 팔로우 상태 확인
+      const { success: checkSuccess, data: isFollowing, error: checkError } = await this.isFollowing(followerId, followingId);
+      
+      if (!checkSuccess || checkError) {
+        logger.error('❌ Failed to check follow status for toggle:', checkError);
+        return { success: false, error: checkError };
+      }
+
+      if (isFollowing) {
+        // 현재 팔로우 중이면 언팔로우
+        logger.debug(`🔍 TOGGLE DEBUG: Calling unfollowUser(${followerId}, ${followingId})`);
+        const result = await this.unfollowUser(followerId, followingId);
+        return { 
+          success: result.success, 
+          isFollowing: false, 
+          data: result.data, 
+          error: result.error 
+        };
+      } else {
+        // 현재 팔로우하지 않으면 팔로우
+        const result = await this.followUser(followerId, followingId);
+        return { 
+          success: result.success, 
+          isFollowing: true, 
+          data: result.data, 
+          error: result.error 
+        };
+      }
+
+    } catch (error) {
+      logger.error('❌ Exception in toggleFollow:', error);
+      return { success: false, isFollowing: false, error: error.message };
     }
   }
 
@@ -323,46 +451,6 @@ class UnifiedFollowService {
     }
   }
 
-  /**
-   * 팔로우 토글 (팔로우/언팔로우 자동 선택)
-   */
-  async toggleFollow(followerId, followingId) {
-    try {
-      logger.debug(`🔄 Toggle follow: ${followerId} → ${followingId}`);
-      
-      // 현재 팔로우 상태 확인
-      const { success: checkSuccess, data: isFollowing, error: checkError } = await this.isFollowing(followerId, followingId);
-      
-      if (!checkSuccess || checkError) {
-        logger.error('❌ Failed to check follow status for toggle:', checkError);
-        return { success: false, error: checkError };
-      }
-
-      if (isFollowing) {
-        // 현재 팔로우 중이면 언팔로우
-        const result = await this.unfollowUser(followerId, followingId);
-        return { 
-          success: result.success, 
-          isFollowing: false, 
-          data: result.data, 
-          error: result.error 
-        };
-      } else {
-        // 현재 팔로우하지 않으면 팔로우
-        const result = await this.followUser(followerId, followingId);
-        return { 
-          success: result.success, 
-          isFollowing: true, 
-          data: result.data, 
-          error: result.error 
-        };
-      }
-
-    } catch (error) {
-      logger.error('❌ Exception in toggleFollow:', error);
-      return { success: false, isFollowing: false, error: error.message };
-    }
-  }
 
   /**
    * 팔로잉 수 조회
@@ -734,6 +822,40 @@ class UnifiedFollowService {
   }
 
   /**
+   * 팔로우 관련 캐시 무효화
+   * @param {string} followerId - 팔로우하는 사용자 ID
+   * @param {string} followingId - 팔로우당하는 사용자 ID
+   */
+  invalidateFollowCaches(followerId, followingId) {
+    logger.debug(`🔄 Invalidating follow caches for: ${followerId} ↔ ${followingId}`);
+    
+    // 팔로우 관련 모든 캐시 키 패턴
+    const cachePatterns = [
+      `follow:isFollowing:`,
+      `follow:followers:`,
+      `follow:following:`,
+      `follow:followersCount:`,
+      `follow:followingCount:`
+    ];
+
+    // 관련된 모든 캐시 키 찾아서 삭제
+    for (const cacheKey of this.cache.keys()) {
+      for (const pattern of cachePatterns) {
+        if (cacheKey.startsWith(pattern)) {
+          // follower 또는 following과 관련된 캐시만 삭제
+          const keyData = cacheKey.substring(pattern.length);
+          if (keyData.includes(followerId) || keyData.includes(followingId)) {
+            this.cache.delete(cacheKey);
+            logger.debug(`🗑️ Deleted cache: ${cacheKey}`);
+          }
+        }
+      }
+    }
+    
+    logger.debug(`✅ Follow caches invalidated for: ${followerId} ↔ ${followingId}`);
+  }
+
+  /**
    * 전체 캐시 클리어
    */
   clearAllCache() {
@@ -796,45 +918,97 @@ class UnifiedFollowService {
     throw lastError;
   }
 
+  // 팔로우 노티피케이션은 데이터베이스 트리거에서 자동 생성됨 (중복 방지)
+
   /**
-   * 팔로우 노티피케이션 생성 (비동기)
+   * 팔로우 상태 디버깅 - 캐시와 DB 데이터 비교
    */
-  createFollowNotificationAsync(followerId, followingId) {
-    console.log('🚀 NOTIFICATION TRIGGER: createFollowNotificationAsync called', { 
-      followerId, 
-      followingId,
-      timestamp: new Date().toISOString()
-    });
-    
-    // 백그라운드에서 실행하여 팔로우 액션 속도에 영향 주지 않음
-    setTimeout(async () => {
-      try {
-        console.log('🔔 NOTIFICATION: Starting creation process...', { followerId, followingId });
-        
-        // 노티피케이션 서비스 상태 확인
-        console.log('📋 NotificationService status:', {
-          isInitialized: notificationService.isInitialized,
-          realtimeEnabled: notificationService.realtimeEnabled,
-          channelErrorCount: notificationService.channelErrorCount
-        });
-        
-        const result = await notificationService.createFollowNotification(followerId, followingId);
-        
-        console.log('📱 NOTIFICATION RESULT:', result);
-        
-        if (result.success) {
-          console.log('✅ Follow notification created successfully');
-          console.log('   Notification data:', result.data);
-        } else if (result.isSelfFollow) {
-          console.log('ℹ️ Self-follow notification skipped');
-        } else {
-          console.error('❌ Failed to create follow notification:', result.error);
+  async debugFollowStatus(followerId, followingId) {
+    try {
+      logger.debug(`🔍 DEBUG: Follow status for ${followerId} → ${followingId}`);
+      
+      // 1. 캐시 상태 확인
+      const cacheKey = this.getCacheKey('isFollowing', { followerId, followingId });
+      const cachedResult = this.getFromCache(cacheKey);
+      
+      // 2. 실제 DB 상태 확인 (캐시 우회)
+      const { data: dbResult, error } = await supabase
+        .from('follows')
+        .select('id, created_at')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .single();
+      
+      const dbExists = !error && !!dbResult;
+      
+      // 3. 결과 비교
+      const result = {
+        followerId,
+        followingId,
+        cache: {
+          exists: cachedResult !== null && cachedResult !== undefined,
+          value: cachedResult,
+          key: cacheKey
+        },
+        database: {
+          exists: dbExists,
+          data: dbResult,
+          error: error?.message
+        },
+        mismatch: (cachedResult !== dbExists)
+      };
+      
+      console.log('🔍 FOLLOW DEBUG RESULT:', JSON.stringify(result, null, 2));
+      
+      return result;
+      
+    } catch (error) {
+      logger.error('❌ Debug follow status failed:', error);
+      return { error: error.message };
+    }
+  }
+
+  /**
+   * 모든 팔로우 관계 확인 (특정 사용자)
+   */
+  async debugUserFollowStatus(userId) {
+    try {
+      logger.debug(`🔍 DEBUG: All follow relationships for user ${userId}`);
+      
+      // 내가 팔로우하는 사람들
+      const { data: following, error: followingError } = await supabase
+        .from('follows')
+        .select('following_id, created_at')
+        .eq('follower_id', userId);
+      
+      // 나를 팔로우하는 사람들  
+      const { data: followers, error: followersError } = await supabase
+        .from('follows')
+        .select('follower_id, created_at')
+        .eq('following_id', userId);
+      
+      const result = {
+        userId,
+        following: {
+          count: following?.length || 0,
+          list: following || [],
+          error: followingError?.message
+        },
+        followers: {
+          count: followers?.length || 0,
+          list: followers || [],
+          error: followersError?.message
         }
-      } catch (error) {
-        console.error('❌ Exception creating follow notification:', error);
-        console.error('   Error details:', error.stack);
-      }
-    }, 100); // 100ms 지연으로 UI 응답성 보장
+      };
+      
+      console.log('👥 USER FOLLOW DEBUG:', JSON.stringify(result, null, 2));
+      
+      return result;
+      
+    } catch (error) {
+      logger.error('❌ Debug user follow status failed:', error);
+      return { error: error.message };
+    }
   }
 }
 

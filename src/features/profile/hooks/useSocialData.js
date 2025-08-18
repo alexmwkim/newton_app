@@ -66,26 +66,19 @@ export const useSocialData = (userId, currentUserId) => {
     setError(null);
 
     try {
-      let result;
+      // Use the unified toggleFollow which handles both follow and unfollow properly
+      const result = await UnifiedFollowService.toggleFollow(currentUserId, userId);
       
-      if (isFollowing) {
-        // 언팔로우
-        result = await UnifiedFollowService.unfollowUser(currentUserId, userId);
-        if (!result.error) {
-          setIsFollowing(false);
+      if (result.success) {
+        // Update states based on the result
+        setIsFollowing(result.isFollowing);
+        if (result.isFollowing) {
+          setFollowersCount(prev => prev + 1);
+        } else {
           setFollowersCount(prev => Math.max(0, prev - 1));
         }
       } else {
-        // 팔로우
-        result = await UnifiedFollowService.followUser(currentUserId, userId);
-        if (!result.error) {
-          setIsFollowing(true);
-          setFollowersCount(prev => prev + 1);
-        }
-      }
-
-      if (result.error) {
-        throw new Error(result.error.message || 'Follow operation failed');
+        throw new Error(result.error || 'Follow operation failed');
       }
 
     } catch (err) {

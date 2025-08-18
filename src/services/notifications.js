@@ -30,8 +30,9 @@ class NotificationService {
   constructor() {
     this.subscriptions = new Map();
     this.isInitialized = false;
-    this.realtimeEnabled = true; // Start assuming realtime works
+    this.realtimeEnabled = true; // 🔧 Realtime 다시 활성화
     this.channelErrorCount = 0; // Track channel errors
+    this.processedNotifications = new Set(); // 중복 알림 방지
   }
 
   /**
@@ -163,8 +164,10 @@ class NotificationService {
     relatedUserId = null
   }) {
     try {
-      // 중복 방지를 위한 고유 식별자 생성
-      const uniqueId = `${type}_${senderId}_${recipientId}_${relatedNoteId || relatedUserId || ''}_${Date.now()}`;
+      // 중복 방지를 위한 더 안정적인 고유 식별자 생성
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8);
+      const uniqueId = `${type}_${senderId}_${recipientId}_${relatedNoteId || relatedUserId || ''}_${timestamp}_${random}`;
       
       const notification = {
         id: uniqueId,
@@ -394,17 +397,103 @@ class NotificationService {
    */
   async deleteNotification(notificationId, userId) {
     try {
-      const { error } = await supabase
+      console.log(`🗑️ Attempting to delete notification ${notificationId} for user ${userId}`);
+      
+      // 먼저 노티피케이션이 존재하는지 확인
+      const { data: existing, error: fetchError } = await supabase
+        .from('notifications')
+        .select('id, recipient_id')
+        .eq('id', notificationId)
+        .single();
+        
+      if (fetchError) {
+        console.error('❌ Error checking notification existence:', fetchError);
+        if (fetchError.code === 'PGRST116') {
+          console.warn('⚠️ Notification not found:', notificationId);
+          return { success: false, error: 'Notification not found' };
+        }
+        throw fetchError;
+      }
+      
+      console.log('✅ Notification exists:', existing);
+      
+      // 권한 확인
+      if (existing.recipient_id !== userId) {
+        console.error('❌ Permission denied: user cannot delete this notification');
+        return { success: false, error: 'Permission denied' };
+      }
+
+      // 삭제 실행
+      const { error, count } = await supabase
         .from('notifications')
         .delete()
         .eq('id', notificationId)
         .eq('recipient_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Delete operation failed:', error);
+        throw error;
+      }
 
+      console.log(`✅ Successfully deleted notification ${notificationId}`);
       return { success: true };
     } catch (error) {
-      console.error('❌ Failed to delete notification:', error);
+      console.error('❌ Failed to delete notification:', {
+        notificationId,
+        userId,
+        error: error.message,
+        code: error.code,
+        details: error.details
+      });
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 모든 노티피케이션 삭제 (전체 삭제용)
+   */
+  async deleteAllNotifications(userId) {
+    try {
+      console.log(`🗑️ Deleting all notifications for user ${userId}`);
+      
+      // 먼저 사용자의 모든 노티피케이션 개수 확인
+      const { count: totalCount, error: countError } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', userId);
+        
+      if (countError) {
+        console.error('❌ Error counting notifications:', countError);
+        throw countError;
+      }
+      
+      console.log(`📊 Found ${totalCount} notifications to delete`);
+      
+      if (totalCount === 0) {
+        console.log('ℹ️ No notifications to delete');
+        return { success: true, deletedCount: 0 };
+      }
+
+      // 모든 노티피케이션 삭제
+      const { error, count } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('recipient_id', userId);
+
+      if (error) {
+        console.error('❌ Bulk delete operation failed:', error);
+        throw error;
+      }
+
+      console.log(`✅ Successfully deleted all notifications for user ${userId}`);
+      return { success: true, deletedCount: totalCount };
+    } catch (error) {
+      console.error('❌ Failed to delete all notifications:', {
+        userId,
+        error: error.message,
+        code: error.code,
+        details: error.details
+      });
       return { success: false, error: error.message };
     }
   }
@@ -451,8 +540,17 @@ class NotificationService {
       console.log('🔔 Starting realtime notification subscription for user:', userId);
 
       // 새 노티피케이션 실시간 구독
+      const channelName = `notifications_${userId.slice(0, 8)}`;  // 짧은 채널명 사용
+      console.log('📡 DEBUG: Creating realtime subscription:', {
+        channelName,
+        userId,
+        userIdType: typeof userId,
+        userIdLength: userId.length,
+        isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+      });
+      
       const subscription = supabase
-        .channel(`notifications:${userId}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -463,6 +561,24 @@ class NotificationService {
           },
           (payload) => {
             console.log('🔔 New notification received:', payload);
+            // 중복 방지: 같은 알림 ID가 이미 처리되었는지 확인
+            if (this.processedNotifications?.has(payload.new?.id)) {
+              console.log('⚠️ Duplicate notification ignored:', payload.new?.id);
+              return;
+            }
+            
+            // 처리된 알림 ID 추가 (최대 100개 유지)
+            if (!this.processedNotifications) {
+              this.processedNotifications = new Set();
+            }
+            this.processedNotifications.add(payload.new?.id);
+            
+            // 오래된 ID 제거 (메모리 관리)
+            if (this.processedNotifications.size > 100) {
+              const firstItem = this.processedNotifications.values().next().value;
+              this.processedNotifications.delete(firstItem);
+            }
+            
             this.handleRealtimeNotification(payload.new);
           }
         )
@@ -485,6 +601,10 @@ class NotificationService {
             console.error('📡 Subscription error:', err);
           }
           
+          // 글로벌 콜백 상태 확인
+          const callbackCount = global?.notificationCallbacks?.length || 0;
+          console.log(`📊 Global callbacks registered: ${callbackCount}`);
+          
           // Handle different statuses
           switch (status) {
             case 'SUBSCRIBED':
@@ -492,13 +612,18 @@ class NotificationService {
               break;
             case 'CHANNEL_ERROR':
               this.channelErrorCount++;
-              console.error('❌ Channel error - notifications table may not have realtime enabled');
-              console.log('💡 To fix: Go to Supabase Dashboard → Database → Replication → Enable for notifications table');
+              console.error('❌ Realtime channel error occurred');
+              console.log('🔍 Possible causes: Network issue, auth token expired, or temporary Supabase issue');
               
-              // Disable realtime after multiple failures
-              if (this.channelErrorCount >= 3) {
-                console.warn('⚠️ Multiple channel errors detected - disabling realtime notifications');
-                console.log('📱 Notifications will still work but without real-time updates');
+              // 재시도 로직 추가
+              if (this.channelErrorCount < 3) {
+                console.log(`🔄 Retrying realtime connection (attempt ${this.channelErrorCount}/3)...`);
+                setTimeout(() => {
+                  this.startRealtimeSubscriptions(userId);
+                }, 5000 * this.channelErrorCount); // 점진적 지연
+              } else {
+                console.warn('⚠️ Multiple channel errors - switching to polling mode');
+                console.log('📱 Notifications will work without real-time updates');
                 this.realtimeEnabled = false;
                 this.stopRealtimeSubscriptions(userId);
               }
@@ -544,17 +669,12 @@ class NotificationService {
   }
 
   /**
-   * 실시간 노티피케이션 처리
+   * 실시간 노티피케이션 처리 (React Native 전용)
    */
   handleRealtimeNotification(notification) {
-    // 커스텀 이벤트 발생 (리액트 컴포넌트에서 리스닝)
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('newNotification', {
-        detail: notification
-      }));
-    }
-
-    // React Native에서는 다른 방식 사용
+    console.log('🔔 Handling realtime notification:', notification);
+    
+    // React Native 전용 글로벌 콜백 시스템
     if (typeof global !== 'undefined' && global.notificationCallbacks) {
       global.notificationCallbacks.forEach(callback => {
         try {
@@ -563,13 +683,17 @@ class NotificationService {
           console.error('Notification callback error:', error);
         }
       });
+    } else {
+      console.warn('⚠️ No notification callbacks registered');
     }
   }
 
   /**
-   * 노티피케이션 업데이트 처리
+   * 노티피케이션 업데이트 처리 (React Native 전용)
    */
   handleNotificationUpdate(newNotification, oldNotification) {
+    console.log('🔄 Handling notification update:', newNotification);
+    
     if (typeof global !== 'undefined' && global.notificationUpdateCallbacks) {
       global.notificationUpdateCallbacks.forEach(callback => {
         try {

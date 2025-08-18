@@ -688,15 +688,9 @@ const ProfileScreen = ({ navigation }) => {
       // 3. 실제 서버 요청 (UnifiedFollowService 사용)
       let result;
       
-      if (originalIsFollowing) {
-        // 언팔로우
-        result = await UnifiedFollowService.unfollowUser(user.id, user.id); // 자신의 프로필이므로 self unfollow (모크)
-        console.log('✅ Unfollowed user successfully with UnifiedFollowService');
-      } else {
-        // 팔로우  
-        result = await UnifiedFollowService.followUser(user.id, user.id); // 자신의 프로필이므로 self follow (모크)
-        console.log('✅ Followed user successfully with UnifiedFollowService');
-      }
+      // Use toggleFollow which handles all cases properly including validation
+      result = await UnifiedFollowService.toggleFollow(user.id, userId);
+      console.log('✅ Follow toggle completed with UnifiedFollowService');
 
       // 4. 서버 요청이 실패하면 UI 롤백
       if (result && !result.success) {

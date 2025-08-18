@@ -89,14 +89,9 @@ export const useFollowList = (userId, type = 'followers') => {
         [targetUserId]: !isCurrentlyFollowing
       }));
 
-      let result;
-      if (isCurrentlyFollowing) {
-        result = await UnifiedFollowService.unfollowUser(currentUser.id, targetUserId);
-        logger.debug('👥 Unfollowed user:', targetUserId);
-      } else {
-        result = await UnifiedFollowService.followUser(currentUser.id, targetUserId);
-        logger.debug('👥 Followed user:', targetUserId);
-      }
+      // Use toggleFollow for consistency and proper error handling
+      const result = await UnifiedFollowService.toggleFollow(currentUser.id, targetUserId);
+      logger.debug('👥 Follow toggle completed for user:', targetUserId, 'Result:', result.isFollowing);
 
       if (!result.success) {
         // 실패시 롤백

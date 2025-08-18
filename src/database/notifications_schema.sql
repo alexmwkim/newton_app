@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
-  -- 중복 방지를 위한 제약조건
-  CONSTRAINT unique_notification UNIQUE (recipient_id, sender_id, type, related_note_id, related_user_id)
+  -- 중복 방지는 애플리케이션 레벨과 트리거에서 처리
+  -- CONSTRAINT unique_notification UNIQUE (recipient_id, sender_id, type, related_note_id, related_user_id) -- 제거됨
 );
 
 -- 2. 노티피케이션 설정 테이블
@@ -50,13 +50,13 @@ CREATE TABLE IF NOT EXISTS notification_settings (
 CREATE TABLE IF NOT EXISTS follows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   follower_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  followed_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  following_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   
   -- 중복 팔로우 방지
-  CONSTRAINT unique_follow UNIQUE (follower_id, followed_id),
+  CONSTRAINT unique_follow UNIQUE (follower_id, following_id),
   -- 자기 자신 팔로우 방지
-  CONSTRAINT no_self_follow CHECK (follower_id != followed_id)
+  CONSTRAINT no_self_follow CHECK (follower_id != following_id)
 );
 
 -- 4. 스타 테이블 (스타 알림을 위해 필요 - 이미 있을 수 있음)
@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(recipient_i
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 CREATE INDEX IF NOT EXISTS idx_notification_settings_user ON notification_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
-CREATE INDEX IF NOT EXISTS idx_follows_followed ON follows(followed_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
 CREATE INDEX IF NOT EXISTS idx_note_stars_user ON note_stars(user_id);
 CREATE INDEX IF NOT EXISTS idx_note_stars_note ON note_stars(note_id);
 
@@ -155,13 +155,15 @@ CREATE TRIGGER update_notification_settings_updated_at
   BEFORE UPDATE ON notification_settings 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 8. 스타 알림 자동 생성 트리거
+-- 8. 스타 알림 자동 생성 트리거 (ON CONFLICT 제거)
 CREATE OR REPLACE FUNCTION create_star_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   note_owner_id UUID;
   note_title TEXT;
   starrer_username TEXT;
+  existing_notification_count INTEGER;
+  notification_id TEXT;
 BEGIN
   -- 노트 소유자 ID 조회
   SELECT user_id, title INTO note_owner_id, note_title
@@ -172,37 +174,64 @@ BEGIN
   IF note_owner_id = NEW.user_id THEN
     RETURN NEW;
   END IF;
+
+  -- 이미 같은 스타 노티피케이션이 있는지 확인
+  SELECT COUNT(*) INTO existing_notification_count
+  FROM notifications
+  WHERE recipient_id = note_owner_id
+    AND sender_id = NEW.user_id
+    AND type = 'star'
+    AND related_note_id = NEW.note_id;
+
+  -- 이미 알림이 있으면 생성하지 않음
+  IF existing_notification_count > 0 THEN
+    RETURN NEW;
+  END IF;
   
   -- 스타한 사용자의 username 조회
   SELECT username INTO starrer_username
   FROM profiles 
   WHERE user_id = NEW.user_id;
   
-  -- 알림 생성
-  INSERT INTO notifications (
-    recipient_id,
-    sender_id,
-    type,
-    title,
-    message,
-    data,
-    priority,
-    related_note_id,
-    related_user_id
-  ) VALUES (
-    note_owner_id,
-    NEW.user_id,
-    'star',
-    '새로운 스타를 받았습니다',
-    COALESCE(starrer_username, '누군가') || '님이 "' || COALESCE(note_title, '제목 없는 노트') || '"에 스타를 눌렀습니다',
-    jsonb_build_object(
-      'note_title', note_title,
-      'starrer_username', starrer_username
-    ),
-    'normal',
-    NEW.note_id,
-    NEW.user_id
-  ) ON CONFLICT (recipient_id, sender_id, type, related_note_id, related_user_id) DO NOTHING;
+  -- 고유한 ID 생성
+  notification_id := 'star_' || NEW.user_id || '_' || NEW.note_id || '_' || extract(epoch from now())::text;
+  
+  -- 알림 생성 (ON CONFLICT 제거하고 수동 중복 체크 사용)
+  BEGIN
+    INSERT INTO notifications (
+      id,
+      recipient_id,
+      sender_id,
+      type,
+      title,
+      message,
+      data,
+      priority,
+      related_note_id,
+      related_user_id
+    ) VALUES (
+      notification_id,
+      note_owner_id,
+      NEW.user_id,
+      'star',
+      '새로운 스타를 받았습니다',
+      COALESCE(starrer_username, '누군가') || '님이 "' || COALESCE(note_title, '제목 없는 노트') || '"에 스타를 눌렀습니다',
+      jsonb_build_object(
+        'note_title', note_title,
+        'starrer_username', starrer_username
+      ),
+      'normal',
+      NEW.note_id,
+      NEW.user_id
+    );
+  EXCEPTION
+    WHEN unique_violation THEN
+      -- 중복 키 에러 시 무시
+      NULL;
+    WHEN OTHERS THEN
+      -- 다른 에러 시 로그 남기고 계속 진행
+      RAISE WARNING 'Failed to create star notification: %', SQLERRM;
+  END;
   
   RETURN NEW;
 END;
@@ -213,39 +242,74 @@ CREATE TRIGGER star_notification_trigger
   AFTER INSERT ON note_stars
   FOR EACH ROW EXECUTE FUNCTION create_star_notification();
 
--- 9. 팔로우 알림 자동 생성 트리거
+-- 9. 팔로우 알림 자동 생성 트리거 (ON CONFLICT 제거)
 CREATE OR REPLACE FUNCTION create_follow_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   follower_username TEXT;
+  existing_notification_count INTEGER;
+  notification_id TEXT;
 BEGIN
+  -- 자기 자신을 팔로우하는 경우 알림 생성하지 않음
+  IF NEW.follower_id = NEW.following_id THEN
+    RETURN NEW;
+  END IF;
+
+  -- 이미 같은 팔로우 노티피케이션이 있는지 확인
+  SELECT COUNT(*) INTO existing_notification_count
+  FROM notifications
+  WHERE recipient_id = NEW.following_id
+    AND sender_id = NEW.follower_id
+    AND type = 'follow';
+
+  -- 이미 알림이 있으면 생성하지 않음
+  IF existing_notification_count > 0 THEN
+    RETURN NEW;
+  END IF;
+
   -- 팔로워의 username 조회
   SELECT username INTO follower_username
   FROM profiles 
   WHERE user_id = NEW.follower_id;
   
-  -- 알림 생성
-  INSERT INTO notifications (
-    recipient_id,
-    sender_id,
-    type,
-    title,
-    message,
-    data,
-    priority,
-    related_user_id
-  ) VALUES (
-    NEW.followed_id,
-    NEW.follower_id,
-    'follow',
-    '새로운 팔로워가 생겼습니다',
-    COALESCE(follower_username, '누군가') || '님이 회원님을 팔로우하기 시작했습니다',
-    jsonb_build_object(
-      'follower_username', follower_username
-    ),
-    'high',
-    NEW.follower_id
-  ) ON CONFLICT (recipient_id, sender_id, type, related_note_id, related_user_id) DO NOTHING;
+  -- 고유한 ID 생성
+  notification_id := 'follow_' || NEW.follower_id || '_' || NEW.following_id || '_' || extract(epoch from now())::text;
+  
+  -- 알림 생성 (ON CONFLICT 제거하고 수동 중복 체크 사용)
+  BEGIN
+    INSERT INTO notifications (
+      id,
+      recipient_id,
+      sender_id,
+      type,
+      title,
+      message,
+      data,
+      priority,
+      related_user_id
+    ) VALUES (
+      notification_id,
+      NEW.following_id,  -- 팔로우당한 사람이 수신자
+      NEW.follower_id,   -- 팔로우한 사람이 발신자
+      'follow',
+      'You have a new follower',
+      COALESCE(follower_username, 'Someone') || ' started following you',
+      jsonb_build_object(
+        'sender_id', NEW.follower_id,
+        'follower_username', follower_username,
+        'action', 'follow'
+      ),
+      'high',
+      NEW.follower_id
+    );
+  EXCEPTION
+    WHEN unique_violation THEN
+      -- 중복 키 에러 시 무시
+      NULL;
+    WHEN OTHERS THEN
+      -- 다른 에러 시 로그 남기고 계속 진행
+      RAISE WARNING 'Failed to create follow notification: %', SQLERRM;
+  END;
   
   RETURN NEW;
 END;
@@ -280,7 +344,7 @@ DECLARE
 BEGIN
   SELECT COUNT(*) INTO count
   FROM follows
-  WHERE followed_id = user_id;
+  WHERE following_id = user_id;
   
   RETURN COALESCE(count, 0);
 END;
