@@ -256,6 +256,54 @@ class ProfileClientService {
       throw error;
     }
   }
+
+  // 아바타 이미지 삭제 (클라이언트 안전 - RLS 적용)
+  async deleteAvatar(userId, currentAvatarUrl) {
+    try {
+      console.log('📸 Deleting avatar for user:', userId);
+      
+      // Extract file path from current avatar URL if it's a Supabase Storage URL
+      if (currentAvatarUrl && currentAvatarUrl.includes('supabase')) {
+        const urlParts = currentAvatarUrl.split('/avatars/');
+        if (urlParts.length > 1) {
+          const filePath = urlParts[1];
+          
+          // Delete from storage (RLS 적용)
+          const { error: deleteError } = await this.supabase.storage
+            .from('avatars')
+            .remove([filePath]);
+          
+          if (deleteError) {
+            console.warn('📸 Failed to delete file from storage:', deleteError.message);
+          } else {
+            console.log('📸 File deleted from storage successfully');
+          }
+        }
+      }
+      
+      // Update profile to remove avatar_url (RLS 보호로 자신의 프로필만 업데이트 가능)
+      const { data, error } = await this.supabase
+        .from('profiles')
+        .update({
+          avatar_url: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('📸 Profile update error:', error);
+        throw error;
+      }
+      
+      console.log('📸 Avatar deleted successfully');
+      return { data, error: null };
+    } catch (error) {
+      console.error('❌ Error in deleteAvatar:', error);
+      return { data: null, error: error.message };
+    }
+  }
 }
 
 // 싱글톤 인스턴스 (클라이언트 안전)

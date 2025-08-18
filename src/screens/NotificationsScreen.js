@@ -129,15 +129,14 @@ const NotificationsScreen = ({ navigation }) => {
   // Header component
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Icon name="arrow-left" size={24} color={Colors.textBlack} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-      </View>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+      >
+        <Icon name="arrow-left" size={24} color={Colors.textBlack} />
+      </TouchableOpacity>
+      
+      <Text style={styles.headerTitle}>Notifications</Text>
       
       <View style={styles.headerRight}>
         {hasUnread && (
@@ -238,15 +237,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 16, // 상단 패딩 추가로 다른 화면과 일치
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.white,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
   },
   headerRight: {
     flexDirection: 'row',
@@ -254,17 +249,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.textBlack,
-    ...Typography.title,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: Typography.fontSize.medium,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.textPrimary,
+    letterSpacing: -0.3,
+    pointerEvents: 'none', // 터치 이벤트는 버튼들이 받도록
   },
   markAllButton: {
     paddingHorizontal: 12,

@@ -86,11 +86,32 @@ const TabNavigator = ({ logout }) => {
     
     // STACK-BASED NAVIGATION: Add to stack instead of replacing
     React.startTransition(() => {
-      // Add current navigation to stack
-      setNavigationStack(prevStack => [
-        ...prevStack,
-        { screen, props: params }
-      ]);
+      // IMPORTANT: 현재 홈 화면의 상태를 유지하기 위해 스택 업데이트
+      if (currentScreen === 'home' && params.returnToTab) {
+        // 홈 화면에서 다른 화면으로 이동할 때, 현재 홈 화면의 상태를 스택에 저장
+        setNavigationStack(prevStack => {
+          const updatedStack = [...prevStack];
+          // 마지막 홈 화면 항목을 현재 returnToTab 상태로 업데이트
+          const lastIndex = updatedStack.length - 1;
+          if (updatedStack[lastIndex] && updatedStack[lastIndex].screen === 'home') {
+            updatedStack[lastIndex] = {
+              ...updatedStack[lastIndex],
+              props: { 
+                ...updatedStack[lastIndex].props,
+                returnToTab: params.returnToTab 
+              }
+            };
+          }
+          // 새 화면을 스택에 추가
+          return [...updatedStack, { screen, props: params }];
+        });
+      } else {
+        // 일반적인 네비게이션: 새 화면을 스택에 추가
+        setNavigationStack(prevStack => [
+          ...prevStack,
+          { screen, props: params }
+        ]);
+      }
       
       setCurrentScreen(screen);
       setScreenProps(params);
