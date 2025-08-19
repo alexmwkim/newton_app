@@ -5,9 +5,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import NoteItemComponent from '../components/NoteItemComponent';
+import SwipeableNoteItem from '../components/SwipeableNoteItem';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import { useNotesStore } from '../store/NotesStore';
+import { useAuth } from '../contexts/AuthContext';
 
 
 
@@ -58,12 +59,101 @@ const SearchScreen = ({ navigation }) => {
   
   // Get all notes from the store
   const storeData = useNotesStore();
-  console.log('🔍 Search - Store data:', storeData);
+  const { user } = useAuth();
+  
+  console.log('🔍 ==========================================');
+  console.log('🔍 AUTHENTICATION CHECK');
+  console.log('🔍 Current logged-in user:', user);
+  console.log('🔍 User ID:', user?.id);
+  console.log('🔍 User email:', user?.email);
+  console.log('🔍 ==========================================');
+  
   const privateNotes = storeData.privateNotes || [];
   const publicNotes = storeData.publicNotes || [];
   const allNotes = [...privateNotes, ...publicNotes];
-  console.log('🔍 Total notes available:', allNotes.length, 'Recent searches:', recentSearches.length);
-  console.log('🔍 All note titles:', allNotes.map(note => note.title));
+  
+  console.log('🔍 ==========================================');
+  console.log('🔍 NOTES DATA ANALYSIS');
+  console.log('🔍 Total notes available:', allNotes.length);
+  console.log('🔍 Private notes:', privateNotes.length);
+  console.log('🔍 Public notes:', publicNotes.length);
+  
+  allNotes.forEach((note, index) => {
+    console.log(`🔍 Note ${index + 1}:`, {
+      title: note.title,
+      user_id: note.user_id,
+      isOwner: note.user_id === user?.id,
+      isPublic: note.is_public || note.isPublic,
+      contentPreview: (note.content || '').substring(0, 50) + '...'
+    });
+  });
+  console.log('🔍 ==========================================');
+  
+  // Helper function to extract pure text content from note content (excluding image paths, card markup etc.)
+  const extractPureTextContent = (content) => {
+    if (!content || typeof content !== 'string') return '';
+    
+    // Remove image blocks: 🖼️ Image: [path]
+    let cleanContent = content.replace(/🖼️\s*Image:\s*[^\n]*/g, '');
+    
+    // Remove card markup but keep card content: 📋 Card: [content]
+    cleanContent = cleanContent.replace(/📋\s*Card:\s*/g, '');
+    
+    // Remove any remaining special block markers
+    cleanContent = cleanContent.replace(/[🖼️📋]\s*/g, '');
+    
+    // Clean up extra whitespace and newlines
+    cleanContent = cleanContent.replace(/\n\s*\n/g, '\n').trim();
+    
+    return cleanContent;
+  };
+
+  // Helper function for Korean initial consonant (chosung) search
+  const getChosung = (text) => {
+    const chosungList = [
+      'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 
+      'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
+    ];
+    
+    return text.split('').map(char => {
+      const code = char.charCodeAt(0);
+      // 한글 완성형 범위 (가-힣)
+      if (code >= 0xAC00 && code <= 0xD7A3) {
+        const chosungIndex = Math.floor((code - 0xAC00) / 28 / 21);
+        return chosungList[chosungIndex];
+      }
+      // 이미 자음/모음이면 그대로 반환
+      if (chosungList.includes(char)) {
+        return char;
+      }
+      return char; // 한글이 아닌 문자는 그대로
+    }).join('');
+  };
+
+  // Enhanced search function with Korean initial consonant support
+  const searchMatch = (text, query) => {
+    if (!text || !query) return false;
+    
+    const textLower = text.toLowerCase();
+    const queryLower = query.toLowerCase();
+    
+    // 1. 일반 텍스트 검색 (기존 방식)
+    if (textLower.includes(queryLower)) {
+      return true;
+    }
+    
+    // 2. 한글 초성 검색
+    const textChosung = getChosung(text);
+    const queryChosung = getChosung(query);
+    
+    // 입력이 초성만으로 이루어진 경우
+    const isChosungQuery = /^[ㄱ-ㅎ]+$/.test(query);
+    if (isChosungQuery) {
+      return textChosung.includes(queryChosung);
+    }
+    
+    return false;
+  };
   
   // Generate suggestions from note titles only
   const suggestions = useMemo(() => {
@@ -87,14 +177,30 @@ const SearchScreen = ({ navigation }) => {
     if (query.trim().length > 0) {
       setIsSearching(true);
       
-      // Filter notes based on search query
+      // Filter notes based on search query - only title and pure text content with Korean initial consonant support
       const filtered = allNotes.filter(note => {
-        const searchLower = query.toLowerCase();
-        const titleMatch = note.title?.toLowerCase().includes(searchLower);
-        const contentMatch = note.content?.toLowerCase().includes(searchLower);
+        const titleMatch = searchMatch(note.title, query);
+        
+        // Extract pure text content (excluding image paths, card markup etc.)
+        const pureTextContent = extractPureTextContent(note.content);
+        const contentMatch = searchMatch(pureTextContent, query);
+        
         const matches = titleMatch || contentMatch;
         
-        console.log('🔍 Checking note:', note.title, 'matches:', matches, 'titleMatch:', titleMatch, 'contentMatch:', contentMatch);
+        console.log('🔍 ==========================================');
+        console.log('🔍 Checking note:', note.title);
+        console.log('🔍 Search query:', `"${query}"`);
+        console.log('🔍 Title:', `"${note.title}"`);
+        console.log('🔍 Title chosung:', `"${getChosung(note.title || '')}"`);
+        console.log('🔍 Raw content preview:', `"${(note.content || '').substring(0, 100)}..."`);
+        console.log('🔍 Pure text content:', `"${pureTextContent}"`);
+        console.log('🔍 Content chosung:', `"${getChosung(pureTextContent || '')}"`);
+        console.log('🔍 Is chosung query:', /^[ㄱ-ㅎ]+$/.test(query));
+        console.log('🔍 Title match:', titleMatch);
+        console.log('🔍 Content match (pure text only):', contentMatch);
+        console.log('🔍 Final matches:', matches);
+        console.log('🔍 ==========================================');
+        
         return matches;
       });
       
@@ -237,26 +343,14 @@ const SearchScreen = ({ navigation }) => {
                     {isSearching ? 'Searching...' : `Results for "${searchQuery}"`}
                   </Text>
                   {!isSearching && searchResults.map((note) => (
-                    <View key={note.id} style={styles.noteItem}>
-                      <TouchableOpacity onPress={() => handleNotePress(note, true)} style={styles.noteItemContent}>
-                        <View style={styles.noteItemHeader}>
-                          <Text style={styles.noteTitle}>{note.title}</Text>
-                          <View style={styles.noteStatusContainer}>
-                            <Icon 
-                              name={note.isPublic ? "globe" : "lock"} 
-                              size={14} 
-                              color={note.isPublic ? Colors.floatingButton : Colors.secondaryText} 
-                            />
-                          </View>
-                        </View>
-                        {note.content && (
-                          <Text style={styles.noteContent} numberOfLines={2}>
-                            {note.content}
-                          </Text>
-                        )}
-                        <Text style={styles.noteTimeAgo}>{note.timeAgo}</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <SwipeableNoteItem
+                      key={note.id}
+                      note={note}
+                      onPress={() => handleNotePress(note, true)}
+                      onDelete={() => {}} // Disable delete in search results
+                      isPublic={note.isPublic}
+                      viewMode="TITLE_ONLY" // Use title only mode for search results
+                    />
                   ))}
                   {!isSearching && searchResults.length === 0 && searchQuery.trim().length > 0 && (
                     <View style={styles.emptyState}>
@@ -461,44 +555,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
     pointerEvents: 'box-none',
-  },
-  noteItem: {
-    backgroundColor: Colors.noteCard,
-    borderRadius: 12,
-    marginBottom: Layout.spacing.sm,
-    overflow: 'hidden',
-  },
-  noteItemContent: {
-    padding: Layout.spacing.md,
-  },
-  noteItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Layout.spacing.xs,
-  },
-  noteTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    marginRight: Layout.spacing.sm,
-  },
-  noteStatusContainer: {
-    flexShrink: 0,
-  },
-  noteContent: {
-    fontSize: Typography.fontSize.small,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.secondaryText,
-    lineHeight: 20,
-    marginBottom: Layout.spacing.xs,
-  },
-  noteTimeAgo: {
-    fontSize: Typography.fontSize.small,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.secondaryText,
   },
   emptyText: {
     fontSize: Typography.fontSize.body,

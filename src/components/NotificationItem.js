@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useNotifications } from '../hooks/useNotifications';
 import Avatar from './Avatar';
@@ -35,9 +35,14 @@ const formatTimeAgo = (dateString) => {
 const NotificationItem = React.memo(({ 
   notification, 
   onPress, 
+  onDelete,
   style 
 }) => {
-  const { markAsRead } = useNotifications();
+  const { markAsRead, deleteNotification } = useNotifications();
+  
+  // Swipe animation refs
+  const translateX = useRef(new Animated.Value(0)).current;
+  const deleteOpacity = useRef(new Animated.Value(0)).current;
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -77,6 +82,49 @@ const NotificationItem = React.memo(({
     }
   };
 
+  // Pan responder for swipe gesture
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (gestureState.dx < 0) {
+          translateX.setValue(Math.max(gestureState.dx, -80));
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx < -40) {
+          // Show delete button
+          Animated.parallel([
+            Animated.spring(translateX, {
+              toValue: -80,
+              useNativeDriver: true,
+            }),
+            Animated.timing(deleteOpacity, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            })
+          ]).start();
+        } else {
+          // Reset position
+          Animated.parallel([
+            Animated.spring(translateX, {
+              toValue: 0,
+              useNativeDriver: true,
+            }),
+            Animated.timing(deleteOpacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            })
+          ]).start();
+        }
+      },
+    })
+  ).current;
+
   const handlePress = useCallback(async () => {
     // Mark as read if unread
     if (!notification.is_read) {
@@ -88,6 +136,30 @@ const NotificationItem = React.memo(({
       onPress(notification);
     }
   }, [notification.id, notification.is_read, markAsRead, onPress]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      'Delete Notification',
+      'Are you sure you want to delete this notification?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteNotification(notification.id);
+              if (onDelete) {
+                onDelete(notification.id);
+              }
+            } catch (error) {
+              console.error('Error deleting notification:', error);
+            }
+          },
+        },
+      ]
+    );
+  }, [notification.id, deleteNotification, onDelete]);
 
   // Parse notification data
   const notificationData = notification.data ? 
@@ -165,16 +237,21 @@ const NotificationItem = React.memo(({
   }
 
   return (
-    <TouchableOpacity 
-      style={[
-        styles.container, 
-        !notification.is_read && styles.unreadContainer,
-        style
-      ]} 
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.content}>
+    <View style={[styles.swipeableContainer, style]}>
+      <Animated.View
+        style={[
+          styles.container,
+          !notification.is_read && styles.unreadContainer,
+          { transform: [{ translateX }] }
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity 
+          style={styles.touchableContent}
+          onPress={handlePress}
+          activeOpacity={0.7}
+        >
+          <View style={styles.content}>
         {/* Sender avatar - always show if sender exists */}
         {sender?.user_id ? (
           <Avatar 
@@ -222,16 +299,32 @@ const NotificationItem = React.memo(({
             <Icon name="chevron-right" size={16} color={Colors.lightGray} />
           )}
         </View>
-      </View>
-    </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+      
+      {/* Delete button */}
+      <Animated.View style={[styles.deleteButton, { opacity: deleteOpacity }]}>
+        <TouchableOpacity onPress={handleDelete} style={styles.deleteButtonTouchable}>
+          <Icon name="trash-2" size={20} color={Colors.white} />
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  swipeableContainer: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
   container: {
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  touchableContent: {
+    flex: 1,
   },
   unreadContainer: {
     backgroundColor: '#F8F9FA', // Unread notification background
@@ -295,6 +388,22 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#007AFF', // iOS blue
     marginBottom: 4,
+  },
+  deleteButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonTouchable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

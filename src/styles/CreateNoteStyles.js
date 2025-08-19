@@ -59,14 +59,14 @@ export const createNoteStyles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
   },
   scrollContent: {
-    padding: 20,
+    padding: Layout.screen.padding, // 반응형 패딩 (16-32px)
     paddingBottom: 400, // 키보드+툴바 공간 확보
   },
   titleInput: {
     fontSize: 22,
     fontWeight: 'bold',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0, // scrollContent에서 이미 20px 패딩
     marginBottom: 20,
     color: Colors.primaryText,
   },
@@ -81,7 +81,7 @@ export const createNoteStyles = StyleSheet.create({
   textInput: {
     fontSize: 16,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0, // scrollContent에서 이미 20px 패딩
     minHeight: 50,
     backgroundColor: 'transparent',
     color: Colors.primaryText,
