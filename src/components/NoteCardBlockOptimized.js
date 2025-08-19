@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { Colors } from '../constants/Colors';
+import { GLOBAL_TOOLBAR_ID } from '../constants/Toolbar';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useBlockLayout } from '../hooks/useBlockLayout';
@@ -31,8 +32,7 @@ const NoteCardBlock = React.memo(({
   scrollToFocusedInput,
   isAuthor = true,
   dismissMenus = () => {},
-  preventNextAutoScroll = () => {},
-  toolbarId = 'newton-toolbar'
+  preventNextAutoScroll = () => {}
 }) => {
   const styles = createNoteStyles;
   
@@ -137,7 +137,7 @@ const NoteCardBlock = React.memo(({
           spellCheck={false}
           scrollEnabled={false}
           editable={isAuthor && !isDragging}
-          inputAccessoryViewID={toolbarId}
+          inputAccessoryViewID={GLOBAL_TOOLBAR_ID}
           placeholderTextColor={Colors.secondaryText}
         />
         {isAuthor && (

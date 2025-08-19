@@ -18,6 +18,7 @@ import {
   trackComponentLifecycle 
 } from '../utils';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
+import { GLOBAL_TOOLBAR_ID } from '../constants/Toolbar';
 
 /**
  * 최적화된 노트 에디터 통합 컴포넌트
@@ -27,7 +28,6 @@ const OptimizedNoteEditor = React.memo(({
   initialBlocks = [],
   isAuthor = true,
   onBlocksChange = () => {},
-  toolbarId = 'newton-toolbar',
   DEBUG_MODE = false 
 }) => {
   // 성능 추적 (개발 모드)
@@ -191,7 +191,7 @@ const OptimizedNoteEditor = React.memo(({
         isAuthor={isAuthor}
         dismissMenus={dismissMenus}
         preventNextAutoScroll={preventNextAutoScroll}
-        toolbarId={toolbarId}
+        toolbarId={GLOBAL_TOOLBAR_ID}
       />
     ));
   }, [
@@ -212,8 +212,7 @@ const OptimizedNoteEditor = React.memo(({
     setCardLayouts,
     isAuthor,
     dismissMenus,
-    preventNextAutoScroll,
-    toolbarId
+    preventNextAutoScroll
   ]);
 
   return (

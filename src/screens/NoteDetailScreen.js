@@ -37,7 +37,6 @@ import { noteDetailStyles } from '../styles/NoteDetailStyles';
 import Avatar from '../components/Avatar';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
 
-const TOOLBAR_ID = 'note-detail-toolbar';
 
 // Normalize note data outside component to prevent recreation
 const normalizeNote = (noteData) => {
@@ -52,6 +51,8 @@ const normalizeNote = (noteData) => {
     content: cleanLegacyContent(noteData.content)
   };
 };
+
+const TOOLBAR_ID = 'note-detail-toolbar';
 
 const NoteDetailScreen = ({ 
   noteId, 
@@ -204,6 +205,7 @@ const NoteDetailScreen = ({
     loadingNote,
     updateNote
   );
+
   
   // Load note data - SINGLE useEffect to prevent loops
   useEffect(() => {
@@ -787,7 +789,7 @@ const NoteDetailScreen = ({
       </KeyboardAvoidingView>
     </SafeAreaView>
 
-    {/* InputAccessoryView - 강화된 렌더링 보장 */}
+    {/* InputAccessoryView - 복원 */}
     {(() => {
       const shouldShowToolbar = isAuthor;
       console.log('🔧 NoteDetail Toolbar render check:', {
@@ -802,109 +804,100 @@ const NoteDetailScreen = ({
         key={`toolbar-${TOOLBAR_ID}-${focusedIndex}`}
         nativeID={TOOLBAR_ID}
       >
-        {/* 툴바 렌더링 확인용 로그 */}
         {console.log('🔧 NoteDetail InputAccessoryView rendered with nativeID:', TOOLBAR_ID, 'focusedIndex:', focusedIndex)}
-      <View style={{
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#E5E5E5',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        height: 44,
-        width: '100%',
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E5E5',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          height: 44,
+          width: '100%',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => {
+                console.log('🔧 Adding card at current line, index:', focusedIndex);
+                if (isAuthor) handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 6,
+                backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+                minWidth: 36,
+                minHeight: 36,
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: isAuthor ? 1 : 0.5,
+              }}
+              disabled={!isAuthor}
+            >
+              <Icon name="square" size={18} color="#333" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                console.log('🔧 Adding grid at current line, index:', focusedIndex);
+                if (isAuthor) handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 6,
+                backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+                minWidth: 36,
+                minHeight: 36,
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: isAuthor ? 1 : 0.5,
+              }}
+              disabled={!isAuthor}
+            >
+              <Icon name="grid" size={18} color="#333" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                console.log('🔧 Adding image at current line, index:', focusedIndex);
+                if (isAuthor) handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 6,
+                backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+                minWidth: 36,
+                minHeight: 36,
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: isAuthor ? 1 : 0.5,
+              }}
+              disabled={!isAuthor}
+            >
+              <Icon name="image" size={18} color="#333" />
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             onPress={() => {
-              console.log('🔧 Adding card at current line, index:', focusedIndex);
-              if (isAuthor) handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
+              console.log('🔧 Done pressed - hiding keyboard');
+              if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
+                blocks[focusedIndex].ref.current.blur();
+              }
+              Keyboard.dismiss();
+              setFocusedIndex(-1);
             }}
             style={{
               padding: 8,
               borderRadius: 6,
-              backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
-              minWidth: 36,
+              backgroundColor: 'rgba(235, 117, 75, 1)',
+              minWidth: 60,
               minHeight: 36,
               justifyContent: 'center',
               alignItems: 'center',
-              opacity: isAuthor ? 1 : 0.5,
             }}
-            disabled={!isAuthor}
           >
-            <Icon name="square" size={18} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Adding grid at current line, index:', focusedIndex);
-              if (isAuthor) handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
-              minWidth: 36,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-              opacity: isAuthor ? 1 : 0.5,
-            }}
-            disabled={!isAuthor}
-          >
-            <Icon name="grid" size={18} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Adding image at current line, index:', focusedIndex);
-              if (isAuthor) handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
-              minWidth: 36,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-              opacity: isAuthor ? 1 : 0.5,
-            }}
-            disabled={!isAuthor}
-          >
-            <Icon name="image" size={18} color="#333" />
+            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={() => {
-            console.log('🔧 Done pressed - hiding keyboard');
-            
-            // 1. 포커스된 입력 필드에서 blur
-            if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
-              blocks[focusedIndex].ref.current.blur();
-            }
-            
-            // 2. 강제로 키보드 숨기기
-            Keyboard.dismiss();
-            
-            // 3. 포커스 상태 초기화
-            setFocusedIndex(-1);
-            
-            console.log('🔧 Keyboard dismiss called');
-          }}
-          style={{
-            padding: 8,
-            borderRadius: 6,
-            backgroundColor: 'rgba(235, 117, 75, 1)',
-            minWidth: 60,
-            minHeight: 36,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
-        </TouchableOpacity>
-      </View>
       </InputAccessoryView>
     )}
 

@@ -65,7 +65,8 @@
       "Bash(npx react-native log-ios:*)",
       "Bash(claude --version)",
       "Bash(touch:*)",
-      "mcp__supabase__list_projects"
+      "mcp__supabase__list_projects",
+      "WebSearch"
     ],
     "deny": []
   },

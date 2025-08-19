@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { View, TextInput, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
+import { GLOBAL_TOOLBAR_ID } from '../constants/Toolbar';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 import NoteCardBlockOptimized from './NoteCardBlockOptimized';
 import NoteImageBlockOptimized from './NoteImageBlockOptimized';
@@ -28,8 +29,7 @@ const NoteBlockRenderer = React.memo(({
   setCardLayouts = () => {},
   isAuthor = true,
   dismissMenus = () => {},
-  preventNextAutoScroll = () => {},
-  toolbarId = 'newton-toolbar'
+  preventNextAutoScroll = () => {}
 }) => {
   const styles = createNoteStyles;
 
@@ -39,10 +39,10 @@ const NoteBlockRenderer = React.memo(({
   }, [handleTextChange, block.id]);
 
   const handleTextInputFocus = useCallback(() => {
-    console.log('🔧 Text block focused - index:', index, 'type:', block.type, 'toolbarId:', toolbarId);
+    console.log('🔧 Text block focused - index:', index, 'type:', block.type, 'toolbarId:', GLOBAL_TOOLBAR_ID);
     dismissMenus();
     setFocusedIndex(index);
-  }, [dismissMenus, setFocusedIndex, index, block.type, toolbarId]);
+  }, [dismissMenus, setFocusedIndex, index, block.type]);
 
   const handleTextInputKeyPress = useCallback(({ nativeEvent }) => {
     handleKeyPress(block, index, nativeEvent.key);
@@ -100,7 +100,7 @@ const NoteBlockRenderer = React.memo(({
           textAlignVertical="top"
           scrollEnabled={false}
           editable={isAuthor}
-          inputAccessoryViewID={toolbarId}
+          inputAccessoryViewID={GLOBAL_TOOLBAR_ID}
         />
       </View>
     );
@@ -130,7 +130,7 @@ const NoteBlockRenderer = React.memo(({
         isAuthor={isAuthor}
         dismissMenus={dismissMenus}
         preventNextAutoScroll={preventNextAutoScroll}
-        toolbarId={toolbarId}
+        toolbarId={GLOBAL_TOOLBAR_ID}
       />
     );
   } 
@@ -154,7 +154,7 @@ const NoteBlockRenderer = React.memo(({
             spellCheck={false}
             scrollEnabled={false}
             editable={isAuthor}
-            inputAccessoryViewID={toolbarId}
+            inputAccessoryViewID={GLOBAL_TOOLBAR_ID}
             placeholderTextColor={Colors.secondaryText}
           />
           {isAuthor && (

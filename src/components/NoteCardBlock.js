@@ -130,7 +130,11 @@ const NoteCardBlock = ({
       },
       onPanResponderGrant: () => {
         if (isDraggingRef.current) {
-          console.log(`🚫 DRAG ALREADY ACTIVE for ${block.id}`);
+          console.log(`🚫 DRAG ALREADY ACTIVE for ${block.id}, forcing complete reset`);
+          // 완전한 드래그 상태 리셋
+          isDraggingRef.current = false;
+          setDraggingBlockId(null);
+          setHoveredBlockId(null);
           return;
         }
         DEBUG_DRAG && console.log(`🚀 DRAG START: ${block.id}`);

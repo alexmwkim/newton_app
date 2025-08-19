@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Keyboard, Platform, Dimensions } from 'react-native';
+import { TOOLBAR_HEIGHT } from '../constants/Toolbar';
 
 export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputRef) => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -61,8 +62,8 @@ export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputR
       return;
     }
 
-    // InputAccessoryView를 고려한 간단한 자동 스크롤
-    const toolbarHeight = 44;
+    // InputAccessoryView를 고려한 간단한 자동 스크롤 (전역 상수 사용)
+    const toolbarHeight = TOOLBAR_HEIGHT;
     const extraPadding = 20;
     
     // Get the focused input element

@@ -15,18 +15,29 @@ export const useNoteInsertHandlers = (
 ) => {
   
   const insertBlockSet = useCallback((index, blockSet, focusIndex) => {
+    const currentBlock = blocks[index];
+    const hasContent = currentBlock && currentBlock.content && currentBlock.content.trim() !== '';
+    
     const updated = [...blocks];
-    // Replace current block instead of inserting after it
-    updated.splice(index, 1, ...blockSet);
+    
+    if (hasContent) {
+      // 텍스트가 있는 경우: 다음 줄에 삽입
+      updated.splice(index + 1, 0, ...blockSet);
+      console.log('🔧 Block set inserted after current block (preserving text)');
+    } else {
+      // 빈 블록인 경우: 교체
+      updated.splice(index, 1, ...blockSet);
+      console.log('🔧 Block set replaced empty block');
+    }
+    
     setBlocks(updated);
     
-    console.log('🔧 Block set inserted');
-    
     setTimeout(() => {
-      const targetRef = updated[focusIndex]?.ref;
+      const targetIndex = hasContent ? index + 1 + (focusIndex - index) : focusIndex;
+      const targetRef = updated[targetIndex]?.ref;
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
-        setFocusedIndex(focusIndex);
+        setFocusedIndex(targetIndex);
         // Auto-scroll to the focused element
         if (keyboardVisible) {
           setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
@@ -82,6 +93,27 @@ export const useNoteInsertHandlers = (
       insertBlockSet(index, [card, trailingText], index);
     }
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput, insertBlockSet]);
+
+  const handleAddGrid = useCallback((index) => {
+    const gridCard = {
+      id: generateId(),
+      type: 'grid-card',
+      content: '',
+      ref: React.createRef(),
+      layoutMode: 'grid-left',
+      groupId: null
+    };
+    const trailingText = {
+      id: generateId(),
+      type: 'text',
+      content: '',
+      ref: React.createRef(),
+      layoutMode: 'full',
+      groupId: null
+    };
+    // Focus on the grid card (first element in the set)
+    insertBlockSet(index, [gridCard, trailingText], index);
+  }, [insertBlockSet]);
 
   const handleAddImage = useCallback(async (index) => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -191,6 +223,7 @@ export const useNoteInsertHandlers = (
 
   return {
     handleAddCard,
+    handleAddGrid,
     handleAddImage,
     handleKeyPress,
     handleDeleteBlock,

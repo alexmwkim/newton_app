@@ -19,16 +19,29 @@ export const useNoteDetailHandlers = (
 ) => {
 
   const insertBlockSet = useCallback((index, blockSet, focusIndex) => {
+    const currentBlock = blocks[index];
+    const hasContent = currentBlock && currentBlock.content && currentBlock.content.trim() !== '';
+    
     console.log('🎯 insertBlockSet called:', {
       index,
       blockSetLength: blockSet.length,
       blockTypes: blockSet.map(b => b.type),
-      currentBlocks: blocks.length
+      currentBlocks: blocks.length,
+      hasContent,
+      currentContent: currentBlock?.content
     });
     
     const updated = [...blocks];
-    // Replace current block instead of inserting after it
-    updated.splice(index, 1, ...blockSet);
+    
+    if (hasContent) {
+      // 텍스트가 있는 경우: 다음 줄에 삽입
+      updated.splice(index + 1, 0, ...blockSet);
+      console.log('🎯 Inserted after current block (preserving text)');
+    } else {
+      // 빈 블록인 경우: 교체
+      updated.splice(index, 1, ...blockSet);
+      console.log('🎯 Replaced empty block');
+    }
     
     console.log('🎯 setBlocks called with:', updated.length, 'blocks');
     console.log('🎯 Block types after update:', updated.map(b => `${b.type}(${b.id})`));
@@ -38,10 +51,11 @@ export const useNoteDetailHandlers = (
     console.log('🔧 Block set inserted, triggering auto-save');
     
     setTimeout(() => {
-      const targetRef = updated[focusIndex]?.ref;
+      const targetIndex = hasContent ? index + 1 + (focusIndex - index) : focusIndex;
+      const targetRef = updated[targetIndex]?.ref;
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
-        setFocusedIndex(focusIndex);
+        setFocusedIndex(targetIndex);
         // Fast scroll for new blocks when keyboard is visible
         if (keyboardVisible && keyboardHeight > 100) {
           setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
