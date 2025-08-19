@@ -20,6 +20,7 @@ import { Colors } from '../constants/Colors';
 import SingleToggleComponent from '../components/SingleToggleComponent';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
+import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 
 // Separated modules
 import { 
@@ -37,6 +38,7 @@ const TOOLBAR_ID = 'create-note-toolbar';
 
 const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen, route }) => {
   const { user, loading: authLoading, initialized } = useAuth();
+  const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex } = useSimpleToolbar();
   const notesStore = useNotesStore();
   const noteData = note || initialNote;
   const styles = createNoteStyles;
@@ -157,6 +159,37 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     cardLayoutModes,
     setCardLayoutModes
   );
+
+  // Done handler for global toolbar
+  const handleDone = useCallback(() => {
+    console.log('🔧 Done pressed - hiding keyboard');
+    if (focusedIndex === -1 && titleInputRef.current) {
+      titleInputRef.current.blur();
+    } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
+      blocks[focusedIndex].ref.current.blur();
+    }
+    Keyboard.dismiss();
+    setFocusedIndex(-1);
+  }, [focusedIndex, blocks]);
+
+  // Register handlers with global toolbar
+  useEffect(() => {
+    setActiveScreenHandlers({
+      handleAddCard,
+      handleAddGrid,
+      handleAddImage,
+      handleDone
+    });
+    
+    return () => {
+      setActiveScreenHandlers(null);
+    };
+  }, [handleAddCard, handleAddGrid, handleAddImage, handleDone, setActiveScreenHandlers]);
+
+  // Sync focusedIndex with global toolbar
+  useEffect(() => {
+    setGlobalFocusedIndex(focusedIndex);
+  }, [focusedIndex, setGlobalFocusedIndex]);
 
 
   // Initialize content from note data
@@ -414,114 +447,6 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
       </KeyboardAvoidingView>
     </SafeAreaView>
 
-    {/* InputAccessoryView - 복원 */}
-    {(() => {
-      const shouldShowToolbar = (user && !authLoading && initialized);
-      console.log('🔧 CreateNote Toolbar render check:', {
-        user: !!user,
-        authLoading,
-        initialized,
-        shouldShowToolbar,
-        toolbarId: TOOLBAR_ID
-      });
-      return shouldShowToolbar;
-    })() && (
-      <InputAccessoryView 
-        nativeID={TOOLBAR_ID}
-        key={`toolbar-${TOOLBAR_ID}-${focusedIndex}`}
-      >
-        {console.log('🔧 CreateNote InputAccessoryView rendered with nativeID:', TOOLBAR_ID, 'focusedIndex:', focusedIndex)}
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E5E5',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          height: 44,
-          width: '100%',
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding card at current line, index:', focusedIndex);
-                handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: '#F0F0F0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="square" size={18} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding grid at current line, index:', focusedIndex);
-                handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: '#F0F0F0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="grid" size={18} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding image at current line, index:', focusedIndex);
-                handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: '#F0F0F0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="image" size={18} color="#333" />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Done pressed - hiding keyboard');
-              if (focusedIndex === -1 && titleInputRef.current) {
-                titleInputRef.current.blur();
-              } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
-                blocks[focusedIndex].ref.current.blur();
-              }
-              Keyboard.dismiss();
-              setFocusedIndex(-1);
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: 'rgba(235, 117, 75, 1)',
-              minWidth: 60,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </InputAccessoryView>
-    )}
 
     </>
   );

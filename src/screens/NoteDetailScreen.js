@@ -22,6 +22,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
+import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 import SocialInteractionBar from '../components/SocialInteractionBar';
 
 // Separated modules
@@ -71,6 +72,7 @@ const NoteDetailScreen = ({
   console.log('🔍 NoteDetailScreen rendered with noteId:', noteId, 'note:', note?.title || 'no note');
   
   // Component state
+  const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex } = useSimpleToolbar();
   const scrollRef = useRef(null);
   const titleInputRef = useRef(null);
   const [title, setTitle] = useState('');
@@ -205,6 +207,39 @@ const NoteDetailScreen = ({
     loadingNote,
     updateNote
   );
+
+  // Done handler for global toolbar
+  const handleDone = useCallback(() => {
+    console.log('🔧 Done pressed - hiding keyboard (NoteDetail)');
+    if (focusedIndex === -1 && titleInputRef.current) {
+      titleInputRef.current.blur();
+    } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
+      blocks[focusedIndex].ref.current.blur();
+    }
+    Keyboard.dismiss();
+    setFocusedIndex(-1);
+  }, [focusedIndex, blocks]);
+
+  // Register handlers with global toolbar
+  useEffect(() => {
+    if (isAuthor) {
+      setActiveScreenHandlers({
+        handleAddCard,
+        handleAddGrid,
+        handleAddImage,
+        handleDone
+      });
+    }
+    
+    return () => {
+      setActiveScreenHandlers(null);
+    };
+  }, [handleAddCard, handleAddGrid, handleAddImage, handleDone, setActiveScreenHandlers, isAuthor]);
+
+  // Sync focusedIndex with global toolbar
+  useEffect(() => {
+    setGlobalFocusedIndex(focusedIndex);
+  }, [focusedIndex, setGlobalFocusedIndex]);
 
   
   // Load note data - SINGLE useEffect to prevent loops
@@ -789,117 +824,6 @@ const NoteDetailScreen = ({
       </KeyboardAvoidingView>
     </SafeAreaView>
 
-    {/* InputAccessoryView - 복원 */}
-    {(() => {
-      const shouldShowToolbar = isAuthor;
-      console.log('🔧 NoteDetail Toolbar render check:', {
-        isAuthor,
-        shouldShowToolbar,
-        toolbarId: TOOLBAR_ID,
-        focusedIndex
-      });
-      return shouldShowToolbar;
-    })() && (
-      <InputAccessoryView 
-        key={`toolbar-${TOOLBAR_ID}-${focusedIndex}`}
-        nativeID={TOOLBAR_ID}
-      >
-        {console.log('🔧 NoteDetail InputAccessoryView rendered with nativeID:', TOOLBAR_ID, 'focusedIndex:', focusedIndex)}
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E5E5',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          height: 44,
-          width: '100%',
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding card at current line, index:', focusedIndex);
-                if (isAuthor) handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-                opacity: isAuthor ? 1 : 0.5,
-              }}
-              disabled={!isAuthor}
-            >
-              <Icon name="square" size={18} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding grid at current line, index:', focusedIndex);
-                if (isAuthor) handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-                opacity: isAuthor ? 1 : 0.5,
-              }}
-              disabled={!isAuthor}
-            >
-              <Icon name="grid" size={18} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Adding image at current line, index:', focusedIndex);
-                if (isAuthor) handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-                opacity: isAuthor ? 1 : 0.5,
-              }}
-              disabled={!isAuthor}
-            >
-              <Icon name="image" size={18} color="#333" />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Done pressed - hiding keyboard');
-              if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
-                blocks[focusedIndex].ref.current.blur();
-              }
-              Keyboard.dismiss();
-              setFocusedIndex(-1);
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: 'rgba(235, 117, 75, 1)',
-              minWidth: 60,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </InputAccessoryView>
-    )}
 
     {/* Page Info Modal */}
     <Modal
