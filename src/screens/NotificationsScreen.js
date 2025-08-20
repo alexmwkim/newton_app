@@ -20,6 +20,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from '../components/NotificationItem';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
+import Layout from '../constants/Layout';
 
 const NotificationsScreen = ({ navigation }) => {
   const {
@@ -236,9 +237,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16, // 상단 패딩 추가로 다른 화면과 일치
-    paddingBottom: 12,
+    paddingHorizontal: 0, // 패딩 제거 - NoteDetail과 동일
+    paddingVertical: Layout.spacing.md,
+    paddingTop: Layout.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.white,
@@ -247,6 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginRight: 12, // NoteDetail과 동일하게 우측 여백 추가
   },
   backButton: {
     padding: 8,
