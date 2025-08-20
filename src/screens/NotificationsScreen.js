@@ -21,6 +21,7 @@ import NotificationItem from '../components/NotificationItem';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { ScreenContainer, UnifiedHeader } from '../shared/components/layout';
 
 const NotificationsScreen = ({ navigation }) => {
   const {
@@ -127,37 +128,26 @@ const NotificationsScreen = ({ navigation }) => {
     );
   }, [notifications, deleteAllNotifications, refresh]);
 
-  // Header component
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={styles.backButton}
-      >
-        <Icon name="arrow-left" size={24} color={Colors.textBlack} />
-      </TouchableOpacity>
+  // 우측 헤더 버튼들 렌더링
+  const renderRightComponent = () => (
+    <View style={styles.rightButtonsContainer}>
+      {hasUnread && (
+        <TouchableOpacity
+          onPress={handleMarkAllAsRead}
+          style={styles.markAllButton}
+        >
+          <Text style={styles.markAllText}>Mark All Read</Text>
+        </TouchableOpacity>
+      )}
       
-      <Text style={styles.headerTitle}>Notifications</Text>
-      
-      <View style={styles.headerRight}>
-        {hasUnread && (
-          <TouchableOpacity
-            onPress={handleMarkAllAsRead}
-            style={styles.markAllButton}
-          >
-            <Text style={styles.markAllText}>Mark All Read</Text>
-          </TouchableOpacity>
-        )}
-        
-        {notifications.length > 0 && (
-          <TouchableOpacity
-            onPress={handleDeleteAll}
-            style={styles.deleteAllButton}
-          >
-            <Icon name="trash-2" size={20} color={Colors.danger} />
-          </TouchableOpacity>
-        )}
-      </View>
+      {notifications.length > 0 && (
+        <TouchableOpacity
+          onPress={handleDeleteAll}
+          style={styles.deleteAllButton}
+        >
+          <Icon name="trash-2" size={20} color={Colors.danger} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -202,8 +192,13 @@ const NotificationsScreen = ({ navigation }) => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {renderHeader()}
+    <ScreenContainer noPadding>
+      <UnifiedHeader
+        title="Notifications"
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+        rightComponent={renderRightComponent()}
+      />
       
       <FlatList
         data={notifications}
@@ -224,48 +219,22 @@ const NotificationsScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : styles.listContainer}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  // 기본 컨테이너 스타일 (ScreenContainer로 대체되었지만 호환성 유지)
   container: {
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 0, // 패딩 제거 - NoteDetail과 동일
-    paddingVertical: Layout.spacing.md,
-    paddingTop: Layout.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.white,
-  },
-  headerRight: {
+  
+  // UnifiedHeader에서 사용하는 커스텀 버튼 스타일들
+  rightButtonsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginRight: 12, // NoteDetail과 동일하게 우측 여백 추가
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: 12, // 화면 가장자리에서 20px (12+8)
-    alignItems: 'center',
-  },
-  headerTitle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: Typography.fontSize.medium,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.textPrimary,
-    letterSpacing: -0.3,
-    pointerEvents: 'none', // 터치 이벤트는 버튼들이 받도록
   },
   markAllButton: {
     paddingHorizontal: 12,
