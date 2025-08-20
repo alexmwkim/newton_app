@@ -15,7 +15,7 @@ export const createNoteStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 20, // 모든 페이지 통일 (20px)
     paddingTop: Layout.spacing.md,
     paddingBottom: Layout.spacing.lg,
   },
@@ -59,14 +59,15 @@ export const createNoteStyles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
   },
   scrollContent: {
-    padding: Layout.screen.padding, // 반응형 패딩 (16-32px)
+    paddingHorizontal: 20, // 모든 페이지 통일 (20px)
+    paddingVertical: Layout.screen.padding,
     paddingBottom: 400, // 키보드+툴바 공간 확보
   },
   titleInput: {
     fontSize: 22,
     fontWeight: 'bold',
     paddingVertical: 12,
-    paddingHorizontal: 0, // scrollContent에서 이미 20px 패딩
+    paddingHorizontal: 0, // 토글과 정확히 정렬 (20px)
     marginBottom: 20,
     color: Colors.primaryText,
   },
@@ -81,7 +82,7 @@ export const createNoteStyles = StyleSheet.create({
   textInput: {
     fontSize: 16,
     paddingVertical: 12,
-    paddingHorizontal: 0, // scrollContent에서 이미 20px 패딩
+    paddingHorizontal: 0, // 토글과 정확히 정렬 (20px)
     minHeight: 50,
     backgroundColor: 'transparent',
     color: Colors.primaryText,

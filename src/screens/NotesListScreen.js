@@ -359,18 +359,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 0, // NoteDetailScreen과 동일하게 제거
     paddingVertical: Layout.spacing.md,
     paddingTop: Layout.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   backButton: {
-    width: 44,
-    height: 44,
+    padding: 8,
+    marginLeft: 12, // NoteDetailScreen과 동일하게
     justifyContent: 'center',
     alignItems: 'center',
-    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
   },
   title: {
     fontSize: Typography.fontSize.title,

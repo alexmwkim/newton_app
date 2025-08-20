@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, InputAccessoryView, TouchableOpacity, Keyboard } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import TabNavigator from './src/navigation/TabNavigator';
 import AuthNavigator from './src/navigation/AuthNavigator';
@@ -114,13 +114,22 @@ if (__DEV__) {
 }
 
 function GlobalToolbar() {
-  const { activeScreenHandlers, focusedIndex } = useSimpleToolbar();
+  const { activeScreenHandlers, focusedIndex, hideKeyboard, keyboardVisible } = useSimpleToolbar();
+  
+  console.log('🔧 GlobalToolbar render - activeScreenHandlers:', !!activeScreenHandlers, 'focusedIndex:', focusedIndex, 'keyboardVisible:', keyboardVisible);
+  
+  // Floating toolbar that appears above keyboard (InputAccessoryView 대신 사용)
+  if (!keyboardVisible || !activeScreenHandlers) {
+    return null;
+  }
   
   return (
-    <>
-      {/* CreateNoteScreen Toolbar */}
-      <InputAccessoryView nativeID="create-note-toolbar">
-      <View style={{
+    <View 
+      style={{
+        position: 'absolute',
+        bottom: 301, // keyboard height (291) + margin (10)
+        left: 0,
+        right: 0,
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
         borderTopColor: '#E5E5E5',
@@ -130,188 +139,88 @@ function GlobalToolbar() {
         paddingHorizontal: 16,
         paddingVertical: 8,
         height: 44,
-        width: '100%',
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Global toolbar: Add card button pressed');
-              if (activeScreenHandlers?.handleAddCard) {
-                activeScreenHandlers.handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
-              }
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: '#F0F0F0',
-              minWidth: 36,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Icon name="square" size={18} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Global toolbar: Add grid button pressed');
-              if (activeScreenHandlers?.handleAddGrid) {
-                activeScreenHandlers.handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-              }
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: '#F0F0F0',
-              minWidth: 36,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Icon name="grid" size={18} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Global toolbar: Add image button pressed');
-              if (activeScreenHandlers?.handleAddImage) {
-                activeScreenHandlers.handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-              }
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: '#F0F0F0',
-              minWidth: 36,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Icon name="image" size={18} color="#333" />
-          </TouchableOpacity>
-        </View>
+        zIndex: 1000,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <TouchableOpacity
           onPress={() => {
-            console.log('🔧 Global toolbar: Done button pressed');
-            if (activeScreenHandlers?.handleDone) {
-              activeScreenHandlers.handleDone();
-            } else {
-              Keyboard.dismiss();
+            console.log('🔧 Floating toolbar: Add card button pressed');
+            if (activeScreenHandlers?.handleAddCard) {
+              activeScreenHandlers.handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
             }
           }}
           style={{
-            padding: 8,
-            borderRadius: 6,
-            backgroundColor: 'rgba(235, 117, 75, 1)',
-            minWidth: 60,
-            minHeight: 36,
+            padding: 6,
+            minWidth: 32,
+            minHeight: 32,
             justifyContent: 'center',
             alignItems: 'center',
           }}
         >
-          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
+          <Icon name="square" size={18} color="#000000" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Floating toolbar: Add grid button pressed');
+            if (activeScreenHandlers?.handleAddGrid) {
+              activeScreenHandlers.handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
+            }
+          }}
+          style={{
+            padding: 6,
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Icon name="grid" size={18} color="#000000" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Floating toolbar: Add image button pressed');
+            if (activeScreenHandlers?.handleAddImage) {
+              activeScreenHandlers.handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
+            }
+          }}
+          style={{
+            padding: 6,
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Icon name="image" size={18} color="#000000" />
         </TouchableOpacity>
       </View>
-      </InputAccessoryView>
-      
-      {/* NoteDetailScreen Toolbar */}
-      <InputAccessoryView nativeID="note-detail-toolbar">
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E5E5',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+      <TouchableOpacity
+        onPress={() => {
+          console.log('🔧 Floating toolbar: Done button pressed');
+          hideKeyboard();
+        }}
+        style={{
+          backgroundColor: '#EB754B', // Newton style guide orange
           paddingHorizontal: 16,
-          paddingVertical: 8,
-          height: 44,
-          width: '100%',
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Global toolbar: Add card button pressed (NoteDetail)');
-                if (activeScreenHandlers?.handleAddCard) {
-                  activeScreenHandlers.handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
-                }
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: '#F0F0F0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="square" size={18} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Global toolbar: Add grid button pressed (NoteDetail)');
-                if (activeScreenHandlers?.handleAddGrid) {
-                  activeScreenHandlers.handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-                }
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: '#F0F0F0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="grid" size={18} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                console.log('🔧 Global toolbar: Add image button pressed (NoteDetail)');
-                if (activeScreenHandlers?.handleAddImage) {
-                  activeScreenHandlers.handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
-                }
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 6,
-                backgroundColor: '#F0F0F0',
-                minWidth: 36,
-                minHeight: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="image" size={18} color="#333" />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔧 Global toolbar: Done button pressed (NoteDetail)');
-              if (activeScreenHandlers?.handleDone) {
-                activeScreenHandlers.handleDone();
-              } else {
-                Keyboard.dismiss();
-              }
-            }}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: 'rgba(235, 117, 75, 1)',
-              minWidth: 60,
-              minHeight: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </InputAccessoryView>
-    </>
+          paddingVertical: 0, // 패딩 제거하고 height로 조정
+          borderRadius: 6,
+          minWidth: 70,
+          height: 32, // 툴바 내부에 맞는 높이
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'row', // 텍스트 중앙 정렬 강화
+        }}
+      >
+        <Text style={{ 
+          color: '#FFFFFF', 
+          fontWeight: 'bold', 
+          fontSize: 14,
+          textAlign: 'center',
+          lineHeight: 14, // 명시적 lineHeight로 수직 중앙 정렬
+        }}>Done</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 

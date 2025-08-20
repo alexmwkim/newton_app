@@ -1154,9 +1154,8 @@ const styles = StyleSheet.create({
     paddingTop: Layout.spacing.lg,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
+    padding: 8,
+    marginLeft: 12, // 화면 가장자리에서 20px (12+8)
     alignItems: 'center',
     // 단순한 아이콘 스타일 - 배경이나 테두리 없음
   },

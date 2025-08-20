@@ -23,22 +23,21 @@ export const noteDetailStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 0, // 패딩 제거
     paddingVertical: Layout.spacing.md,
+    paddingTop: Layout.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
+    padding: 8,
+    marginLeft: 12,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Layout.spacing.sm,
+    marginRight: 12, // 패딩 포함해서 좌우 20px
   },
   actionButtons: {
     flexDirection: 'row',
@@ -55,7 +54,7 @@ export const noteDetailStyles = StyleSheet.create({
     marginRight: Layout.spacing.sm,
   },
   actionButton: {
-    padding: Layout.spacing.sm,
+    padding: 8,
   },
   solidStar: {
     textAlign: 'center',
@@ -66,14 +65,15 @@ export const noteDetailStyles = StyleSheet.create({
     lineHeight: 20,
   },
   scrollContent: {
-    padding: Layout.screen.padding, // 반응형 패딩 (16-32px)
+    paddingHorizontal: 20, // 뒤로가기 아이콘과 정확히 정렬
+    paddingVertical: Layout.screen.padding,
     paddingBottom: 400, // 키보드+툴바 공간 확보
   },
   titleInput: {
     fontSize: 22,
     fontWeight: 'bold',
     paddingVertical: 12,
-    paddingHorizontal: 0, // scrollContent에서 이미 20px 패딩
+    paddingHorizontal: 0, // 뒤로가기 아이콘과 정렬
     marginBottom: 20,
     color: Colors.primaryText,
   },
@@ -200,7 +200,7 @@ export const noteDetailStyles = StyleSheet.create({
   textInput: {
     fontSize: 16,
     paddingVertical: 12,
-    paddingHorizontal: 0, // scrollContent에서 이미 20px 패딩
+    paddingHorizontal: 0, // 뒤로가기 아이콘과 정렬
     minHeight: 50,
     marginBottom: 8,
     backgroundColor: 'transparent',

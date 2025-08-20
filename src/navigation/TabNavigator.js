@@ -14,11 +14,9 @@ import ProfileScreen from '../screens/ProfileScreen';
 import NoteDetailScreen from '../screens/NoteDetailScreen';
 import CreateNoteScreen from '../screens/CreateNoteScreen';
 import EditReadmeScreen from '../screens/EditReadmeScreen';
-import MyNotesScreen from '../screens/MyNotesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import MoreScreen from '../screens/MoreScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
-import StarredNotesScreen from '../screens/StarredNotesScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import NotesListScreen from '../screens/NotesListScreen';
 import FollowListScreen from '../screens/FollowListScreen';
@@ -226,9 +224,6 @@ const TabNavigator = ({ logout }) => {
       case 'editReadme':
         console.log('📝 Rendering EditReadmeScreen with screenProps:', screenProps);
         return <EditReadmeScreen key="edit-readme" navigation={navigationProps} route={{ params: screenProps }} />;
-      case 'myNotes':
-        console.log('📄 Rendering MyNotesScreen');
-        return <MyNotesScreen key="my-notes" navigation={navigationProps} />;
       case 'settings':
         console.log('⚙️ Rendering SettingsScreen');
         return <SettingsScreen key="settings" navigation={navigationProps} />;
@@ -238,9 +233,6 @@ const TabNavigator = ({ logout }) => {
       case 'notifications':
         console.log('🔔 Rendering NotificationsScreen');
         return <NotificationsScreen key="notifications" navigation={navigationProps} />;
-      case 'starredNotes':
-        console.log('⭐ Rendering StarredNotesScreen');
-        return <StarredNotesScreen key="starred-notes" navigation={navigationProps} />;
       case 'userProfile':
         console.log('👤 Rendering UserProfileScreen with screenProps:', screenProps);
         console.log('👤 screenProps keys:', Object.keys(screenProps || {}));

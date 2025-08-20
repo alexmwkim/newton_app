@@ -160,31 +160,18 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     setCardLayoutModes
   );
 
-  // Done handler for global toolbar
-  const handleDone = useCallback(() => {
-    console.log('🔧 Done pressed - hiding keyboard');
-    if (focusedIndex === -1 && titleInputRef.current) {
-      titleInputRef.current.blur();
-    } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
-      blocks[focusedIndex].ref.current.blur();
-    }
-    Keyboard.dismiss();
-    setFocusedIndex(-1);
-  }, [focusedIndex, blocks]);
-
   // Register handlers with global toolbar
   useEffect(() => {
     setActiveScreenHandlers({
       handleAddCard,
       handleAddGrid,
-      handleAddImage,
-      handleDone
+      handleAddImage
     });
     
     return () => {
       setActiveScreenHandlers(null);
     };
-  }, [handleAddCard, handleAddGrid, handleAddImage, handleDone, setActiveScreenHandlers]);
+  }, [handleAddCard, handleAddGrid, handleAddImage, setActiveScreenHandlers]);
 
   // Sync focusedIndex with global toolbar
   useEffect(() => {
@@ -359,12 +346,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                   setTitle(newTitle);
                 }}
                 onFocus={() => {
-                  console.log('🎯 Title input focused - should show toolbar');
                   setFocusedIndex(-1);
-                  if (keyboardVisible) {
-                    setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
-                  }
-                }} // Special index for title
+                }}
                 multiline
                 autoCorrect={false}
                 autoComplete="off"
@@ -416,6 +399,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                     cardLayouts={cardLayouts}
                     setCardLayouts={trackedSetCardLayouts}
                     toolbarId={TOOLBAR_ID}
+                    useGlobalKeyboard={true}
                   />
                 ))}
                 

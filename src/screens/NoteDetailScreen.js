@@ -208,33 +208,20 @@ const NoteDetailScreen = ({
     updateNote
   );
 
-  // Done handler for global toolbar
-  const handleDone = useCallback(() => {
-    console.log('🔧 Done pressed - hiding keyboard (NoteDetail)');
-    if (focusedIndex === -1 && titleInputRef.current) {
-      titleInputRef.current.blur();
-    } else if (focusedIndex >= 0 && blocks[focusedIndex]?.ref?.current) {
-      blocks[focusedIndex].ref.current.blur();
-    }
-    Keyboard.dismiss();
-    setFocusedIndex(-1);
-  }, [focusedIndex, blocks]);
-
   // Register handlers with global toolbar
   useEffect(() => {
     if (isAuthor) {
       setActiveScreenHandlers({
         handleAddCard,
         handleAddGrid,
-        handleAddImage,
-        handleDone
+        handleAddImage
       });
     }
     
     return () => {
       setActiveScreenHandlers(null);
     };
-  }, [handleAddCard, handleAddGrid, handleAddImage, handleDone, setActiveScreenHandlers, isAuthor]);
+  }, [handleAddCard, handleAddGrid, handleAddImage, setActiveScreenHandlers, isAuthor]);
 
   // Sync focusedIndex with global toolbar
   useEffect(() => {
@@ -631,7 +618,7 @@ const NoteDetailScreen = ({
                   style={styles.actionButton} 
                   onPress={handleSettingsPress}
                 >
-                  <Icon name="more-horizontal" size={20} color={Colors.primaryText} />
+                  <Icon name="more-horizontal" size={24} color={Colors.primaryText} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -715,14 +702,9 @@ const NoteDetailScreen = ({
                   dismissMenus();
                 }}
                 onFocus={() => {
-                  console.log('🎯 Title input focused');
                   dismissMenus();
                   setFocusedIndex(-1);
-                  // Consistent scroll timing for title input
-                  if (keyboardVisible && keyboardHeight > 150) {
-                    setTimeout(() => scrollToFocusedInput(keyboardHeight, true), 100);
-                  }
-                }} // Special index for title
+                }}
                 onContentSizeChange={({ nativeEvent }) => {
                   console.log('📏 Title content size changed:', nativeEvent.contentSize);
                   // No action needed - KeyboardAvoidingView handles positioning
@@ -795,6 +777,7 @@ const NoteDetailScreen = ({
                     dismissMenus={dismissMenus}
                     preventNextAutoScroll={preventNextAutoScroll}
                     toolbarId={TOOLBAR_ID}
+                    useGlobalKeyboard={true}
                     />
                   </View>
                 ))}

@@ -12,6 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import { Colors } from '../constants/Colors';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
+import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 
 const NoteCardBlock = ({
   block,
@@ -34,10 +35,12 @@ const NoteCardBlock = ({
   isAuthor = true,
   dismissMenus = () => {},
   preventNextAutoScroll = () => {},
-  toolbarId = 'newton-toolbar'
+  toolbarId = 'newton-toolbar',
+  useGlobalKeyboard = false
 }) => {
   const cardRef = useRef(null);
   const styles = createNoteStyles;
+  const { handleInputFocus } = useSimpleToolbar();
   
   // 🔧 디버그 모드 (개발 시에만 true로 설정)
   const DEBUG_DRAG = false;
@@ -464,18 +467,15 @@ const NoteCardBlock = ({
           style={styles.cardTitleInput}
           placeholder="Write something"
           multiline
-          value={block.content}
+          defaultValue={block.content}
           onChangeText={(text) => handleTextChange(block.id, text)}
           onPressIn={() => {
             // console.log('🎯 TextInput pressed in card:', block.id);
             dismissMenus();
           }}
           onFocus={() => {
-            console.log(`🔧 Card TextInput focused - block: ${block.id}, index: ${index}, toolbarId: ${toolbarId}`);
             dismissMenus();
             setFocusedIndex(index);
-            
-            // Let KeyboardAvoidingView handle the positioning
           }}
           onKeyPress={({ nativeEvent }) => {
             handleKeyPress(block, index, nativeEvent.key);
@@ -489,8 +489,8 @@ const NoteCardBlock = ({
           spellCheck={false}
           scrollEnabled={false}
           editable={isAuthor && !isDragging}
-          inputAccessoryViewID={toolbarId}
           placeholderTextColor={Colors.secondaryText}
+          {...(Platform.OS === 'android' && useGlobalKeyboard ? { showSoftInputOnFocus: false } : {})}
         />
         {isAuthor && (
           <TouchableOpacity onPress={() => handleDeleteBlock(index)}>

@@ -249,9 +249,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
+    padding: 8,
+    marginLeft: 12, // 화면 가장자리에서 20px (12+8)
     alignItems: 'center',
   },
   headerTitle: {

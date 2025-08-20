@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   noteContent: {
-    padding: 16, // Consistent 16px padding on all sides
+    padding: 20, // 모든 페이지와 동일한 20px 패딩
     minHeight: 72,
     justifyContent: 'center', // Center content vertically
     position: 'relative', // For absolute positioning of username
@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
   noteContentPreview: {
     backgroundColor: Colors.noteCardBackground,
     borderRadius: 12,
-    padding: 16, // Consistent 16px padding on all sides
+    padding: 20, // 모든 페이지와 동일한 20px 패딩
     marginBottom: Layout.spacing.sm,
     minHeight: 100,
     justifyContent: 'center', // Center content vertically

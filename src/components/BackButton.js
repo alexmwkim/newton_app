@@ -18,12 +18,11 @@ const BackButton = ({ onPress, style, iconSize = 24, iconColor = Colors.primaryT
 
 const styles = StyleSheet.create({
   backButton: {
-    width: 44,
-    height: 44,
+    padding: 8,
+    marginLeft: 12, // 표준 정렬 (화면 가장자리에서 20px)
     justifyContent: 'center',
     alignItems: 'center',
-    // 단순한 아이콘 스타일 - 배경이나 테두리 없음
-    // 터치 영역만 확보
+    // 표준 뒤로가기 버튼 스타일
   },
 });
 

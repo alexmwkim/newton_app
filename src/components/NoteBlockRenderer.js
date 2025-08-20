@@ -47,7 +47,8 @@ export const NoteBlockRenderer = ({
   isAuthor = true,
   dismissMenus = () => {},
   preventNextAutoScroll = () => {},
-  toolbarId = 'newton-toolbar'
+  toolbarId = 'newton-toolbar',
+  useGlobalKeyboard = false
 }) => {
   const styles = createNoteStyles;
   const blockRef = useRef(null);
@@ -255,18 +256,15 @@ export const NoteBlockRenderer = ({
           style={styles.textInput}
           multiline
           placeholder=" "
-          value={block.content}
+          defaultValue={block.content}
           onChangeText={(text) => handleTextChange(block.id, text)}
           onPressIn={() => {
             console.log('🎯 Text block pressed, index:', index);
             dismissMenus();
           }}
           onFocus={() => {
-            console.log('🔧 Text block focused - index:', index, 'type:', block.type, 'toolbarId:', toolbarId);
             dismissMenus();
             setFocusedIndex(index);
-            
-            // Let KeyboardAvoidingView handle the positioning
           }}
           onKeyPress={({ nativeEvent }) => {
             handleKeyPress(block, index, nativeEvent.key);
@@ -291,7 +289,7 @@ export const NoteBlockRenderer = ({
           textAlignVertical="top"
           scrollEnabled={false}
           editable={isAuthor}
-          inputAccessoryViewID={toolbarId}
+          {...(Platform.OS === 'android' && useGlobalKeyboard ? { showSoftInputOnFocus: false } : {})}
         />
       </View>
     );
@@ -321,6 +319,7 @@ export const NoteBlockRenderer = ({
         dismissMenus={dismissMenus}
         preventNextAutoScroll={preventNextAutoScroll}
         toolbarId={toolbarId}
+        useGlobalKeyboard={useGlobalKeyboard}
       />
     );
   } else if (block.type === 'grid-card') {
@@ -332,17 +331,15 @@ export const NoteBlockRenderer = ({
             style={styles.gridCardTitleInput}
             placeholder="Small note"
             multiline
-            value={block.content}
+            defaultValue={block.content}
             onChangeText={(text) => handleTextChange(block.id, text)}
             onPressIn={() => {
               console.log('🎯 Grid card block pressed, index:', index);
               dismissMenus();
             }}
             onFocus={() => {
-              console.log('🎯 Grid card block focused, index:', index, 'type:', block.type);
               dismissMenus();
               setFocusedIndex(index);
-              // Let KeyboardAvoidingView handle positioning
             }}
             onKeyPress={({ nativeEvent }) => {
               handleKeyPress(block, index, nativeEvent.key);
@@ -352,8 +349,8 @@ export const NoteBlockRenderer = ({
             spellCheck={false}
             scrollEnabled={false}
             editable={isAuthor}
-            inputAccessoryViewID={toolbarId}
-            placeholderTextColor={Colors.secondaryText}
+              placeholderTextColor={Colors.secondaryText}
+            {...(Platform.OS === 'android' && useGlobalKeyboard ? { showSoftInputOnFocus: false } : {})}
           />
           {isAuthor && (
             <TouchableOpacity onPress={() => handleDeleteBlock(index)}>
