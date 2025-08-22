@@ -20,7 +20,7 @@ const SingleToggle = ({
     >
       <Icon 
         name={iconName} 
-        size={16} 
+        size={14} 
         color={Colors.textWhite} 
       />
       <Text style={styles.text}>{label}</Text>
@@ -33,14 +33,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.textBlack,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 30,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    marginLeft: 8, // UnifiedHeader leftComponent용 추가 마진
   },
   text: {
     fontFamily: Typography.fontFamily.primary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: Typography.fontWeight.medium,
     color: Colors.textWhite,
   },

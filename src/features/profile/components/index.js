@@ -3,7 +3,6 @@
  */
 
 // Header Components
-export { default as ProfileHeader } from './header/ProfileHeader';
 export { default as SocialActions } from './header/SocialActions';
 
 // Stats Components  

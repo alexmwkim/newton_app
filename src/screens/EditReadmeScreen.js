@@ -3,7 +3,7 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
+  SafeAreaView,
   TouchableOpacity, 
   TextInput,
   Alert,
@@ -15,6 +15,7 @@ import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
 import { Spacing } from '../constants/StyleControl';
+import { UnifiedHeader } from '../shared/components/layout';
 
 const EditReadmeScreen = ({ navigation, route }) => {
   console.log('📝 EditReadmeScreen received route params:', route.params);
@@ -62,16 +63,25 @@ const EditReadmeScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-          <Icon name="x" size={24} color={Colors.primaryText} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Readme</Text>
-        <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
-          <Text style={styles.saveButton}>Save</Text>
-        </TouchableOpacity>
-      </View>
+      <UnifiedHeader
+        title="Readme"
+        showBackButton={false}
+        leftComponent={
+          <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
+            <Icon name="x" size={24} color={Colors.primaryText} />
+          </TouchableOpacity>
+        }
+        rightElements={[
+          {
+            component: (
+              <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            )
+          }
+        ]}
+        screenType="sub"
+      />
 
       <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* Title Input */}
@@ -138,29 +148,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.mainBackground,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.screen.horizontal,
-    paddingVertical: Layout.spacing.md,
-    paddingTop: Layout.spacing.lg, // 다른 화면들과 일치
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerButton: {
+  cancelButton: {
     padding: Layout.spacing.xs,
     minWidth: 44,
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    letterSpacing: -0.3,
+    justifyContent: 'center',
   },
   saveButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
     fontSize: Typography.fontSize.body,
     fontWeight: Typography.fontWeight.semibold,
     fontFamily: Typography.fontFamily.primary,
@@ -168,7 +168,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: Spacing.screen.horizontal,
+    paddingHorizontal: Spacing.screen.horizontal,
+    paddingTop: Layout.spacing.lg,
+    paddingBottom: Layout.spacing.md,
   },
   inputSection: {
     marginBottom: Layout.spacing.xl,

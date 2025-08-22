@@ -308,9 +308,13 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                   style={[styles.actionButton, isLoading && styles.actionButtonDisabled]}
                   disabled={isLoading}
                 >
-                  <Text style={styles.actionButtonText}>
-                    {isLoading ? 'Saving...' : noteHasContent ? 'Done' : 'X'}
-                  </Text>
+                  {isLoading ? (
+                    <Text style={styles.actionButtonText}>Saving...</Text>
+                  ) : noteHasContent ? (
+                    <Text style={styles.actionButtonText}>Done</Text>
+                  ) : (
+                    <Icon name="x" size={24} color={Colors.primaryText} />
+                  )}
                 </TouchableOpacity>
               )
             }

@@ -107,10 +107,10 @@ const UnifiedHeader = ({
       return (
         <View style={styles.rightContainer}>
           {rightElements.map((element, index) => {
-            // 커스텀 컴포넌트 지원
+            // 커스텀 컴포넌트 지원 (자체 패딩 사용)
             if (element.component) {
               return (
-                <View key={index} style={styles.rightButton}>
+                <View key={index}>
                   {element.component}
                 </View>
               );
@@ -279,14 +279,14 @@ const styles = StyleSheet.create({
   },
   rightSectionMain: {
     position: 'absolute', // 메인 탭 화면용 - 절대 위치로 오른쪽 끝에 배치
-    right: 20, // 표준 마진 (좌측과 동일하게 20px)
+    right: 12, // 20px - 8px(패딩) = 12px로 조정
     top: 0,
     bottom: 0,
     justifyContent: 'center', // 수직 중앙 정렬 추가
   },
   rightSectionSub: {
     position: 'absolute', // 서브 화면도 절대 위치로 오른쪽 끝에 배치
-    right: 20, // 표준 마진 (좌측과 동일하게 20px)
+    right: 12, // 20px - 8px(패딩) = 12px로 조정
     top: 0,
     bottom: 0,
     justifyContent: 'center', // 수직 중앙 정렬
@@ -340,12 +340,12 @@ const styles = StyleSheet.create({
     width: 60, // leftSpacer와 동일한 너비로 균형
   },
   rightButton: {
-    padding: 6, // 조금 더 컴팩트하게
+    padding: 8, // backButton과 동일한 패딩
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 36, // 조금 더 컴팩트하게
-    minHeight: 36,
-    borderRadius: 18, // 원형 터치 영역
+    minWidth: 40, // backButton과 동일한 크기
+    minHeight: 40,
+    borderRadius: 20, // 원형 터치 영역
   },
   disabledButton: {
     opacity: 0.5,
