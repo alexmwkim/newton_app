@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../../../constants/Colors';
 import Typography from '../../../constants/Typography';
 import Layout from '../../../constants/Layout';
+import { Spacing } from '../../../constants/StyleControl';
 import Avatar from '../../../components/Avatar';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../../../utils/avatarUtils';
 import { SettingsMenu, PageInfoModal } from './modals';
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.md,
     backgroundColor: Colors.mainBackground,
     borderBottomWidth: 1,

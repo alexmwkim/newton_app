@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Markdown from 'react-native-markdown-display';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProfileService from '../services/profilesClient';
 import NotesService from '../services/notes';
 import UnifiedFollowService from '../services/UnifiedFollowService';
+import { UnifiedHeader } from '../shared/components/layout';
 
 // Mock user data matching the design
 const mockUser = {
@@ -764,22 +765,20 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.mainContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft} />
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerButton}>
-                <Icon name="share" size={24} color={Colors.primaryText} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton} onPress={handleSettingsPress}>
-                <Icon name="settings" size={24} color={Colors.primaryText} />
-              </TouchableOpacity>
-            </View>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.mainBackground} />
+      
+      <UnifiedHeader
+            screenType="main"
+            transparent={true}
+            showBackButton={false}
+            rightElements={[
+              { name: "share", onPress: () => console.log('Share pressed') },
+              { name: "settings", onPress: handleSettingsPress }
+            ]}
+          />
 
-          <ScrollView
+          <View style={styles.contentWithPadding}>
+            <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
@@ -942,8 +941,8 @@ const ProfileScreen = ({ navigation }) => {
                 ))}
               </View>
             </View>
-          </ScrollView>
-        </View>
+              </ScrollView>
+          </View>
         
         {/* Floating Elements - Bottom Navigation */}
         <View style={styles.floatingElements}>
@@ -952,7 +951,6 @@ const ProfileScreen = ({ navigation }) => {
             onTabChange={handleNavChange}
           />
         </View>
-      </View>
     </SafeAreaView>
   );
 };
@@ -973,30 +971,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 0,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
-    paddingVertical: Layout.spacing.md,
-    paddingTop: Layout.spacing.lg,
-  },
-  headerLeft: {
+  contentWithPadding: {
     flex: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
+    paddingHorizontal: 20,
   },
   followButtonSection: {
-    paddingHorizontal: Layout.screen.padding,
     paddingBottom: Layout.spacing.lg,
     position: 'relative',
   },
@@ -1030,8 +1009,8 @@ const styles = StyleSheet.create({
   followOverlay: {
     position: 'absolute',
     top: -50,
-    left: -Layout.screen.padding,
-    right: -Layout.screen.padding,
+    left: -Layout.spacing.lg,
+    right: -Layout.spacing.lg,
     bottom: -Layout.spacing.lg,
     backgroundColor: 'transparent',
     zIndex: 1000,
@@ -1059,7 +1038,7 @@ const styles = StyleSheet.create({
   followOptionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Layout.spacing.lg,
     paddingVertical: 12,
     gap: 8,
   },
@@ -1078,7 +1057,6 @@ const styles = StyleSheet.create({
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
     paddingVertical: Layout.spacing.lg,
     gap: Layout.spacing.sm,
   },
@@ -1121,7 +1099,6 @@ const styles = StyleSheet.create({
   socialStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
     paddingVertical: Layout.spacing.md,
     marginBottom: Layout.spacing.lg,
   },
@@ -1149,14 +1126,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
     marginBottom: Layout.spacing.sm,
   },
   readmeSection: {
     backgroundColor: Colors.noteCard,
-    paddingHorizontal: Layout.screen.padding,
     paddingVertical: Layout.spacing.lg,
+    paddingHorizontal: Layout.spacing.lg,
     marginBottom: Layout.spacing.xl,
+    borderRadius: 12,
   },
   readmeLabel: {
     fontSize: Typography.fontSize.small,
@@ -1188,10 +1165,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Layout.spacing.lg,
     paddingVertical: Layout.spacing.lg,
     backgroundColor: Colors.noteCard,
-    marginHorizontal: Layout.screen.padding,
     marginBottom: Layout.spacing.sm,
     borderRadius: 12,
   },
@@ -1212,7 +1188,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.medium,
   },
   highlightSection: {
-    paddingHorizontal: Layout.screen.padding,
     paddingTop: Layout.spacing.lg,
   },
   highlightTitle: {
@@ -1287,7 +1262,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     alignItems: 'center',
     pointerEvents: 'box-none',
   },

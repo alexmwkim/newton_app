@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../../../../constants/Colors';
 import Typography from '../../../../constants/Typography';
 import Layout from '../../../../constants/Layout';
+import { Spacing } from '../../../../constants/StyleControl';
 
 /**
  * 소셜 액션 버튼들 (팔로우/언팔로우, 메시지 등)
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.medium,
     gap: Layout.spacing.medium,
   },

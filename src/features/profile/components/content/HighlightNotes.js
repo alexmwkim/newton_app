@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../../../../constants/Colors';
 import Typography from '../../../../constants/Typography';
 import Layout from '../../../../constants/Layout';
+import { Spacing } from '../../../../constants/StyleControl';
 
 /**
  * 개별 하이라이트 노트 카드
@@ -122,7 +123,7 @@ const HighlightNotes = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.medium,
   },
   sectionHeader: {

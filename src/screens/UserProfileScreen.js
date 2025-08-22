@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotesStore } from '../store/NotesStore';
 import NotesService from '../services/notes';
 import UnifiedFollowService from '../services/UnifiedFollowService';
+import { UnifiedHeader } from '../shared/components/layout';
 
 // User data for display
 const createUserData = (username) => ({
@@ -932,17 +933,13 @@ Feel free to check out my public notes below!`;
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.mainContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-            </TouchableOpacity>
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerButton} onPress={handleSharePress}>
-                <Icon name="share" size={24} color={Colors.primaryText} />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <UnifiedHeader
+            showBackButton={true}
+            onBackPress={() => navigation.goBack()}
+            rightElements={[
+              { name: "share", onPress: handleSharePress }
+            ]}
+          />
 
           <ScrollView
             style={styles.scrollView}

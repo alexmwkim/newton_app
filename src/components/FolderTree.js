@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 
 export const FolderTree = ({
   folders,
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Layout.spacing.sm,
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     borderRadius: Layout.borderRadius,
     marginVertical: 2,
   },

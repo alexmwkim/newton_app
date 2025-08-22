@@ -24,6 +24,7 @@ import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 import SocialInteractionBar from '../components/SocialInteractionBar';
+import { UnifiedHeader } from '../shared/components/layout';
 
 // Separated modules
 import { 
@@ -387,7 +388,16 @@ const NoteDetailScreen = ({
 
   // Header handlers
   const handleBack = useCallback(() => {
-    if (onBack) onBack();
+    console.log('📝 NoteDetailScreen handleBack called');
+    console.log('📝 onBack prop exists:', !!onBack);
+    console.log('📝 onBack type:', typeof onBack);
+    if (onBack) {
+      console.log('📝 Calling onBack...');
+      onBack();
+      console.log('📝 onBack called successfully');
+    } else {
+      console.log('❌ onBack prop is missing');
+    }
   }, [onBack]);
 
   const handleSettingsPress = useCallback(() => {
@@ -522,8 +532,8 @@ const NoteDetailScreen = ({
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 25} // iOS: 툴바 높이만큼 오프셋
+        behavior={Platform.OS === 'ios' ? 'height' : 'height'}
+        keyboardVerticalOffset={0} // 오프셋 제거
         enabled={true}
       >
         {/* Settings menu */}
@@ -574,24 +584,25 @@ const NoteDetailScreen = ({
             }}
           >
             {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-              </TouchableOpacity>
-              
-              <View style={styles.headerActions}>
-                {/* Status icon */}
-                <View style={styles.statusIcon}>
-                  <Icon 
-                    name={displayNote.isPublic ? "globe" : "lock"} 
-                    size={16} 
-                    color={Colors.secondaryText} 
-                  />
-                </View>
-                
-                {/* Action buttons for public notes */}
-                {displayNote.isPublic && (
-                  <View style={styles.actionButtons}>
+            <UnifiedHeader
+              showBackButton={true}
+              onBackPress={handleBack}
+              rightElements={[
+                // Status icon (지구본/자물쇠)
+                {
+                  component: (
+                    <View style={styles.statusIcon}>
+                      <Icon 
+                        name={displayNote.isPublic ? "globe" : "lock"} 
+                        size={16} 
+                        color={Colors.secondaryText} 
+                      />
+                    </View>
+                  )
+                },
+                // Star button (퍼블릭 노트일 때만)
+                ...(displayNote.isPublic ? [{
+                  component: (
                     <TouchableOpacity 
                       style={styles.actionButton} 
                       onPress={() => toggleStarred(noteId)}
@@ -602,26 +613,26 @@ const NoteDetailScreen = ({
                         <Text style={[styles.outlineStar, { color: Colors.secondaryText, fontSize: 20 }]}>☆</Text>
                       )}
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.actionButton} 
-                      onPress={() => {
-                        console.log('Fork button pressed');
-                      }}
-                    >
-                      <Icon name="git-branch" size={20} color={Colors.secondaryText} />
-                    </TouchableOpacity>
-                  </View>
-                )}
-                
-                {/* Settings button */}
-                <TouchableOpacity 
-                  style={styles.actionButton} 
-                  onPress={handleSettingsPress}
-                >
-                  <Icon name="more-horizontal" size={24} color={Colors.primaryText} />
-                </TouchableOpacity>
-              </View>
-            </View>
+                  )
+                }] : []),
+                // Fork button (퍼블릭 노트일 때만)
+                ...(displayNote.isPublic ? [{
+                  name: 'git-branch',
+                  size: 20,
+                  color: Colors.secondaryText,
+                  onPress: () => {
+                    console.log('Fork button pressed');
+                  }
+                }] : []),
+                // Settings button (항상 표시)
+                {
+                  name: 'more-horizontal',
+                  size: 24,
+                  color: Colors.primaryText,
+                  onPress: handleSettingsPress
+                }
+              ]}
+            />
 
             <ScrollView
               ref={scrollRef}

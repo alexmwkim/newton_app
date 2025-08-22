@@ -1,5 +1,6 @@
 /**
  * UserProfileHeader - 사용자 프로필 헤더 컴포넌트
+ * ⚠️ DEPRECATED: UnifiedHeader로 대체됨. 삭제 예정.
  * 아바타, 사용자명, 소셜 통계 표시
  */
 
@@ -98,7 +99,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 20 // 표준 마진 (삭제 예정 파일),
     paddingVertical: Layout.spacing.md,
     paddingTop: Layout.spacing.lg,
   },
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 20 // 표준 마진 (삭제 예정 파일),
     paddingVertical: Layout.spacing.lg,
     gap: Layout.spacing.sm,
   },
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   socialStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 20 // 표준 마진 (삭제 예정 파일),
     paddingVertical: Layout.spacing.md,
     marginBottom: Layout.spacing.lg,
   },

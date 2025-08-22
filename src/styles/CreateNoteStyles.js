@@ -2,6 +2,7 @@ import { StyleSheet, Platform } from 'react-native';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 
 export const createNoteStyles = StyleSheet.create({
   container: {
@@ -23,7 +24,7 @@ export const createNoteStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.noteCard,
-    marginHorizontal: Layout.screen.padding,
+    marginHorizontal: Spacing.screen.horizontal,
     paddingHorizontal: Layout.spacing.md,
     paddingVertical: Layout.spacing.sm,
     borderRadius: 8,

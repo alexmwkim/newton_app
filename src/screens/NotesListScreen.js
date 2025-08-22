@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, RefreshControl, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 import PublicNoteCard from '../components/PublicNoteCard';
 import SwipeableNoteItem from '../components/SwipeableNoteItem';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import NotesService from '../services/notes';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
+import { UnifiedHeader } from '../shared/components/layout';
+import BottomNavigationComponent from '../components/BottomNavigationComponent';
 
 const NotesListScreen = ({ navigation, route }) => {
   const { 
@@ -24,6 +27,7 @@ const NotesListScreen = ({ navigation, route }) => {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeNavTab, setActiveNavTab] = useState(3); // Profile 탭에서 온 경우가 많음
 
   const { user, profile } = useAuth();
   const { publicNotes, privateNotes, getStarredNotes } = useNotesStore();
@@ -194,6 +198,24 @@ const NotesListScreen = ({ navigation, route }) => {
     setRefreshing(false);
   };
 
+  const handleNavChange = (tabIndex) => {
+    setActiveNavTab(tabIndex);
+    switch (tabIndex) {
+      case 0:
+        navigation.navigate('home');
+        break;
+      case 1:
+        navigation.navigate('search');
+        break;
+      case 2:
+        navigation.navigate('explore');
+        break;
+      case 3:
+        navigation.navigate('profile');
+        break;
+    }
+  };
+
   const handleNotePress = (note) => {
     console.log('Note pressed:', note.title);
     navigation.navigate('noteDetail', { 
@@ -301,32 +323,26 @@ const NotesListScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()} 
-            style={styles.backButton}
-          >
-            <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          <Text style={styles.title}>{displayTitle}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        {/* Notes List */}
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={Colors.accent}
-            />
-          }
-        >
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.mainBackground} />
+      
+      <UnifiedHeader
+        title={displayTitle}
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+      />
+      
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.accent}
+          />
+        }
+      >
           {loading ? (
             <View style={styles.loadingState}>
               <Text style={styles.loadingText}>Loading...</Text>
@@ -339,6 +355,13 @@ const NotesListScreen = ({ navigation, route }) => {
             renderEmptyState()
           )}
         </ScrollView>
+        
+      {/* Floating Elements - Bottom Navigation */}
+      <View style={styles.floatingElements}>
+        <BottomNavigationComponent
+          activeTab={activeNavTab}
+          onTabChange={handleNavChange}
+        />
       </View>
     </SafeAreaView>
   );
@@ -355,11 +378,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
+  
+  // Direct header implementation (same as NoteDetailScreen)
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 0, // NoteDetailScreen과 동일하게 제거
+    paddingHorizontal: 0,
     paddingVertical: Layout.spacing.md,
     paddingTop: Layout.spacing.lg,
     borderBottomWidth: 1,
@@ -367,27 +392,26 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    marginLeft: 12, // NoteDetailScreen과 동일하게
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginLeft: 12,
   },
-  title: {
-    fontSize: Typography.fontSize.title,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
+  headerTitle: {
     flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textBlack,
     textAlign: 'center',
-    marginHorizontal: Layout.spacing.md,
+    marginHorizontal: 16,
   },
-  headerSpacer: {
-    width: 40, // Same width as back button for centering
+  headerRight: {
+    alignItems: 'flex-end',
+    marginRight: 12,
+    width: 40, // Same width as back button for balance
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: Layout.screen.padding,
+    padding: Spacing.screen.horizontal,
     paddingTop: Layout.spacing.md,
   },
   notesContainer: {
@@ -428,6 +452,15 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     textAlign: 'center',
     maxWidth: 250,
+  },
+  floatingElements: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    pointerEvents: 'box-none',
   },
 });
 

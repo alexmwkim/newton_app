@@ -4,8 +4,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 import { useTranslation } from '../localization/i18n';
 import { useAuth } from '../contexts/AuthContext';
+import { UnifiedHeader } from '../shared/components/layout';
 
 const SettingsScreen = ({ navigation }) => {
   const { t, currentLanguage, setLanguage, languages, languageNames } = useTranslation();
@@ -159,21 +161,17 @@ const SettingsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('profile.settings.title')}</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <UnifiedHeader
+        title={t('profile.settings.title')}
+        showBackButton={true}
+        onBackPress={handleBackPress}
+      />
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
           {/* Language & Account Section */}
           <SettingsSection title={t('profile.settings.account')}>
             <SettingsItem
@@ -317,7 +315,6 @@ const SettingsScreen = ({ navigation }) => {
             </TouchableOpacity>
           </SettingsSection>
         </ScrollView>
-      </View>
 
       {/* Language Selection Modal */}
       <Modal
@@ -365,7 +362,7 @@ const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.mainBackground,
+    backgroundColor: Colors.white,
   },
   content: {
     flex: 1,
@@ -373,32 +370,41 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
+  
+  // Direct header implementation (same as NoteDetailScreen)
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 0,
     paddingVertical: Layout.spacing.md,
     paddingTop: Layout.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   backButton: {
     padding: 8,
-    marginLeft: 12, // 화면 가장자리에서 20px (12+8)
+    marginLeft: 12,
   },
   headerTitle: {
-    fontSize: Typography.fontSize.medium,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    letterSpacing: -0.3,
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textBlack,
+    textAlign: 'center',
+    marginHorizontal: 16,
   },
   headerRight: {
-    width: 40,
+    alignItems: 'flex-end',
+    marginRight: 12,
+    width: 40, // Same width as back button for balance
   },
+  // 사용하지 않는 헤더 스타일 제거 - UnifiedHeader 사용
   scrollView: {
     flex: 1,
   },
   scrollContent: {
+    paddingTop: Layout.spacing.lg, // 헤더와 첫 섹션 사이 간격 추가
     paddingBottom: Layout.spacing.xl,
   },
   section: {
@@ -411,17 +417,17 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     marginBottom: Layout.spacing.sm,
   },
   settingsItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.lg,
     backgroundColor: Colors.noteCard,
-    marginHorizontal: Layout.screen.padding,
+    marginHorizontal: Spacing.screen.horizontal,
     marginBottom: 1,
     borderRadius: 0,
   },
@@ -450,10 +456,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.lg,
     backgroundColor: Colors.noteCard,
-    marginHorizontal: Layout.screen.padding,
+    marginHorizontal: Spacing.screen.horizontal,
     marginBottom: 1,
     borderRadius: 0,
   },
@@ -461,10 +467,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.lg,
     backgroundColor: Colors.noteCard,
-    marginHorizontal: Layout.screen.padding,
+    marginHorizontal: Spacing.screen.horizontal,
     marginBottom: 1,
     borderRadius: 0,
   },

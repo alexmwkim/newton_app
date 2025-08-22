@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TextInput, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, StatusBar, TextInput, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
@@ -13,6 +13,7 @@ import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import NotesService from '../services/notes';
 import Avatar from '../components/Avatar';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../utils/avatarUtils';
+import { UnifiedHeader } from '../shared/components/layout';
 import trendingAlgorithm from '../utils/TrendingAlgorithm';
 import personalizedAlgorithm from '../utils/PersonalizedAlgorithm';
 
@@ -413,13 +414,16 @@ const ExploreScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.mainContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Explore</Text>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.mainBackground} />
+      
+      <UnifiedHeader
+        title="Explore"
+        showBackButton={false}
+        transparent={true}
+        screenType="main"
+      />
 
-          <View style={styles.contentWithPadding}>
+      <View style={styles.contentWithPadding}>
             {/* Search Bar */}
             <View style={styles.searchContainer}>
               <View style={styles.searchInputContainer}>
@@ -687,7 +691,7 @@ const ExploreScreen = ({ navigation }) => {
                     </View>
                     {(feedLoading && exploreNotes.length === 0) || isFilterLoading ? (
                       <View style={styles.loadingState}>
-                        <Text style={styles.loadingText}>Loading...</Text>
+                        <Text style={styles.loadingText}>Loading explore content...</Text>
                       </View>
                     ) : filteredNotes.length > 0 ? (
                       filteredNotes.map((note) => {
@@ -725,10 +729,10 @@ const ExploreScreen = ({ navigation }) => {
                       })
                     ) : (
                       <View style={styles.emptyState}>
-                        <Icon name="globe" size={48} color={Colors.textSecondary} />
-                        <Text style={styles.emptyStateText}>No notes to explore</Text>
+                        <Icon name="globe" size={48} color={Colors.secondaryText} />
+                        <Text style={styles.emptyStateText}>Explore content loading...</Text>
                         <Text style={styles.emptyStateSubtext}>
-                          Check back later for new content
+                          Discovering amazing notes for you
                         </Text>
                       </View>
                     )}
@@ -737,7 +741,6 @@ const ExploreScreen = ({ navigation }) => {
               )}
             </ScrollView>
           </View>
-        </View>
         
         {/* Floating Elements - Bottom Navigation */}
         <View style={styles.floatingElements}>
@@ -746,7 +749,6 @@ const ExploreScreen = ({ navigation }) => {
             onTabChange={handleNavChange}
           />
         </View>
-      </View>
     </SafeAreaView>
   );
 };
@@ -756,32 +758,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.mainBackground,
   },
-  content: {
-    flex: 1,
-    maxWidth: 480,
-    alignSelf: 'center',
-    width: '100%',
-    position: 'relative',
-  },
-  mainContent: {
-    flex: 1,
-    marginTop: 0,
-  },
-  header: {
-    paddingHorizontal: Layout.screen.padding,
-    paddingVertical: Layout.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  title: {
-    fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-  },
   contentWithPadding: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // 홈화면 기준과 동일
   },
   scrollView: {
     flex: 1,
@@ -864,7 +843,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // 모든 페이지 표준 좌우 마진 (20px)
     alignItems: 'center',
     pointerEvents: 'box-none',
   },

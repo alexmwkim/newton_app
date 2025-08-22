@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import Colors from '../../../constants/Colors';
 import Typography from '../../../constants/Typography';
 import Layout from '../../../constants/Layout';
+import { Spacing } from '../../../constants/StyleControl';
 
 const categories = ['Trending', 'Following', 'Idea', 'Routine', 'Journal'];
 
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.sm,
   },
   scrollContainer: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     gap: Layout.spacing.sm,
   },
   categoryButton: {

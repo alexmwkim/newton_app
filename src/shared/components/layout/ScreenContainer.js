@@ -4,29 +4,38 @@
  */
 
 import React from 'react';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../constants/Colors';
 import Layout from '../../../constants/Layout';
+import { Spacing } from '../../../constants/StyleControl';
 
 const ScreenContainer = ({ 
   children, 
   noPadding = false,
+  hasHeader = false,
   backgroundColor = Colors.background,
   style,
   ...props 
 }) => {
+  const insets = useSafeAreaInsets();
+  
   return (
-    <SafeAreaView 
+    <View 
       style={[
         styles.container,
-        { backgroundColor },
+        { 
+          backgroundColor,
+          paddingTop: hasHeader ? insets.top : insets.top, // SafeArea만 적용, 헤더에서 추가 간격 처리
+          paddingBottom: insets.bottom 
+        },
         !noPadding && styles.withPadding,
         style
       ]}
       {...props}
     >
       {children}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -35,7 +44,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   withPadding: {
-    paddingHorizontal: Layout.screen.padding, // 반응형 패딩 (16-32px)
+    paddingHorizontal: 20, // NoteDetail 기준 20px로 통일
   },
 });
 

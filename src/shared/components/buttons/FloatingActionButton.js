@@ -1,10 +1,10 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import Colors from '../constants/Colors';
-import Typography from '../constants/Typography';
+import Colors from '../../../constants/Colors';
+import Typography from '../../../constants/Typography';
 
-const CreateButtonComponent = ({ onPress }) => {
+const FloatingActionButton = ({ onPress }) => {
   return (
     <TouchableOpacity
       style={styles.button}
@@ -50,4 +50,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CreateButtonComponent;
+export default FloatingActionButton;

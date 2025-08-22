@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Colors from '../../../../constants/Colors';
 import Typography from '../../../../constants/Typography';
 import Layout from '../../../../constants/Layout';
+import { Spacing } from '../../../../constants/StyleControl';
 
 /**
  * 최적화된 개별 통계 항목 컴포넌트
@@ -109,7 +110,7 @@ OptimizedProfileStats.displayName = 'OptimizedProfileStats';
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.medium,
   },
   statsRow: {

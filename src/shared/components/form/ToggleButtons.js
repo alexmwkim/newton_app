@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import Colors from '../constants/Colors';
-import Typography from '../constants/Typography';
+import Colors from '../../../constants/Colors';
+import Typography from '../../../constants/Typography';
+import { Spacing } from '../../../constants/StyleControl';
 
-const ToggleButtonsComponent = ({ 
+const ToggleButtons = ({ 
   activeTab = "private", 
   onTabChange 
 }) => {
@@ -66,8 +67,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 24,
-    marginBottom: 24,
+    marginTop: 24, // 원래대로 복원
+    marginBottom: 24, // 원래대로 복원
     gap: 8,
   },
   button: {
@@ -101,4 +102,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ToggleButtonsComponent;
+export default ToggleButtons;

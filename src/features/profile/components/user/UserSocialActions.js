@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../../../../constants/Colors';
 import Typography from '../../../../constants/Typography';
 import Layout from '../../../../constants/Layout';
+import { Spacing } from '../../../../constants/StyleControl';
 
 const UserSocialActions = ({
   isCurrentUser,
@@ -119,15 +120,15 @@ const UserSocialActions = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingBottom: Layout.spacing.lg,
     position: 'relative',
   },
   overlay: {
     position: 'absolute',
     top: -50,
-    left: -Layout.screen.padding,
-    right: -Layout.screen.padding,
+    left: -Spacing.screen.horizontal,
+    right: -Spacing.screen.horizontal,
     bottom: -Layout.spacing.lg,
     backgroundColor: 'transparent',
     zIndex: 1000,

@@ -2,6 +2,7 @@ import { StyleSheet, Platform } from 'react-native';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 
 export const noteDetailStyles = StyleSheet.create({
   container: {
@@ -33,17 +34,7 @@ export const noteDetailStyles = StyleSheet.create({
     padding: 8,
     marginLeft: 12,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
-    marginRight: 12, // 패딩 포함해서 좌우 20px
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
-  },
+  // headerActions와 actionButtons 제거 - 표준 rightElements 사용
   statusIcon: {
     backgroundColor: Colors.noteCard,
     borderRadius: 16,
@@ -51,10 +42,15 @@ export const noteDetailStyles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Layout.spacing.sm,
+    // marginRight 제거 - headerActions의 gap 사용
   },
   actionButton: {
-    padding: 8,
+    padding: 6, // UnifiedHeader와 동일한 컴팩트한 패딩
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 36, // UnifiedHeader와 동일한 크기
+    minHeight: 36,
+    borderRadius: 18, // 원형 터치 영역 (UnifiedHeader와 동일)
   },
   solidStar: {
     textAlign: 'center',
@@ -127,7 +123,7 @@ export const noteDetailStyles = StyleSheet.create({
     gap: Layout.spacing.md,
     marginBottom: Layout.spacing.lg,
     paddingVertical: Layout.spacing.sm,
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: Colors.border,
@@ -138,7 +134,7 @@ export const noteDetailStyles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
   },
   readOnlyContainer: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.sm,
     alignItems: 'flex-end',
   },

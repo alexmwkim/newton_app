@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../../../constants/Colors';
 import Typography from '../../../constants/Typography';
 import Layout from '../../../constants/Layout';
+import { Spacing } from '../../../constants/StyleControl';
 
 const SearchHeader = ({ 
   searchQuery, 
@@ -80,7 +81,7 @@ const SearchHeader = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.md,
     backgroundColor: Colors.mainBackground,
   },

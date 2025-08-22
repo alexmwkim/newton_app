@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, StatusBar, TextInput, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
@@ -9,6 +9,7 @@ import SwipeableNoteItem from '../components/SwipeableNoteItem';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
+import { UnifiedHeader } from '../shared/components/layout';
 
 
 
@@ -303,11 +304,14 @@ const SearchScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.mainContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Search</Text>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.mainBackground} />
+      
+      <UnifiedHeader
+        title="Search"
+        showBackButton={false}
+        transparent={true}
+        screenType="main"
+      />
 
           <View style={styles.contentWithPadding}>
             {/* Search Bar */}
@@ -419,7 +423,6 @@ const SearchScreen = ({ navigation }) => {
               )}
             </ScrollView>
           </View>
-        </View>
         
         {/* Floating Elements - Bottom Navigation */}
         <View style={styles.floatingElements}>
@@ -428,7 +431,6 @@ const SearchScreen = ({ navigation }) => {
             onTabChange={handleNavChange}
           />
         </View>
-      </View>
     </SafeAreaView>
   );
 };
@@ -463,7 +465,7 @@ const styles = StyleSheet.create({
   },
   contentWithPadding: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // 홈화면 기준과 동일
   },
   searchContainer: {
     marginVertical: Layout.spacing.md,
@@ -552,7 +554,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // 모든 페이지 표준 좌우 마진 (20px)
     alignItems: 'center',
     pointerEvents: 'box-none',
   },

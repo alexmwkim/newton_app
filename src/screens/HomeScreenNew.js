@@ -6,19 +6,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../localization/i18n';
 import { useViewMode } from '../store/ViewModeStore';
 
-// Builder.io converted components
-import HeaderComponent from '../components/HeaderComponent';
-import ToggleButtonsComponent from '../components/ToggleButtonsComponent';
+// Components
+import { UnifiedHeader } from '../shared/components/layout';
+import ToggleButtons from '../shared/components/form/ToggleButtons';
 import NotesListComponent from '../components/NotesListComponent';
-import CreateButtonComponent from '../components/CreateButtonComponent';
+import FloatingActionButton from '../shared/components/buttons/FloatingActionButton';
 import BottomNavigationComponent from '../components/BottomNavigationComponent';
 import PinnedNotesSection from '../components/PinnedNotesSection';
 import ViewModeModal from '../components/ViewModeModal';
-// Admin services - only import when needed
-// import AdminService from '../services/admin';
-// import ProfileService from '../services/profiles';
-// import FollowService from '../services/follow';
-// import SupabaseAdminService from '../services/supabaseAdmin';
+import UnifiedFollowService from '../services/UnifiedFollowService';
 
 
 const HomeScreenNew = ({ navigation, initialTab }) => {
@@ -45,27 +41,13 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
   useEffect(() => {
     console.log('🚀 HomeScreen initialized (admin services disabled in client mode)');
     
-    // 네트워크 진단 실행
-    const runDiagnostics = async () => {
-      try {
-        const NetworkDiagnostics = require('../utils/networkDiagnostics').default;
-        const results = await NetworkDiagnostics.runFullDiagnostics();
-        
-        if (!results.supabase?.success) {
-          console.warn('⚠️ Supabase connection issues detected:', results.recommendations);
-        }
-      } catch (error) {
-        console.error('❌ Diagnostics failed:', error);
-      }
-    };
-    
-    runDiagnostics();
+    // Network diagnostics removed - debug files cleaned up
     
     // PRELOAD: 현재 사용자의 팔로우 데이터를 미리 캐시
     if (user?.id) {
       try {
         console.log('⚡ PRELOAD: Loading follow data for instant Profile access');
-        const UnifiedFollowService = require('../services/UnifiedFollowService').default;
+        // UnifiedFollowService는 이미 top-level에서 import됨
         
         // 캐시 확인 후 필요한 경우에만 백그라운드 로딩
         const cachedData = UnifiedFollowService.getFromCache(UnifiedFollowService.getCacheKey('followersCount', { userId: user.id }));
@@ -314,17 +296,21 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.mainBackground} />
       
-      <View style={styles.content}>
-        <View style={styles.mainContent}>
-          <HeaderComponent
-            onBackPress={handleBackPress}
-            onNotificationsPress={handleNotificationsPress}
-            onMenuPress={handleMenuPress}
-            onLogoPress={handleLogoPress}
-          />
-          
+      <UnifiedHeader
+        title=""
+        leftElement="logo"
+        onLeftPress={handleLogoPress}
+        showBackButton={false}
+        rightElements={[
+          { name: 'bell', onPress: handleNotificationsPress },
+          { name: 'more-horizontal', onPress: handleMenuPress }
+        ]}
+        screenType="main"
+        transparent={true}
+      />
+      
           <View style={styles.contentWithPadding}>
-            <ToggleButtonsComponent
+            <ToggleButtons
               activeTab={activeTab}
               onTabChange={handleTabChange}
             />
@@ -347,17 +333,15 @@ const HomeScreenNew = ({ navigation, initialTab }) => {
               />
             </ScrollView>
           </View>
-        </View>
         
         {/* Floating Elements - Overlay */}
         <View style={styles.floatingElements}>
-          <CreateButtonComponent onPress={handleCreateNote} />
+          <FloatingActionButton onPress={handleCreateNote} />
           <BottomNavigationComponent
             activeTab={activeNavTab}
             onTabChange={handleNavChange}
           />
         </View>
-      </View>
 
       {/* View Mode Dropdown Modal */}
       <ViewModeModal
@@ -387,7 +371,8 @@ const styles = StyleSheet.create({
   },
   contentWithPadding: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // NoteDetail 기준 20px 복원
+    paddingTop: 24, // 탑헤더와 토글 사이 간격 추가
   },
   scrollView: {
     flex: 1,
@@ -401,7 +386,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // 모든 페이지 표준 좌우 마진 (20px)
     alignItems: 'center',
     pointerEvents: 'box-none', // Allow touches to pass through to scroll
   },

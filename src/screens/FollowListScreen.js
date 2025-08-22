@@ -13,9 +13,11 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 import Avatar from '../components/Avatar';
 import UnifiedFollowService from '../services/UnifiedFollowService';
 import { useAuth } from '../contexts/AuthContext';
+import { UnifiedHeader } from '../shared/components/layout';
 
 /**
  * FollowListScreen - 팔로워/팔로잉 유저 목록
@@ -425,20 +427,11 @@ const FollowListScreen = ({ navigation, route }) => {
     return (
       <View style={styles.container}>
         <SafeAreaView style={{ backgroundColor: Colors.mainBackground }}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButtonFinal}
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-            </TouchableOpacity>
-            
-            <Text style={styles.headerTitle}>
-              {username ? `${username}'s ${type}` : type}
-            </Text>
-          </View>
+          <UnifiedHeader
+            title={username ? `${username}'s ${type}` : type}
+            showBackButton={true}
+            onBackPress={() => navigation.goBack()}
+          />
         </SafeAreaView>
         
         <View style={styles.loadingContainer}>
@@ -449,7 +442,7 @@ const FollowListScreen = ({ navigation, route }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* 백그라운드 터치 시 메뉴 닫기 */}
       {showFollowOptions && (
         <TouchableOpacity 
@@ -458,41 +451,38 @@ const FollowListScreen = ({ navigation, route }) => {
           activeOpacity={1}
         />
       )}
-
-      {/* 절대 위치 뒤로가기 버튼 - 최상위에 배치 */}
-      <TouchableOpacity
-        style={styles.absoluteBackButton}
-        onPress={() => navigation.goBack()}
-        activeOpacity={0.7}
-      >
-        <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-      </TouchableOpacity>
-
-      <SafeAreaView style={{ backgroundColor: Colors.mainBackground }}>
-        {/* 헤더 */}
-        <View style={styles.header}>
-          <View style={styles.backButtonPlaceholder} />
-          
-          <Text style={styles.headerTitle}>
-            {username ? `${username}'s ${type}` : type}
-          </Text>
-        </View>
-      </SafeAreaView>
-
-      {/* 유저 목록 */}
-      <FlatList
-        data={users}
-        keyExtractor={(item) => item.user_id || item.follower_id || item.following_id || Math.random().toString()}
-        renderItem={renderUserItem}
-        ListEmptyComponent={renderEmptyState}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        contentContainerStyle={[
-          styles.listContainer,
-          users.length === 0 && styles.emptyListContainer
-        ]}
-        showsVerticalScrollIndicator={false}
+      
+      {/* Header */}
+      <UnifiedHeader
+        title={username ? `${username}'s ${type}` : type}
+        showBackButton={true}
+        onBackPress={() => {
+          console.log('👥 FOLLOW LIST SCREEN: UnifiedHeader back button pressed');
+          try {
+            navigation.goBack();
+            console.log('👥 navigation.goBack() executed successfully');
+          } catch (error) {
+            console.error('👥 ERROR in navigation.goBack():', error);
+          }
+        }}
       />
+
+      <View style={{ flex: 1 }}>
+        {/* 유저 목록 */}
+        <FlatList
+          data={users}
+          keyExtractor={(item) => item.user_id || item.follower_id || item.following_id || Math.random().toString()}
+          renderItem={renderUserItem}
+          ListEmptyComponent={renderEmptyState}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          contentContainerStyle={[
+            styles.listContainer,
+            users.length === 0 && styles.emptyListContainer
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
 
       {/* 옵션 메뉴 - 동적 위치 */}
       {showFollowOptions && (
@@ -514,24 +504,35 @@ const FollowListScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.mainBackground, // Newton 기본 배경색
+    backgroundColor: Colors.white,
   },
   
-  // 헤더 스타일 - 일관된 간격과 정렬
+  // Direct header implementation (same as NoteDetailScreen)
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding, // 다른 화면들과 동일하게 16px
-    paddingVertical: Layout.spacing.md, // 16px
-    paddingTop: Layout.spacing.lg, // 24px
-    backgroundColor: Colors.mainBackground,
+    paddingHorizontal: 0,
+    paddingVertical: Layout.spacing.md,
+    paddingTop: Layout.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: 12,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    marginRight: 12,
+    width: 40, // Same width as back button for balance
   },
   backButtonPlaceholder: {
     width: 44,
@@ -540,7 +541,7 @@ const styles = StyleSheet.create({
   absoluteBackButton: {
     position: 'absolute',
     top: 84, // SafeAreaView (44) + paddingTop (24) + paddingVertical (16)
-    left: Layout.screen.padding, // 16px
+    left: Spacing.screen.horizontal, // 16px
     width: 44,
     height: 44,
     justifyContent: 'center',
@@ -549,14 +550,13 @@ const styles = StyleSheet.create({
     zIndex: 10000,
   },
   headerTitle: {
-    flex: 1, // 남은 공간 차지하여 가운데 정렬 효과
+    flex: 1,
     fontSize: 18,
-    color: Colors.primaryText,
     fontWeight: '600',
-    fontFamily: 'Avenir Next',
-    textAlign: 'center', // 텍스트 가운데 정렬
+    color: Colors.textBlack,
+    textAlign: 'center',
+    marginHorizontal: 16,
     textTransform: 'capitalize',
-    paddingRight: 44, // 오른쪽에 백 버튼 만큼 여백을 줘서 중앙 정렬 유지
   },
 
   // 로딩 상태
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding * 2,
+    paddingHorizontal: Spacing.screen.horizontal * 2,
   },
   emptyIcon: {
     marginBottom: Layout.spacing.large,

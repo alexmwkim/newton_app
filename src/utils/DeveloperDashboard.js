@@ -3,9 +3,7 @@
  * Newton 앱의 전체적인 상태를 모니터링하고 관리하는 통합 대시보드
  */
 
-import integrationTest from './systemIntegrationTest';
-// Real-time monitoring disabled for production
-// import monitor from './realTimeMonitoring';
+// Integration test and monitoring disabled - debug files cleaned up
 
 class DeveloperDashboard {
   constructor() {
@@ -63,7 +61,7 @@ class DeveloperDashboard {
       console.log('========================');
 
       // 실시간 메트릭 (disabled for production)
-      // const metrics = monitor.getMetrics();
+      // Monitoring disabled - debug files cleaned up
       console.log('⚡ System Status:');
       console.log('   Real-time monitoring: Disabled');
       console.log('   Performance: Optimized for production');

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import TabNavigator from './src/navigation/TabNavigator';
 import AuthNavigator from './src/navigation/AuthNavigator';
@@ -16,101 +17,13 @@ if (__DEV__ && false) {
   require('./src/utils/DeveloperDashboard');
 }
 
-// Initialize network test utility in development
+// Initialize developer dashboard in development
 if (__DEV__) {
-  const quickTest = require('./src/utils/quickNetworkTest');
-  // Make tests available in console
-  global.runQuickTest = quickTest.runQuickTest;
-  global.testNotificationSystem = quickTest.testNotificationSystem;
-  
-  // 🚨 DISABLED: Auto-run causing follow data deletion
-  // setTimeout(() => {
-  //   console.log('\n🚀 Running automatic network diagnostic...');
-  //   quickTest.runQuickTest();
-  // }, 2000);
-  
-  // Initialize system integration testing
-  const integrationTest = require('./src/utils/systemIntegrationTest');
-  global.runSystemHealthCheck = integrationTest.systemHealthCheck;
-  global.runPerformanceTest = integrationTest.performanceTest;
-  global.runFullIntegrationTest = integrationTest.runFullIntegrationTest;
-  
-  // Initialize real-time monitoring (disabled for production)
-  // const monitor = require('./src/utils/realTimeMonitoring');
-  
-  // Initialize developer dashboard
-  const dashboard = require('./src/utils/DeveloperDashboard');
-  
-  // Initialize notification realtime diagnostics
-  const notificationFix = require('./src/utils/notificationRealtimeFix');
-  
-  // Initialize notification testing tools
-  const notificationTester = require('./src/utils/testNotifications');
-  
-  // Initialize follow notification debugger
-  const followDebugger = require('./src/utils/debugFollowNotification');
-  
-  // Initialize universal notification tester
-  const universalTester = require('./src/utils/universalNotificationTest');
-  
-  // Initialize instant notification test
-  const instantTest = require('./src/utils/instantNotificationTest');
-  
-  // Initialize simple notification test
-  const simpleTest = require('./src/utils/simpleNotificationTest');
-  
-  // Initialize follow count debugger
-  const followCountDebugger = require('./src/utils/followCountDebugger');
-  
-  // Initialize quick follow check
-  const quickFollowCheck = require('./src/utils/quickFollowCheck');
-  
-  // Initialize RLS fix test
-  const testRLSFixConsole = require('./src/utils/testRLSFixConsole');
-  
-  // Initialize follow cache issue fixer
-  const fixFollowCacheIssue = require('./src/utils/fixFollowCacheIssue');
-  
-  // Initialize quick notification RLS test
-  const quickNotificationRLSTest = require('./src/utils/quickNotificationRLSTest');
-  
-  // Initialize test after SQL fix
-  const testAfterSQLFix = require('./src/utils/testAfterSQLFix');
-  
-  // Initialize follow services conflict debugger
-  const debugFollowServicesConflict = require('./src/utils/debugFollowServicesConflict');
-  
-  // Initialize network diagnostic
-  const networkDiagnostic = require('./src/utils/networkDiagnostic');
-  
-  // Initialize follow system unifier
-  const unifyFollowSystem = require('./src/utils/unifyFollowSystem');
-  
-  // Initialize emergency follow count fixer
-  const fixFollowCountMismatch = require('./src/utils/fixFollowCountMismatch');
-  
-  // Initialize working pattern restorer
-  const revertToWorkingPattern = require('./src/utils/revertToWorkingPattern');
-  
-  // 🚨 DISABLED: All auto-run tests causing follow data deletion
-  // setTimeout(() => {
-  //   console.log('\n🧪 Running system integration test...');
-  //   integrationTest.runFullIntegrationTest();
-  // }, 5000);
-  
-  // setTimeout(() => {
-  //   console.log('\n🔔 Testing notification system after RLS fix...');
-  //   if (global.quickNotificationTest) {
-  //     global.quickNotificationTest();
-  //   }
-  // }, 8000);
-  
-  // setTimeout(() => {
-  //   console.log('\n🔧 Fixing follow cache inconsistency...');
-  //   if (global.fixFollowCacheIssue) {
-  //     global.fixFollowCacheIssue();
-  //   }
-  // }, 12000);
+  try {
+    const dashboard = require('./src/utils/DeveloperDashboard');
+  } catch (error) {
+    console.log('Developer dashboard not available');
+  }
 }
 
 function GlobalToolbar() {
@@ -272,11 +185,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SimpleToolbarProvider>
-        <AppContent />
-        <GlobalToolbar />
-      </SimpleToolbarProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <SimpleToolbarProvider>
+          <AppContent />
+          <GlobalToolbar />
+        </SimpleToolbarProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

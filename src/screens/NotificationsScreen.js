@@ -13,17 +13,22 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from '../components/NotificationItem';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
-import { ScreenContainer, UnifiedHeader } from '../shared/components/layout';
+import { UnifiedHeader } from '../shared/components/layout';
 
 const NotificationsScreen = ({ navigation }) => {
+  console.log('🔔 NotificationsScreen rendered with navigation:', {
+    hasNavigation: !!navigation,
+    hasGoBack: !!navigation?.goBack,
+    navigationKeys: navigation ? Object.keys(navigation) : 'NO_NAVIGATION'
+  });
   const {
     notifications,
     unreadCount,
@@ -128,28 +133,7 @@ const NotificationsScreen = ({ navigation }) => {
     );
   }, [notifications, deleteAllNotifications, refresh]);
 
-  // 우측 헤더 버튼들 렌더링
-  const renderRightComponent = () => (
-    <View style={styles.rightButtonsContainer}>
-      {hasUnread && (
-        <TouchableOpacity
-          onPress={handleMarkAllAsRead}
-          style={styles.markAllButton}
-        >
-          <Text style={styles.markAllText}>Mark All Read</Text>
-        </TouchableOpacity>
-      )}
-      
-      {notifications.length > 0 && (
-        <TouchableOpacity
-          onPress={handleDeleteAll}
-          style={styles.deleteAllButton}
-        >
-          <Icon name="trash-2" size={20} color={Colors.danger} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+  // renderRightComponent 제거 - 표준 rightElements 사용
 
   // Empty state component
   const renderEmptyState = () => (
@@ -192,43 +176,70 @@ const NotificationsScreen = ({ navigation }) => {
   }, []);
 
   return (
-    <ScreenContainer noPadding>
+    <SafeAreaView style={styles.container}>
       <UnifiedHeader
         title="Notifications"
         showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-        rightComponent={renderRightComponent()}
+        onBackPress={() => {
+          console.log('🔔 NotificationsScreen: Back button pressed via UnifiedHeader');
+          navigation.goBack();
+        }}
+        rightElements={[
+          // Mark All Read 버튼 (읽지 않은 알림이 있을 때만)
+          ...(hasUnread ? [{
+            component: (
+              <TouchableOpacity
+                onPress={handleMarkAllAsRead}
+                style={styles.markAllButton}
+              >
+                <Text style={styles.markAllText}>Mark All Read</Text>
+              </TouchableOpacity>
+            )
+          }] : []),
+          // Delete All 버튼 (알림이 있을 때만)
+          ...(notifications.length > 0 ? [{
+            name: 'trash-2',
+            size: 20,
+            color: Colors.danger,
+            onPress: handleDeleteAll
+          }] : [])
+        ]}
       />
       
       <FlatList
-        data={notifications}
-        renderItem={renderNotificationItem}
-        keyExtractor={keyExtractor}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading && notifications.length === 0}
-            onRefresh={handleRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.1}
-        ListEmptyComponent={!isLoading ? renderEmptyState : null}
-        ListFooterComponent={renderFooter}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : styles.listContainer}
-      />
-    </ScreenContainer>
+          data={notifications}
+          renderItem={renderNotificationItem}
+          keyExtractor={keyExtractor}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading && notifications.length === 0}
+              onRefresh={handleRefresh}
+              colors={[Colors.primary]}
+              tintColor={Colors.primary}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.1}
+          ListEmptyComponent={!isLoading ? renderEmptyState : null}
+          ListFooterComponent={renderFooter}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            notifications.length === 0 ? styles.emptyContainer : styles.listContainerWithPadding,
+            { paddingTop: 0 } // 헤더와 겹치지 않도록
+          ]}
+          style={{ marginTop: 0 }} // FlatList가 헤더를 덮지 않도록
+        />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  // 기본 컨테이너 스타일 (ScreenContainer로 대체되었지만 호환성 유지)
+  // NoteDetailScreen과 동일한 컨테이너 스타일
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
+  
   
   // UnifiedHeader에서 사용하는 커스텀 버튼 스타일들
   rightButtonsContainer: {
@@ -257,6 +268,10 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingBottom: 20,
+  },
+  listContainerWithPadding: {
+    paddingBottom: 20,
+    paddingHorizontal: 20, // 헤더와 일치하는 좌우 패딩
   },
   emptyContainer: {
     flex: 1,
@@ -291,6 +306,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     color: Colors.secondaryText,
+  },
+  // 홈 화면과 동일한 패딩 구조
+  contentWithPadding: {
+    paddingHorizontal: 20, // 모든 페이지 표준 좌우 마진 (20px)
   },
 });
 

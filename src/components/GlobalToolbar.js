@@ -7,6 +7,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text, Keyboard } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useToolbar } from '../contexts/ToolbarContext';
+import { Spacing } from '../constants/StyleControl';
 
 const GlobalToolbar = () => {
   const { 

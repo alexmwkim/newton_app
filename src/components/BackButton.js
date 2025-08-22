@@ -7,8 +7,18 @@ const BackButton = ({ onPress, style, iconSize = 24, iconColor = Colors.primaryT
   return (
     <TouchableOpacity
       style={[styles.backButton, style]}
-      onPress={onPress}
+      onPress={() => {
+        console.log('🚨 BackButton: PRESSED!');
+        console.log('🚨 onPress function exists:', !!onPress);
+        if (onPress) {
+          console.log('🚨 Calling BackButton onPress...');
+          onPress();
+        } else {
+          console.error('🚨 No onPress function provided to BackButton!');
+        }
+      }}
       activeOpacity={0.7}
+      hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
       {...props}
     >
       <Icon name="arrow-left" size={iconSize} color={iconColor} />

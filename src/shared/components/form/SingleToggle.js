@@ -1,10 +1,10 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import Colors from '../constants/Colors';
-import Typography from '../constants/Typography';
+import Colors from '../../../constants/Colors';
+import Typography from '../../../constants/Typography';
 
-const SingleToggleComponent = ({ 
+const SingleToggle = ({ 
   isPublic = false, 
   onToggle 
 }) => {
@@ -20,12 +20,10 @@ const SingleToggleComponent = ({
     >
       <Icon 
         name={iconName} 
-        size={12} 
-        color={Colors.textBlack} 
+        size={16} 
+        color={Colors.textWhite} 
       />
-      <Text style={styles.text}>
-        {label}
-      </Text>
+      <Text style={styles.text}>{label}</Text>
     </TouchableOpacity>
   );
 };
@@ -33,23 +31,19 @@ const SingleToggleComponent = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.textBlack,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 30,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.noteCard,
-    width: 95,
-    gap: 4,
+    gap: 8,
   },
   text: {
     fontFamily: Typography.fontFamily.primary,
     fontSize: 16,
     fontWeight: Typography.fontWeight.medium,
-    color: Colors.textBlack,
+    color: Colors.textWhite,
   },
 });
 
-export default SingleToggleComponent;
+export default SingleToggle;

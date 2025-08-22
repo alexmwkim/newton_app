@@ -5,6 +5,7 @@ import Markdown from 'react-native-markdown-display';
 import Colors from '../../../../constants/Colors';
 import Typography from '../../../../constants/Typography';
 import Layout from '../../../../constants/Layout';
+import { Spacing } from '../../../../constants/StyleControl';
 
 /**
  * README 편집 헤더 컴포넌트
@@ -147,7 +148,7 @@ const ReadmeSection = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.medium,
   },
   

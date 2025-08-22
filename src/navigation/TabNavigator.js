@@ -45,7 +45,8 @@ const TabNavigator = ({ logout }) => {
 
   const tabs = [
     { key: 'home', label: '', icon: 'home' },
-    { key: 'explore', label: '', icon: 'search' },
+    { key: 'search', label: '', icon: 'search' },
+    { key: 'explore', label: '', icon: 'zap' },
     { key: 'profile', label: '', icon: 'user' },
   ];
 
@@ -268,14 +269,14 @@ const TabNavigator = ({ logout }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Screen Content */}
       <View style={styles.screenContainer}>
         {renderScreen()}
       </View>
 
       {/* Bottom Tab Bar - Hidden since new design has its own navigation */}
-    </View>
+    </SafeAreaView>
   );
 };
 

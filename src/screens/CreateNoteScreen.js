@@ -17,10 +17,11 @@ import {
 const useSafeAreaInsets = () => ({ bottom: 34, top: 44, left: 0, right: 0 });
 import Icon from 'react-native-vector-icons/Feather';
 import { Colors } from '../constants/Colors';
-import SingleToggleComponent from '../components/SingleToggleComponent';
+import SingleToggle from '../shared/components/form/SingleToggle';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
+import { UnifiedHeader } from '../shared/components/layout';
 
 // Separated modules
 import { 
@@ -291,22 +292,30 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
           enabled={true}
         >
         {/* Header */}
-        <View style={styles.header}>
-          <SingleToggleComponent
-            isPublic={isPublic}
-            onToggle={setIsPublic}
-          />
-          
-          <TouchableOpacity 
-            onPress={noteHasContent ? handleSave : handleBack} 
-            style={[styles.actionButton, isLoading && styles.actionButtonDisabled]}
-            disabled={isLoading}
-          >
-            <Text style={styles.actionButtonText}>
-              {isLoading ? 'Saving...' : noteHasContent ? 'Done' : 'X'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <UnifiedHeader
+          showBackButton={false}
+          leftComponent={
+            <SingleToggle
+              isPublic={isPublic}
+              onToggle={setIsPublic}
+            />
+          }
+          rightElements={[
+            {
+              component: (
+                <TouchableOpacity 
+                  onPress={noteHasContent ? handleSave : handleBack} 
+                  style={[styles.actionButton, isLoading && styles.actionButtonDisabled]}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.actionButtonText}>
+                    {isLoading ? 'Saving...' : noteHasContent ? 'Done' : 'X'}
+                  </Text>
+                </TouchableOpacity>
+              )
+            }
+          ]}
+        />
 
         {/* Forked Note Indicator */}
         {forkedFrom && (

@@ -14,6 +14,7 @@ import Markdown from 'react-native-markdown-display';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 
 const EditReadmeScreen = ({ navigation, route }) => {
   console.log('📝 EditReadmeScreen received route params:', route.params);
@@ -141,8 +142,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.md,
+    paddingTop: Layout.spacing.lg, // 다른 화면들과 일치
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: Layout.screen.padding,
+    padding: Spacing.screen.horizontal,
   },
   inputSection: {
     marginBottom: Layout.spacing.xl,

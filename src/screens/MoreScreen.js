@@ -4,7 +4,9 @@ import Icon from 'react-native-vector-icons/Feather';
 import Colors from '../constants/Colors';
 import Typography from '../constants/Typography';
 import Layout from '../constants/Layout';
+import { Spacing } from '../constants/StyleControl';
 import { useNotesStore } from '../store/NotesStore';
+import { UnifiedHeader } from '../shared/components/layout';
 
 const MoreScreen = ({ navigation }) => {
   // State for toggleable features
@@ -157,21 +159,17 @@ const MoreScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Icon name="arrow-left" size={24} color={Colors.primaryText} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Note Setting</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <UnifiedHeader
+        title="Note Setting"
+        showBackButton={true}
+        onBackPress={handleBackPress}
+      />
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
           {/* Organization & Management */}
           <MenuSection title="Organization & Management">
             <MenuItem
@@ -339,7 +337,6 @@ const MoreScreen = ({ navigation }) => {
             />
           </MenuSection>
         </ScrollView>
-      </View>
     </SafeAreaView>
   );
 };
@@ -347,7 +344,7 @@ const MoreScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.mainBackground,
+    backgroundColor: Colors.white,
   },
   content: {
     flex: 1,
@@ -355,27 +352,34 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
+  
+  // Direct header implementation (same as NoteDetailScreen)
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: 0,
     paddingVertical: Layout.spacing.md,
     paddingTop: Layout.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   backButton: {
     padding: 8,
-    marginLeft: 12, // 화면 가장자리에서 20px (12+8)
+    marginLeft: 12,
   },
   headerTitle: {
-    fontSize: Typography.fontSize.medium,
-    fontWeight: Typography.fontWeight.medium,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    letterSpacing: -0.3,
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textBlack,
+    textAlign: 'center',
+    marginHorizontal: 16,
   },
   headerRight: {
-    width: 40,
+    alignItems: 'flex-end',
+    marginRight: 12,
+    width: 40, // Same width as back button for balance
   },
   scrollView: {
     flex: 1,
@@ -393,17 +397,17 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     marginBottom: Layout.spacing.sm,
   },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.lg,
     backgroundColor: Colors.noteCard,
-    marginHorizontal: Layout.screen.padding,
+    marginHorizontal: Spacing.screen.horizontal,
     marginBottom: 1,
     borderRadius: 0,
   },

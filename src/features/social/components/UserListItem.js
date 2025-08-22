@@ -10,6 +10,7 @@ import Avatar from '../../../components/Avatar';
 import Colors from '../../../constants/Colors';
 import Typography from '../../../constants/Typography';
 import Layout from '../../../constants/Layout';
+import { Spacing } from '../../../constants/StyleControl';
 import { getConsistentAvatarUrl, getConsistentUsername } from '../../../utils/avatarUtils';
 
 const UserListItem = ({
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Layout.screen.padding,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingVertical: Layout.spacing.md,
     backgroundColor: Colors.mainBackground,
   },
