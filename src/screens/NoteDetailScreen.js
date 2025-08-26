@@ -197,6 +197,7 @@ const NoteDetailScreen = ({
   const { handleAddCard, handleAddGrid, handleAddImage, handleDeleteBlock, handleKeyPress, handleTextChange } = useNoteDetailHandlers(
     blocks,
     setBlocks,
+    focusedIndex,
     setFocusedIndex,
     keyboardVisible,
     keyboardHeight,
@@ -532,8 +533,8 @@ const NoteDetailScreen = ({
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'height' : 'height'}
-        keyboardVerticalOffset={0} // 오프셋 제거
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0} // SafeArea 고려
         enabled={true}
       >
         {/* Settings menu */}
@@ -588,18 +589,6 @@ const NoteDetailScreen = ({
               showBackButton={true}
               onBackPress={handleBack}
               rightElements={[
-                // Status icon (지구본/자물쇠)
-                {
-                  component: (
-                    <View style={styles.statusIcon}>
-                      <Icon 
-                        name={displayNote.isPublic ? "globe" : "lock"} 
-                        size={16} 
-                        color={Colors.secondaryText} 
-                      />
-                    </View>
-                  )
-                },
                 // Star button (퍼블릭 노트일 때만)
                 ...(displayNote.isPublic ? [{
                   component: (
@@ -624,6 +613,18 @@ const NoteDetailScreen = ({
                     console.log('Fork button pressed');
                   }
                 }] : []),
+                // Status icon (지구본/자물쇠) - more 아이콘 바로 왼쪽
+                {
+                  component: (
+                    <View style={styles.statusIcon}>
+                      <Icon 
+                        name={displayNote.isPublic ? "globe" : "lock"} 
+                        size={16} 
+                        color={Colors.secondaryText} 
+                      />
+                    </View>
+                  )
+                },
                 // Settings button (항상 표시)
                 {
                   name: 'more-horizontal',

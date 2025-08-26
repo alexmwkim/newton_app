@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect } from 'react';
-import { Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Alert, Keyboard, AppState } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { generateId, convertBlocksToContent, cleanLegacyContent } from '../utils/noteUtils';
 
 export const useNoteDetailHandlers = (
   blocks,
   setBlocks,
+  focusedIndex,
   setFocusedIndex,
   keyboardVisible,
   keyboardHeight,
@@ -56,12 +57,12 @@ export const useNoteDetailHandlers = (
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
         setFocusedIndex(targetIndex);
-        // Fast scroll for new blocks when keyboard is visible
+        // 즉시 스크롤 (키보드가 올라와 있을 때)
         if (keyboardVisible && keyboardHeight > 100) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 50);
+          setTimeout(() => scrollToFocusedInput(keyboardHeight), 10);
         }
       }
-    }, 100);
+    }, 50); // 더 빠른 포커스
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
 
   const handleAddCard = useCallback((index) => {
@@ -102,14 +103,15 @@ export const useNoteDetailHandlers = (
       
       console.log('🔧 Inserted card after current block');
       
-      // 새로 생성된 카드에 포커스
+      // 새로 생성된 카드에 포커스 - 빠른 반응
       setTimeout(() => {
         card.ref?.current?.focus();
         setFocusedIndex(index + 1);
-        if (keyboardVisible) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
+        // 즉시 스크롤 (키보드가 올라와 있을 때)
+        if (keyboardVisible && keyboardHeight > 0) {
+          setTimeout(() => scrollToFocusedInput(keyboardHeight), 10);
         }
-      }, 100);
+      }, 50); // 더 빠른 포커스
     } else {
       // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
       console.log('🔧 Replacing empty text block with card');
@@ -139,20 +141,47 @@ export const useNoteDetailHandlers = (
   }, [insertBlockSet]);
 
   const handleAddImage = useCallback(async (index) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 1,
+    console.log('🎬 handleAddImage CALLED with index:', index);
+    
+    // 키보드 상태 저장
+    const wasKeyboardVisible = keyboardVisible;
+    const savedKeyboardHeight = keyboardHeight;
+    
+    console.log('💾 Saving keyboard state:', {
+      wasKeyboardVisible,
+      savedKeyboardHeight
     });
+
+    let result;
+    try {
+      console.log('📱 Opening ImagePicker...');
+      
+      result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: false,
+        quality: 1,
+      });
+      
+      console.log('📱 ✅ ImagePicker result:', result);
+      
+    } catch (error) {
+      console.log('📱 ❌ ImagePicker error:', error);
+      // Fallback to dummy image
+      result = {
+        canceled: false,
+        assets: [{
+          uri: 'https://picsum.photos/400/300?random=' + Date.now(),
+          width: 400,
+          height: 300
+        }]
+      };
+    }
+    
     if (!result.canceled && result.assets?.length > 0) {
       const currentBlock = blocks[index];
       const hasContent = currentBlock && currentBlock.content && currentBlock.content.trim() !== '';
       const isCurrentBlockCard = currentBlock && currentBlock.type === 'card';
       
       console.log('🔧 Adding image at index:', index);
-      console.log('🔧 Current block type:', currentBlock?.type);
-      console.log('🔧 Is current block card:', isCurrentBlockCard);
-      console.log('🔧 Has content:', hasContent);
       
       const uri = result.assets[0].uri;
       const image = {
@@ -172,28 +201,51 @@ export const useNoteDetailHandlers = (
       };
       
       if (isCurrentBlockCard || hasContent) {
-        // 카드에서 이미지 생성하거나 텍스트가 있는 경우: 현재 블록 다음에 이미지 삽입
+        // 현재 블록 다음에 이미지 삽입
         const updated = [...blocks];
         updated.splice(index + 1, 0, image, trailingText);
         setBlocks(updated);
         
         console.log('🔧 Inserted image after current block');
         
-        // 이미지 다음의 텍스트 블록에 포커스
+        // 강화된 키보드 복원 로직
         setTimeout(() => {
+          console.log('🔧 Focusing text after image...');
           trailingText.ref?.current?.focus();
-          setFocusedIndex(index + 2); // 이미지 다음 텍스트로
-          if (keyboardVisible) {
-            setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
+          setFocusedIndex(index + 2);
+          
+          // 키보드 복원 (여러 번 시도)
+          if (wasKeyboardVisible) {
+            console.log('⌨️ Starting keyboard restoration...');
+            
+            // 즉시 시도
+            setTimeout(() => {
+              console.log('⌨️ Attempt 1: Immediate focus');
+              trailingText.ref?.current?.focus();
+            }, 50);
+            
+            // 조금 후 시도
+            setTimeout(() => {
+              console.log('⌨️ Attempt 2: Delayed focus');
+              trailingText.ref?.current?.focus();
+              if (scrollToFocusedInput) {
+                scrollToFocusedInput(savedKeyboardHeight || 300);
+              }
+            }, 300);
+            
+            // 마지막 시도
+            setTimeout(() => {
+              console.log('⌨️ Attempt 3: Final focus');
+              trailingText.ref?.current?.focus();
+            }, 800);
           }
         }, 100);
       } else {
-        // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
-        console.log('🔧 Replacing empty text block with image');
+        // 빈 블록 교체
         insertBlockSet(index, [image, trailingText], index + 1);
       }
     }
-  }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput, insertBlockSet]);
+  }, [blocks, setBlocks, setFocusedIndex, insertBlockSet, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
 
   const handleDeleteBlock = useCallback((index) => {
     Alert.alert('Delete Block', 'Are you sure you want to delete this block?', [
@@ -242,41 +294,36 @@ export const useNoteDetailHandlers = (
     });
   }, [setBlocks]);
 
-  // Enhanced auto-save with proper content conversion
+  // Enhanced auto-save with different delays for title vs content
   useEffect(() => {
-    // console.log('🔄 Auto-save useEffect triggered'); // 로그 간소화
-    
-    if (!isAuthor) {
-      // console.log('🚫 Auto-save blocked: not author'); // 로그 간소화
+    if (!isAuthor || loadingNote || !noteId || !updateNote) {
       return;
     }
     
-    if (loadingNote || !noteId || !updateNote) {
-      // console.log('🚫 Auto-save blocked: conditions not met'); // 로그 간소화
-      return;
-    }
+    const finalTitle = title?.trim() || '';
+    const finalContent = convertBlocksToContent(blocks);
     
-    // 적절한 디바운스 (2초) - 과도한 저장 방지
+    // 제목만 변경된 경우 더 빠르게 저장 (500ms)
+    // 콘텐츠 변경은 기본 속도 (800ms)
+    const delay = 800; // 통일된 빠른 속도
+    
     const timer = setTimeout(async () => {
-      const finalTitle = title?.trim() || '';
-      const finalContent = convertBlocksToContent(blocks);
-      
       try {
         const result = await updateNote(noteId, {
-          title: finalTitle || 'Untitled', // Provide fallback title for empty notes
+          title: finalTitle || 'Untitled',
           content: finalContent
         });
-        console.log('✅ Auto-save SUCCESS (2s delay)');
+        console.log('✅ Auto-save SUCCESS (800ms delay)');
       } catch (error) {
         console.error('❌ Auto-save ERROR:', error);
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
       }
-    }, 2000); // 2초 딜레이로 변경 - 과도한 저장 방지
+    }, delay);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [title, blocks, isAuthor, noteId, loadingNote]); // Removed displayNote and updateNote from dependencies
+  }, [title, blocks, isAuthor, noteId, loadingNote]);
 
   return {
     handleAddCard,

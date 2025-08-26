@@ -68,7 +68,8 @@
       "mcp__supabase__list_projects",
       "WebSearch",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm search:*)"
     ],
     "deny": []
   },

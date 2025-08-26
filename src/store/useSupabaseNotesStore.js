@@ -106,7 +106,7 @@ export const useSupabaseNotesStore = create((set, get) => ({
     }
   },
 
-  fetchPublicNotes: async (orderBy = 'created_at') => {
+  fetchPublicNotes: async (orderBy = 'updated_at') => {
     try {
       set({ loading: true, error: null });
       

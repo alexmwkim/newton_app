@@ -265,6 +265,12 @@ export const NoteBlockRenderer = ({
           onFocus={() => {
             dismissMenus();
             setFocusedIndex(index);
+            // 즉시 스크롤 트리거 (키보드가 이미 올라와 있을 때)
+            if (keyboardVisible && keyboardHeight > 0) {
+              setTimeout(() => {
+                scrollToFocusedInput(keyboardHeight);
+              }, 10); // 매우 빠른 스크롤
+            }
           }}
           onKeyPress={({ nativeEvent }) => {
             handleKeyPress(block, index, nativeEvent.key);

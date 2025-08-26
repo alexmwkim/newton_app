@@ -93,7 +93,7 @@ class NotesService {
         .from('notes')
         .select('*')  // Remove JOIN to avoid schema cache issues
         .eq('user_id', userId)  // Use auth user ID directly
-        .order('created_at', { ascending: false });
+        .order('updated_at', { ascending: false });
 
       if (isPublic !== null) {
         query = query.eq('is_public', isPublic);
@@ -130,7 +130,7 @@ class NotesService {
   }
 
   // 퍼블릭 노트 피드 조회
-  async getPublicNotes(limit = 20, offset = 0, orderBy = 'created_at') {
+  async getPublicNotes(limit = 20, offset = 0, orderBy = 'updated_at') {
     try {
       // Test connection first
       console.log('🌐 Testing Supabase connection before fetching public notes...');
@@ -262,62 +262,20 @@ class NotesService {
     }
   }
 
-  // 노트 업데이트
+  // 노트 업데이트 - 성능 최적화
   async updateNote(noteId, updates) {
     try {
-      console.log('🔧 updateNote 함수 호출됨');
-      console.log('📝 파라미터 noteId:', noteId);
-      console.log('📝 파라미터 updates:', JSON.stringify(updates, null, 2));
-      
-      // 현재 사용자 ID 확인 (재시도 로직 포함)
-      let authUser = null;
-      let authError = null;
-      
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const result = await supabase.auth.getUser();
-          authUser = result.data;
-          authError = result.error;
-          
-          if (!authError) {
-            console.log('👤 현재 인증된 사용자 ID:', authUser?.user?.id);
-            break;
-          }
-          
-          if (attempt < 3) {
-            console.log(`⏰ 인증 확인 재시도 ${attempt}/3...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          }
-        } catch (error) {
-          authError = error;
-          if (attempt < 3) {
-            console.log(`⏰ 인증 확인 재시도 ${attempt}/3 (네트워크 에러)...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          }
-        }
-      }
-      
-      if (authError) {
-        console.error('❌ 사용자 인증 확인 중 에러:', authError);
-        console.log('📝 인증 없이 노트 업데이트 계속 진행...');
-      }
-      
       const updateData = { 
         ...updates,
         updated_at: new Date().toISOString() // Explicitly set updated_at
       };
-      console.log('📊 최종 업데이트 데이터:', JSON.stringify(updateData, null, 2));
       
       // If title is being updated, update slug as well
       if (updates.title) {
         updateData.slug = this.generateSlug(updates.title);
-        console.log('🔗 슬러그 생성됨:', updateData.slug);
       }
 
-      console.log('🚀 Supabase 업데이트 쿼리 실행 중...');
-      console.log('🎯 업데이트 대상 노트 ID:', noteId);
-      
-      // Simplified update without JOIN to avoid schema cache issues
+      // Fast update without unnecessary auth checks and logging
       const { data, error } = await supabase
         .from('notes')
         .update(updateData)
@@ -326,41 +284,21 @@ class NotesService {
         .single();
 
       if (error) {
-        console.error('❌ Supabase 업데이트 쿼리 에러:', error);
-        console.error('❌ 에러 메시지:', error.message);
-        console.error('❌ 에러 세부사항:', JSON.stringify(error, null, 2));
+        console.error('❌ Update note error:', error);
         throw error;
       }
 
-      console.log('✅ 업데이트 쿼리 성공!');
-      console.log('📋 업데이트된 노트 데이터:', JSON.stringify(data, null, 2));
+      console.log('✅ Note updated successfully');
 
-      // Get profile data separately to avoid JOIN issues
-      console.log('👤 프로필 데이터 가져오는 중... user_id:', data.user_id);
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, user_id, username, avatar_url')
-        .eq('user_id', data.user_id)
-        .single();
-
-      if (profileError) {
-        console.error('⚠️ 프로필 데이터 가져오기 에러:', profileError);
-      } else {
-        console.log('✅ 프로필 데이터 성공:', JSON.stringify(profile, null, 2));
-      }
-
-      // Add profile data manually
-      const noteWithProfile = {
+      // Return minimal data for auto-save performance
+      const noteWithMinimalProfile = {
         ...data,
-        profiles: profile || { username: 'Unknown' }
+        profiles: { username: 'User' } // Minimal profile data for auto-save
       };
 
-      console.log('🎉 최종 반환 데이터:', JSON.stringify(noteWithProfile, null, 2));
-      return { data: noteWithProfile, error: null };
+      return { data: noteWithMinimalProfile, error: null };
     } catch (error) {
-      console.error('💥 updateNote 함수 전체 에러:', error);
-      console.error('💥 에러 타입:', typeof error);
-      console.error('💥 에러 스택:', error.stack);
+      console.error('❌ Update note error:', error);
       return { data: null, error: error.message };
     }
   }

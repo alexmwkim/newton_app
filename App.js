@@ -27,12 +27,12 @@ if (__DEV__) {
 }
 
 function GlobalToolbar() {
-  const { activeScreenHandlers, focusedIndex, hideKeyboard, keyboardVisible } = useSimpleToolbar();
+  const { activeScreenHandlers, focusedIndex, hideKeyboard, keyboardVisible, keyboardHeight } = useSimpleToolbar();
   
-  console.log('🔧 GlobalToolbar render - activeScreenHandlers:', !!activeScreenHandlers, 'focusedIndex:', focusedIndex, 'keyboardVisible:', keyboardVisible);
+  console.log('🔧 GlobalToolbar render - activeScreenHandlers:', !!activeScreenHandlers, 'focusedIndex:', focusedIndex, 'keyboardVisible:', keyboardVisible, 'keyboardHeight:', keyboardHeight);
   
   // Floating toolbar that appears above keyboard (InputAccessoryView 대신 사용)
-  if (!keyboardVisible || !activeScreenHandlers) {
+  if (!keyboardVisible || !activeScreenHandlers || keyboardHeight === 0) {
     return null;
   }
   
@@ -40,7 +40,7 @@ function GlobalToolbar() {
     <View 
       style={{
         position: 'absolute',
-        bottom: 301, // keyboard height (291) + margin (10)
+        bottom: keyboardHeight, // 키보드 바로 위에 위치
         left: 0,
         right: 0,
         backgroundColor: '#FFFFFF',
@@ -58,7 +58,7 @@ function GlobalToolbar() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <TouchableOpacity
           onPress={() => {
-            console.log('🔧 Floating toolbar: Add card button pressed');
+            console.log('🔧 Floating toolbar: Add CARD button pressed');
             if (activeScreenHandlers?.handleAddCard) {
               activeScreenHandlers.handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
             }
@@ -75,7 +75,7 @@ function GlobalToolbar() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
-            console.log('🔧 Floating toolbar: Add grid button pressed');
+            console.log('🔧 Floating toolbar: Add GRID button pressed');
             if (activeScreenHandlers?.handleAddGrid) {
               activeScreenHandlers.handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
             }
@@ -92,9 +92,15 @@ function GlobalToolbar() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
-            console.log('🔧 Floating toolbar: Add image button pressed');
+            console.log('🚨 IMAGE BUTTON CLICKED 🚨');
+            
             if (activeScreenHandlers?.handleAddImage) {
-              activeScreenHandlers.handleAddImage(focusedIndex >= 0 ? focusedIndex : 0);
+              console.log('📱 Calling handleAddImage...');
+              activeScreenHandlers.handleAddImage(focusedIndex >= 0 ? focusedIndex : 0).catch(error => {
+                console.log('❌ handleAddImage error:', error);
+              });
+            } else {
+              console.log('❌ handleAddImage not available');
             }
           }}
           style={{
@@ -141,6 +147,7 @@ function AppContent() {
   const { user, loading, initialized } = useAuth();
 
   console.log('🔍 App render - user:', !!user, 'loading:', loading, 'initialized:', initialized);
+  
   
   // 글로벌 사용자 정보 설정 (디버깅용)
   if (__DEV__ && user) {

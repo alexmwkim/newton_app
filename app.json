@@ -14,13 +14,20 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.newton.app"
+      "bundleIdentifier": "com.newton.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to add images to your notes."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -30,6 +37,9 @@
       "eas": {
         "projectId": "9c0017eb-7b3f-4708-804c-e14d9b95b6a2"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

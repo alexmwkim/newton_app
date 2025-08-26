@@ -7,15 +7,18 @@ export const SimpleToolbarProvider = ({ children }) => {
   const [activeScreenHandlers, setActiveScreenHandlers] = useState(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // 단순한 키보드 상태 추적만 (개입 최소화)
+  // 키보드 높이와 상태 실시간 추적
   useEffect(() => {
-    const keyboardWillShow = () => {
+    const keyboardWillShow = (event) => {
       setKeyboardVisible(true);
+      setKeyboardHeight(event.endCoordinates.height);
     };
 
     const keyboardWillHide = () => {
       setKeyboardVisible(false);
+      setKeyboardHeight(0);
     };
 
     const showListener = Keyboard.addListener('keyboardWillShow', keyboardWillShow);
@@ -40,6 +43,7 @@ export const SimpleToolbarProvider = ({ children }) => {
       focusedIndex,
       setFocusedIndex,
       keyboardVisible,
+      keyboardHeight,
       hideKeyboard
     }}>
       {children}
