@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Keyboard, Animated, Platform } from 'react-native';
 
 const SimpleToolbarContext = createContext();
@@ -74,23 +74,34 @@ export const SimpleToolbarProvider = ({ children }) => {
   }, []);
 
   // Done 버튼만을 위한 키보드 숨김 (자연스러운 흐름 방해 안함)
-  const hideKeyboard = () => {
+  const hideKeyboard = useCallback(() => {
     Keyboard.dismiss();
     setFocusedIndex(-1);
-  };
+  }, []);
+
+  // ✅ Context 값 최적화 - 불필요한 리렌더링 방지
+  const contextValue = useMemo(() => ({
+    activeScreenHandlers,
+    setActiveScreenHandlers,
+    focusedIndex,
+    setFocusedIndex,
+    keyboardVisible,
+    keyboardHeight, // Animated 값
+    keyboardHeightValue, // 실제 높이 값
+    toolbarTranslateY, // 툴바 transform 애니메이션 값
+    hideKeyboard
+  }), [
+    activeScreenHandlers,
+    focusedIndex,
+    keyboardVisible,
+    keyboardHeight,
+    keyboardHeightValue,
+    toolbarTranslateY,
+    hideKeyboard
+  ]);
 
   return (
-    <SimpleToolbarContext.Provider value={{
-      activeScreenHandlers,
-      setActiveScreenHandlers,
-      focusedIndex,
-      setFocusedIndex,
-      keyboardVisible,
-      keyboardHeight, // Animated 값
-      keyboardHeightValue, // 실제 높이 값
-      toolbarTranslateY, // 툴바 transform 애니메이션 값
-      hideKeyboard
-    }}>
+    <SimpleToolbarContext.Provider value={contextValue}>
       {children}
     </SimpleToolbarContext.Provider>
   );

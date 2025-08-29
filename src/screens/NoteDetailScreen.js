@@ -24,7 +24,7 @@ import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 import { useFormatting, FormattingProvider } from '../components/toolbar/ToolbarFormatting';
-import { UnifiedToolbarContent, UnifiedToolbar } from '../components/toolbar/UnifiedToolbar';
+// UnifiedToolbar는 App.js에서 전역 렌더링
 import SocialInteractionBar from '../components/SocialInteractionBar';
 import { UnifiedHeader } from '../shared/components/layout';
 
@@ -982,7 +982,7 @@ const NoteDetailScreen = ({
       </Modal>
       
       {/* ✅ 플로팅 툴바 사용 (키보드 안정성 유지) */}
-      <UnifiedToolbar />
+      {/* UnifiedToolbar는 App.js에서 전역 렌더링됨 */}
     </>
   );
 };

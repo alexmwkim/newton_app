@@ -137,12 +137,8 @@ export const FormattingProvider = ({ children }) => {
       })
     };
 
-    // 디버그 로그 (포커스된 블록만)
+    // 포커스 상태 확인
     const isFocused = blockIndex === currentFocusedIndex;
-    if (false) { // 로그 비활성화
-      console.log(`  - activeFormats:`, activeFormats);
-      console.log(`  - block?.savedFormats:`, block?.savedFormats);
-    }
 
     // 포맷 정보 결정: 각 블록의 독립적인 포맷 상태 보장
     let formatsToUse = null;
@@ -266,8 +262,6 @@ export const FormattingProvider = ({ children }) => {
   const resetFormatsIfTextEmpty = useCallback((blockIndex, textContent) => {
     // 텍스트가 완전히 비어있으면 해당 블록의 포맷 초기화
     if (!textContent || textContent.trim() === '') {
-      console.log('🔧 Text is empty, resetting formats for block', blockIndex);
-      
       // blockFormats에서 해당 블록의 포맷 제거
       setBlockFormats(prevFormats => {
         const newFormats = { ...prevFormats };
@@ -285,7 +279,6 @@ export const FormattingProvider = ({ children }) => {
           heading3: false
         };
         setActiveFormats(defaultFormats);
-        console.log('🔧 Active formats reset for empty text');
       }
     }
   }, [currentFocusedIndex]);

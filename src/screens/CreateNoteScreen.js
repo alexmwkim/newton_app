@@ -21,7 +21,7 @@ import SingleToggle from '../shared/components/form/SingleToggle';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
-import { UnifiedToolbarContent, UnifiedToolbar } from '../components/toolbar/UnifiedToolbar';
+// UnifiedToolbar는 App.js에서 전역 렌더링
 import { UnifiedHeader } from '../shared/components/layout';
 
 // Separated modules
@@ -442,7 +442,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     </SafeAreaView>
 
     {/* ✅ 플로팅 툴바 사용 (키보드 안정성 유지) */}
-    <UnifiedToolbar />
+    {/* UnifiedToolbar는 App.js에서 전역 렌더링됨 */}
     </>
   );
 };

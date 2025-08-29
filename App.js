@@ -7,6 +7,7 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { SimpleToolbarProvider } from './src/contexts/SimpleToolbarContext';
 import { FormattingProvider } from './src/components/toolbar/ToolbarFormatting';
+import { UnifiedToolbar } from './src/components/toolbar/UnifiedToolbar';
 // import { CustomKeyboardToolbar } from './src/components/toolbar/CustomKeyboardToolbar'; // 비활성화
 
 // Initialize debug tools in development (temporarily disabled for debugging)
@@ -83,7 +84,7 @@ export default function App() {
         <FormattingProvider>
           <SimpleToolbarProvider>
             <AppContent />
-            {/* ✅ 원래 InputAccessoryView 툴바 사용 (커스텀 툴바 제거) */}
+            <UnifiedToolbar />
           </SimpleToolbarProvider>
         </FormattingProvider>
       </AuthProvider>

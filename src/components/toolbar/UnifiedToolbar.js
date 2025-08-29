@@ -7,7 +7,7 @@ import { useFormatting } from './ToolbarFormatting';
 import { ToolbarButton } from './ToolbarButton';
 
 // ✅ InputAccessoryView에서 사용할 툴바 컨텐츠 (위치 고정 없음)
-export const UnifiedToolbarContent = () => {
+export const UnifiedToolbarContent = React.memo(() => {
   const { 
     activeScreenHandlers, 
     focusedIndex, 
@@ -23,16 +23,10 @@ export const UnifiedToolbarContent = () => {
     toggleHeading3 
   } = useFormatting();
   
-  console.log('✅ UnifiedToolbarContent render - activeScreenHandlers:', !!activeScreenHandlers, 'focusedIndex:', focusedIndex);
-  console.log('✅ UnifiedToolbarContent activeFormats:', activeFormats);
-  
   // InputAccessoryView에서는 항상 표시 (키보드와 동기화됨)
   if (!activeScreenHandlers) {
-    console.log('❌ UnifiedToolbarContent: No activeScreenHandlers, returning null');
     return null;
   }
-  
-  console.log('✅ UnifiedToolbarContent: Rendering toolbar content...');
   
   return (
     <View 
@@ -76,7 +70,6 @@ export const UnifiedToolbarContent = () => {
           iconName="plus"
           iconSize={16}
           onPress={() => {
-            console.log('🔧 Plus button pressed - show menu');
             // TODO: 플러스 메뉴 구현
           }}
           style={{ marginRight: 12 }}
@@ -88,55 +81,35 @@ export const UnifiedToolbarContent = () => {
         <ToolbarButton 
           title="B" 
           isActive={activeFormats.bold}
-          onPress={() => {
-            console.log('🚨🚨🚨 BOLD BUTTON CLICKED 🚨🚨🚨');
-            toggleBold();
-          }}
+          onPress={toggleBold}
           style={{ marginRight: 8 }}
         />
         
         <ToolbarButton 
           title="I" 
           isActive={activeFormats.italic}
-          onPress={() => {
-            console.log('🚨🚨🚨 ITALIC BUTTON CLICKED 🚨🚨🚨');
-            toggleItalic();
-          }}
+          onPress={toggleItalic}
           style={{ marginRight: 8 }}
         />
         
         <ToolbarButton 
           title="H1" 
           isActive={activeFormats.heading1}
-          onPress={() => {
-            console.log('🚨🚨🚨 H1 BUTTON CLICKED 🚨🚨🚨');
-            console.log('🔧 Current activeFormats:', activeFormats);
-            console.log('🔧 Current focusedIndex:', focusedIndex);
-            console.log('🔧 Calling toggleHeading1...');
-            toggleHeading1();
-            console.log('🔧 toggleHeading1 called');
-          }}
+          onPress={toggleHeading1}
           style={{ marginRight: 8 }}
         />
         
         <ToolbarButton 
           title="H2" 
           isActive={activeFormats.heading2}
-          onPress={() => {
-            console.log('🚨🚨🚨 H2 BUTTON CLICKED 🚨🚨🚨');
-            toggleHeading2();
-          }}
+          onPress={toggleHeading2}
           style={{ marginRight: 8 }}
         />
         
         <ToolbarButton 
           title="H3" 
           isActive={activeFormats.heading3}
-          onPress={() => {
-            console.log('🚨🚨🚨 H3 BUTTON CLICKED 🚨🚨🚨');
-            console.log('🔧 Unified toolbar: H3 format');
-            toggleHeading3();
-          }}
+          onPress={toggleHeading3}
           style={{ marginRight: 12 }}
         />
         
@@ -148,7 +121,6 @@ export const UnifiedToolbarContent = () => {
           type="icon"
           iconName="square"
           onPress={() => {
-            console.log('🔧 Unified toolbar: Add CARD button pressed');
             if (activeScreenHandlers?.handleAddCard) {
               activeScreenHandlers.handleAddCard(focusedIndex >= 0 ? focusedIndex : 0);
             }
@@ -160,7 +132,6 @@ export const UnifiedToolbarContent = () => {
           type="icon"
           iconName="grid"
           onPress={() => {
-            console.log('🔧 Unified toolbar: Add GRID button pressed');
             if (activeScreenHandlers?.handleAddGrid) {
               activeScreenHandlers.handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
             }
@@ -172,14 +143,10 @@ export const UnifiedToolbarContent = () => {
           type="icon"
           iconName="image"
           onPress={() => {
-            console.log('🚨 IMAGE BUTTON CLICKED 🚨');
             if (activeScreenHandlers?.handleAddImage) {
-              console.log('📱 Calling handleAddImage...');
               activeScreenHandlers.handleAddImage(focusedIndex >= 0 ? focusedIndex : 0).catch(error => {
-                console.log('❌ handleAddImage error:', error);
+                console.error('handleAddImage error:', error);
               });
-            } else {
-              console.log('❌ handleAddImage not available');
             }
           }}
           style={{ marginRight: 8 }}
@@ -187,10 +154,7 @@ export const UnifiedToolbarContent = () => {
       </ScrollView>
       
       <TouchableOpacity
-        onPress={() => {
-          console.log('✅ InputAccessoryView Done button pressed');
-          hideKeyboard();
-        }}
+        onPress={hideKeyboard}
         style={{
           backgroundColor: '#EB754B',
           paddingHorizontal: 14,
@@ -215,10 +179,10 @@ export const UnifiedToolbarContent = () => {
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 // ✅ 키보드 위 플로팅 툴바 (InputAccessoryView 대신 사용)
-export const UnifiedToolbar = () => {
+export const UnifiedToolbar = React.memo(() => {
   const { 
     activeScreenHandlers, 
     keyboardVisible, 
@@ -229,20 +193,24 @@ export const UnifiedToolbar = () => {
   
   const insets = useSafeAreaInsets();
   
-  console.log('🔧 UnifiedToolbar render:');
-  console.log('  - keyboardVisible:', keyboardVisible);
-  console.log('  - keyboardHeightValue:', keyboardHeightValue);
-  console.log('  - safeAreaInsets.bottom:', insets.bottom);
-  console.log('  - activeScreenHandlers:', !!activeScreenHandlers);
+  // ✅ 성능 최적화: 개발 모드에서만 로그 출력
+  if (__DEV__ && false) {
+    console.log('🔧 UnifiedToolbar render:', {
+      keyboardVisible,
+      keyboardHeightValue,
+      'insets.bottom': insets.bottom,
+      hasHandlers: !!activeScreenHandlers
+    });
+  }
   
   // 핸들러가 없으면 숨김 (키보드 상태와 관계없이 항상 렌더링)
   if (!activeScreenHandlers) {
     return null;
   }
   
-  // 키보드가 없을 때는 화면 아래(보이지 않는 곳)에 위치시킴
+  // ✅ 키보드 위쪽에 정확히 위치하도록 계산
   const bottomPosition = keyboardHeightValue > 0 
-    ? keyboardHeightValue - insets.bottom  // 키보드 위에 위치
+    ? keyboardHeightValue  // 키보드 바로 위에 위치
     : -48; // 키보드 없을 때는 화면 아래로 완전히 숨김
   
   return (
@@ -266,4 +234,4 @@ export const UnifiedToolbar = () => {
       <UnifiedToolbarContent />
     </Animated.View>
   );
-};
+});
