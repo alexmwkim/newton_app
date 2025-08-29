@@ -137,8 +137,7 @@ export const groupBlockProps = (allProps) => {
     // 이벤트 핸들러
     events: {
       onDelete: allProps.handleDeleteBlock || (() => {}),
-      onDismiss: allProps.dismissMenus || (() => {}),
-      onPreventScroll: allProps.preventNextAutoScroll || (() => {})
+      onDismiss: allProps.dismissMenus || (() => {})
     }
   };
 };

@@ -18,7 +18,13 @@ const ToolbarContext = createContext({
     handleAddCard: null,
     handleAddGrid: null, 
     handleAddImage: null,
-    handleDone: null
+    handleDone: null,
+    // 텍스트 포맷팅 핸들러들
+    handleBold: null,
+    handleItalic: null,
+    handleHeading1: null,
+    handleHeading2: null,
+    handleHeading3: null
   },
   
   // 상태 업데이트 함수들
@@ -35,7 +41,13 @@ export const ToolbarProvider = ({ children }) => {
     handleAddCard: null,
     handleAddGrid: null,
     handleAddImage: null, 
-    handleDone: null
+    handleDone: null,
+    // 텍스트 포맷팅 핸들러들
+    handleBold: null,
+    handleItalic: null,
+    handleHeading1: null,
+    handleHeading2: null,
+    handleHeading3: null
   });
 
   // 포커스 컨텍스트 설정 (스크린에서 호출)

@@ -32,10 +32,10 @@ export const useNotesStore = () => {
 
   // Load pinned and starred notes from Supabase + AsyncStorage when user changes
   React.useEffect(() => {
-    console.log('🔍 Pinned/Starred useEffect triggered - user:', user?.id);
+    // Pinned/Starred useEffect triggered
     
     if (user) { // Remove the pinnedNotes.length === 0 condition that was blocking execution
-      console.log('🔄 User exists, starting pinned/starred data load for:', user.id);
+      // Starting pinned/starred data load
       
       // Load data synchronously from AsyncStorage first for instant display
       const loadDataSynchronously = async () => {
@@ -44,10 +44,10 @@ export const useNotesStore = () => {
           const savedPinned = await AsyncStorage.getItem(`pinnedNotes_${user.id}`);
           if (savedPinned) {
             const parsedPinned = JSON.parse(savedPinned);
-            console.log('📌 ⚡ Instantly loaded pinned notes from AsyncStorage:', parsedPinned);
+            // Loaded pinned notes from AsyncStorage
             setPinnedNotes(parsedPinned);
           } else {
-            console.log('📌 ⚡ No cached pinned notes, starting with empty array');
+            // No cached pinned notes
             setPinnedNotes([]);
           }
           
@@ -215,7 +215,8 @@ export const useNotesStore = () => {
   const privateNotes = React.useMemo(() => allUserNotes.filter(note => !note.is_public), [allUserNotes]);
   const userPublicNotes = React.useMemo(() => allUserNotes.filter(note => note.is_public), [allUserNotes]); // User's own public notes (excluding subpages)
   
-  console.log('🔀 Using REAL SUPABASE DATA - User notes:', allUserNotes.length, 'Private:', privateNotes.length, 'User public:', userPublicNotes.length);
+  // 로그 축소: 매번 출력하지 않음
+  // console.log('🔀 Using REAL SUPABASE DATA - User notes:', allUserNotes.length, 'Private:', privateNotes.length, 'User public:', userPublicNotes.length);
 
   // Memoize functions outside of the return object
   const getPinnedNotes = React.useCallback(() => {
@@ -522,17 +523,17 @@ export const useNotesStore = () => {
         throw new Error('User not authenticated');
       }
       
-      console.log('💾 Creating note for user:', user.id, 'with data:', noteData);
+      // Creating note
       return supabaseStore.createNote({ ...noteData, userId: user.id });
     },
 
     updateNote: async (noteId, updates) => {
-      console.log('📝 Updating note:', noteId, 'with updates:', updates);
+      // Updating note
       return supabaseStore.updateNote(noteId, updates);
     },
     
     deleteNote: async (noteId) => {
-      console.log('🗑️ Deleting note:', noteId);
+      // Deleting note
       return supabaseStore.deleteNote(noteId);
     },
     

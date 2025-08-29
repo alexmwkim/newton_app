@@ -13,6 +13,8 @@ import Icon from 'react-native-vector-icons/Feather';
 import { Colors } from '../constants/Colors';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
+import { useFormatting } from './toolbar/ToolbarFormatting';
+import MultilineFormattedInput from './MultilineFormattedInput';
 
 const NoteCardBlock = ({
   block,
@@ -34,16 +36,49 @@ const NoteCardBlock = ({
   scrollToFocusedInput,
   isAuthor = true,
   dismissMenus = () => {},
-  preventNextAutoScroll = () => {},
   toolbarId = 'newton-toolbar',
   useGlobalKeyboard = false
 }) => {
   const cardRef = useRef(null);
   const styles = createNoteStyles;
   const { handleInputFocus } = useSimpleToolbar();
+  const { getDynamicTextStyle, activeFormats, setCurrentFocusedIndex, currentFocusedIndex } = useFormatting();
+  
+  // 카드 블록용 스타일 계산 (독립성 보장)
+  const cardTextStyle = useMemo(() => {
+    const style = getDynamicTextStyle(index, block);
+    // Card block style computation
+    return style;
+  }, [getDynamicTextStyle, index, block.id, block.savedFormats,
+      // 이 카드가 포커스될 때만 업데이트
+      currentFocusedIndex === index ? JSON.stringify(activeFormats) : null]);
   
   // 🔧 디버그 모드 (개발 시에만 true로 설정)
   const DEBUG_DRAG = false;
+
+  // 카드 블록 전용 키 처리 함수
+  const handleCardKeyPress = useCallback(({ nativeEvent }) => {
+    // Card key pressed
+    
+    // 카드 블록에서는 Enter 키를 줄바꿈으로 처리 (새 블록 생성하지 않음)
+    if (nativeEvent.key === 'Enter') {
+      // Enter in card block - staying within card
+      // Notion 카드와 다른 동작: 카드 내에서 자유로운 멀티라인 허용
+      return; // 기본 TextInput Enter 동작 허용 (줄바꿈)
+    }
+    
+    // Backspace 처리: 빈 카드에서만 삭제 고려
+    if (nativeEvent.key === 'Backspace') {
+      if (block.content.trim() === '') {
+        // Backspace on empty card
+        handleKeyPress(block, index, nativeEvent.key);
+        return;
+      }
+      // 내용이 있으면 일반 Backspace 동작 (카드 내에서 텍스트 삭제)
+    }
+    
+    // 다른 모든 키는 카드 내에서 정상 처리
+  }, [block, index, handleKeyPress]);
 
   
   // 📏 통합된 레이아웃 측정 함수
@@ -462,40 +497,36 @@ const NoteCardBlock = ({
       ]}
     >
       <View style={styles.cardHeader}>
-        <TextInput
-          ref={block.ref}
-          style={styles.cardTitleInput}
-          placeholder="Write something"
-          multiline
-          defaultValue={block.content}
+        <MultilineFormattedInput
+          key={`card-${block.id}`} // Stable key to prevent recreation
+          value={block.content}
           onChangeText={(text) => handleTextChange(block.id, text)}
-          onPressIn={() => {
-            // console.log('🎯 TextInput pressed in card:', block.id);
+          onFocus={(globalIndex) => {
             dismissMenus();
-          }}
-          onFocus={() => {
-            dismissMenus();
-            setFocusedIndex(index);
-            // 카드 포커스 시 자동 스크롤 (키보드가 이미 올라와 있을 때)
+            setFocusedIndex(globalIndex);
+            console.log(`🎯 Card line ${globalIndex} focused`);
+            // ✅ 업계 표준: 카드 포커스 시에도 기존 키보드에서는 자동 스크롤하지 않음
             if (keyboardVisible && keyboardHeight > 0) {
-              setTimeout(() => {
-                scrollToFocusedInput(keyboardHeight);
-              }, 10); // 매우 빠른 스크롤
+              console.log('🎯 ❌ Card focus - keyboard already visible, no auto-scroll');
             }
           }}
-          onKeyPress={({ nativeEvent }) => {
-            handleKeyPress(block, index, nativeEvent.key);
+          onBlur={(globalIndex) => {
+            console.log(`🎯 Card line ${globalIndex} lost focus`);
           }}
-          onContentSizeChange={({ nativeEvent }) => {
-            // console.log('📏 TextInput content size changed:', nativeEvent.contentSize);
-            // No action needed - KeyboardAvoidingView handles positioning
-          }}
-          autoCorrect={false}
-          autoComplete="off"
-          spellCheck={false}
-          scrollEnabled={false}
-          editable={isAuthor && !isDragging}
-          placeholderTextColor={Colors.secondaryText}
+          placeholder="Write something"
+          style={[
+            styles.cardTitleInput,
+            {
+              minHeight: 40,
+              paddingVertical: 8,
+            }
+          ]}
+          baseIndex={index * 100} // 카드별로 충분한 인덱스 간격
+          blocks={blocks}
+          setFocusedIndex={setFocusedIndex}
+          isAuthor={isAuthor && !isDragging}
+          // ✅ InputAccessoryView 동기화를 위한 설정
+          inputAccessoryViewID={toolbarId}
           {...(Platform.OS === 'android' && useGlobalKeyboard ? { showSoftInputOnFocus: false } : {})}
         />
         {isAuthor && (

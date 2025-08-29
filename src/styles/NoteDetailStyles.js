@@ -194,14 +194,20 @@ export const noteDetailStyles = StyleSheet.create({
     alignItems: 'stretch',
   },
   textInput: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 0, // 뒤로가기 아이콘과 정렬
-    minHeight: 50,
-    marginBottom: 8,
+    // Industry-standard minimal spacing
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    minHeight: 32, // Increased to accommodate H1 text (fontSize: 24 + lineHeight: 28)
+    marginBottom: 6,
     backgroundColor: 'transparent',
     color: Colors.primaryText,
-    width: '100%', // Ensure text blocks take full width
+    width: '100%',
+    // Industry-standard cursor positioning fixes
+    lineHeight: Platform.OS === 'ios' ? 20 : 22,
+    textAlignVertical: 'top', // Critical for Android cursor positioning
+    ...(Platform.OS === 'android' && {
+      includeFontPadding: false, // Removes extra padding that affects cursor position
+    }),
   },
   cardBlock: {
     backgroundColor: Colors.noteCard,

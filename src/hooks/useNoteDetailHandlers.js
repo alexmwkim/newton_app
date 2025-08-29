@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { Alert, Keyboard, AppState } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { generateId, convertBlocksToContent, cleanLegacyContent } from '../utils/noteUtils';
+import { useFormatting } from '../components/toolbar/ToolbarFormatting';
 
 export const useNoteDetailHandlers = (
   blocks,
@@ -18,6 +19,8 @@ export const useNoteDetailHandlers = (
   loadingNote,
   updateNote
 ) => {
+  
+  const { activeFormats, resetFormatsForNewBlock } = useFormatting();
 
   const insertBlockSet = useCallback((index, blockSet, focusIndex) => {
     const currentBlock = blocks[index];
@@ -261,27 +264,106 @@ export const useNoteDetailHandlers = (
   }, [blocks, setBlocks]);
 
   const handleKeyPress = useCallback((block, index, key) => {
-    if (key === 'Backspace') {
+    if (key === 'Enter') {
+      console.log('⏎ Enter key - creating new block after:', block.content);
+      console.log('⏎ Current activeFormats:', activeFormats);
+      
+      // 현재 블록에 포맷 정보 저장 (포맷 유지를 위해)
+      setBlocks(prev => {
+        const updated = [...prev];
+        if (updated[index]) {
+          updated[index] = {
+            ...updated[index],
+            savedFormats: { ...activeFormats } // 현재 포맷 저장
+          };
+        }
+        return updated;
+      });
+      
+      // Notion 방식: 새 블록 생성 및 포맷 리셋
+      const newBlock = {
+        id: generateId(),
+        type: 'text',
+        content: '',
+        ref: React.createRef(),
+        layoutMode: 'full',
+        groupId: null,
+        savedFormats: null // 새 블록은 기본 포맷
+      };
+      
+      setTimeout(() => {
+        setBlocks(prev => {
+          const updated = [...prev];
+          updated.splice(index + 1, 0, newBlock);
+          return updated;
+        });
+        
+        // New block created
+        
+        // 새 블록으로 포커스 이동 및 포맷 리셋
+        setTimeout(() => {
+          // 먼저 포맷 리셋 (포커스 변경 전에)
+          resetFormatsForNewBlock(); 
+          // Format reset for new block
+          
+          // 그 다음 포커스 변경
+          newBlock.ref.current?.focus();
+          setFocusedIndex(index + 1);
+          // Focus moved to new block
+          
+          // ✅ 새 블록 생성 시에는 자동 스크롤 필요 (업계 표준)
+          if (keyboardVisible && keyboardHeight > 0) {
+            setTimeout(() => {
+              // New block created - triggering auto-scroll
+              scrollToFocusedInput(keyboardHeight, 'new_block_created');
+            }, 150); // 포커스가 완전히 이동한 후 스크롤
+          }
+        }, 50);
+      }, 10); // 블록 저장 후 새 블록 생성
+      
+    } else if (key === 'Backspace') {
       if (block.content === '' && index > 0) {
-        const updated = [...blocks];
-        const prevBlock = updated[index - 1];
+        // Backspace on empty block - merging with previous
+        
+        const prevBlock = blocks[index - 1];
         
         if (prevBlock.type === 'text') {
-          updated.splice(index, 1);
-          setBlocks(updated);
+          // ✅ 키보드 안정성을 위해 포커스를 먼저 이동 (블록 제거 전에)
+          const textLength = prevBlock.content.length;
           
+          // 1단계: 즉시 포커스 이동 (연속성 보장)
+          prevBlock.ref.current?.focus();
+          setFocusedIndex(index - 1);
+          
+          // 2단계: 커서 위치 설정
           setTimeout(() => {
-            prevBlock.ref.current?.focus();
-            const textLength = prevBlock.content.length;
-            prevBlock.ref.current?.setSelection(textLength, textLength);
-          }, 50);
+            if (prevBlock.ref.current?.setSelection) {
+              prevBlock.ref.current.setSelection(textLength, textLength);
+            }
+          }, 10);
+          
+          // 3단계: 블록 제거 (포커스 안정 후)
+          setTimeout(() => {
+            setBlocks(prev => prev.filter((_, i) => i !== index));
+            // Empty block removed after focus stabilization
+          }, 20);
+          
+          // 4단계: 스크롤 안정화 (선택사항)
+          if (keyboardVisible && keyboardHeight > 0) {
+            setTimeout(() => {
+              // Block merge - stabilizing scroll
+              scrollToFocusedInput(keyboardHeight, 'block_merge_backspace');
+            }, 150); // 모든 단계 완료 후
+          }
         }
       }
     }
-  }, [blocks, setBlocks]);
+  }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
 
   const handleTextChange = useCallback((id, text) => {
-    // console.log('✏️ Text changed in block:', id, 'New text length:', text.length); // 로그 간소화
+    // Notion 방식: 단일 라인 블록이므로 \n 분리 로직 불필요
+    console.log('✏️ Text changed in block:', id, 'New text:', text.substring(0, 20));
+    
     setBlocks(prev => {
       const updated = prev.map(block => {
         if (block.id === id) {

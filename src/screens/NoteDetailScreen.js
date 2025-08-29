@@ -23,6 +23,8 @@ import Colors from '../constants/Colors';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
+import { useFormatting, FormattingProvider } from '../components/toolbar/ToolbarFormatting';
+import { UnifiedToolbarContent, UnifiedToolbar } from '../components/toolbar/UnifiedToolbar';
 import SocialInteractionBar from '../components/SocialInteractionBar';
 import { UnifiedHeader } from '../shared/components/layout';
 
@@ -54,7 +56,7 @@ const normalizeNote = (noteData) => {
   };
 };
 
-const TOOLBAR_ID = 'note-detail-toolbar';
+const TOOLBAR_ID = 'newton-detail-toolbar'; // ✅ NoteDetailScreen 전용 TOOLBAR_ID
 
 const NoteDetailScreen = ({ 
   noteId, 
@@ -70,10 +72,18 @@ const NoteDetailScreen = ({
   onFork,
   onUnstar
 }) => {
-  console.log('🔍 NoteDetailScreen rendered with noteId:', noteId, 'note:', note?.title || 'no note');
+  // 최소 로그: 첫 렌더와 noteId 변경시만
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  if (renderCountRef.current === 1) {
+    console.log('🔍 NoteDetailScreen FIRST render with noteId:', noteId, 'note:', note?.title || 'no note');
+  } else if (renderCountRef.current <= 3) {
+    console.log('🔍 NoteDetailScreen re-render #' + renderCountRef.current);
+  }
   
-  // Component state
+  // Component state  
   const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex } = useSimpleToolbar();
+  const { setCurrentFocusedIndex, setCurrentBlockRef, getDynamicTextStyle, setSetBlocks } = useFormatting();
   const scrollRef = useRef(null);
   const titleInputRef = useRef(null);
   const [title, setTitle] = useState('');
@@ -186,10 +196,16 @@ const NoteDetailScreen = ({
     return displayNote.user_id === user.id || !displayNote.user_id;
   }, [displayNote?.user_id, user?.id]);
 
-  // Use separated hooks
-  const { keyboardVisible, keyboardHeight, scrollToFocusedInput, preventNextAutoScroll } = useKeyboardHandlers(
-    focusedIndex, 
-    blocks, 
+  // Use separated hooks - focusedIndex와 blocks를 ref로 최신값 보장
+  const focusedIndexRef = useRef(focusedIndex);
+  focusedIndexRef.current = focusedIndex;
+  
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
+  
+  const { keyboardVisible, keyboardHeight, scrollToFocusedInput } = useKeyboardHandlers(
+    focusedIndexRef, 
+    blocksRef, 
     scrollRef, 
     titleInputRef
   );
@@ -210,14 +226,19 @@ const NoteDetailScreen = ({
     updateNote
   );
 
+  // 포맷팅 관리는 이제 FormattingProvider에서 처리됨
+
   // Register handlers with global toolbar
   useEffect(() => {
+    // 저자인 경우에만 handlers 설정
     if (isAuthor) {
       setActiveScreenHandlers({
         handleAddCard,
         handleAddGrid,
         handleAddImage
       });
+    } else {
+      setActiveScreenHandlers(null);
     }
     
     return () => {
@@ -225,10 +246,27 @@ const NoteDetailScreen = ({
     };
   }, [handleAddCard, handleAddGrid, handleAddImage, setActiveScreenHandlers, isAuthor]);
 
-  // Sync focusedIndex with global toolbar
+  // Sync focusedIndex with global toolbar and formatting system
   useEffect(() => {
     setGlobalFocusedIndex(focusedIndex);
-  }, [focusedIndex, setGlobalFocusedIndex]);
+    setCurrentFocusedIndex(focusedIndex);
+    
+    // 현재 포커스된 블록의 ref를 포맷팅 시스템에 전달
+    if (focusedIndex >= 0 && focusedIndex < blocks.length) {
+      const currentBlock = blocks[focusedIndex];
+      if (currentBlock && currentBlock.ref) {
+        setCurrentBlockRef(currentBlock.ref);
+        // Updated currentBlockRef
+      }
+    } else {
+      setCurrentBlockRef(null);
+    }
+  }, [focusedIndex, blocks, setGlobalFocusedIndex, setCurrentFocusedIndex, setCurrentBlockRef]);
+
+  // Register setBlocks with FormattingProvider
+  useEffect(() => {
+    setSetBlocks(setBlocks);
+  }, [setSetBlocks]);
 
   
   // Load note data - SINGLE useEffect to prevent loops
@@ -340,10 +378,8 @@ const NoteDetailScreen = ({
           const newBlocks = parseNoteContentToBlocks(displayNote);
           console.log('🔄 Parsed blocks:', newBlocks.length, 'blocks');
           if (newBlocks.length > 0) {
-            setBlocks(newBlocks.map(block => ({
-              ...block,
-              ref: React.createRef()
-            })));
+            // ref는 이미 parseNoteContentToBlocks에서 생성됨 - 덮어쓰지 말자
+            setBlocks(newBlocks);
           } else {
             // Fallback if parsing fails
             setBlocks([
@@ -371,21 +407,78 @@ const NoteDetailScreen = ({
 
   // Ensure there's always an empty text block at the end
 
+  // 블록 마이그레이션 및 관리
   useEffect(() => {
-    // Always maintain empty text block at the end - but prevent infinite loops
     if (blocks.length === 0) {
-      // Only add block if there are NO blocks at all
+      console.log('🔧 Adding initial empty block');
       setBlocks([
         { id: generateId(), type: 'text', content: '', ref: React.createRef() }
       ]);
-    } else if (blocks.length > 0 && blocks[blocks.length - 1].type !== 'text') {
-      // Only add if last block is NOT text AND we have at least one block
-      setBlocks(prev => ([
-        ...prev,
-        { id: generateId(), type: 'text', content: '', ref: React.createRef() }
-      ]));
+      return;
     }
-  }, [blocks.length, blocks[blocks.length - 1]?.type]); // More specific dependencies
+
+    // Notion 방식 마이그레이션: 멀티라인 텍스트 블록을 단일 라인 블록들로 분리
+    const needsMigration = blocks.some(block => 
+      block.type === 'text' && block.content.includes('\n')
+    );
+
+    if (needsMigration) {
+      console.log('🔄 Migrating multiline blocks to single-line blocks (Notion style)');
+      
+      const migratedBlocks = [];
+      
+      blocks.forEach(block => {
+        if (block.type === 'text' && block.content.includes('\n')) {
+          // 멀티라인 블록을 여러 단일라인 블록으로 분리
+          const lines = block.content.split('\n');
+          lines.forEach(line => {
+            if (line.trim() || migratedBlocks.length === 0) { // 빈 줄 제거 (첫 블록 제외)
+              migratedBlocks.push({
+                id: generateId(),
+                type: 'text',
+                content: line,
+                ref: React.createRef(),
+                layoutMode: 'full',
+                groupId: null
+              });
+            }
+          });
+        } else {
+          // 일반 블록은 그대로 유지
+          migratedBlocks.push({
+            ...block,
+            ref: React.createRef() // ref 새로 생성
+          });
+        }
+      });
+      
+      // 마지막에 빈 블록 추가
+      const lastBlock = migratedBlocks[migratedBlocks.length - 1];
+      if (!lastBlock || lastBlock.type !== 'text' || lastBlock.content.trim() !== '') {
+        migratedBlocks.push({
+          id: generateId(),
+          type: 'text',
+          content: '',
+          ref: React.createRef(),
+          layoutMode: 'full',
+          groupId: null
+        });
+      }
+      
+      setBlocks(migratedBlocks);
+      console.log('✅ Block migration completed:', migratedBlocks.length, 'blocks');
+    } else {
+      // 마이그레이션이 필요 없는 경우, 빈 블록만 관리
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock.type !== 'text' || lastBlock.content.trim() !== '') {
+        console.log('🔧 Adding trailing empty text block');
+        setBlocks(prev => ([
+          ...prev,
+          { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+        ]));
+      }
+    }
+  }, [blocks.length]); // 간단한 의존성
 
   // Header handlers
   const handleBack = useCallback(() => {
@@ -534,8 +627,9 @@ const NoteDetailScreen = ({
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0} // SafeArea 고려
-        enabled={true}
+        keyboardVerticalOffset={0}
+        // ✅ 키보드 움직임 방지를 위해 완전 비활성화
+        enabled={false}
       >
         {/* Settings menu */}
         {showSettingsMenu && (
@@ -641,7 +735,7 @@ const NoteDetailScreen = ({
                 paddingBottom: 0 // 완전히 제거 - 툴바 위 여백 없애기
               }]}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
+              keyboardDismissMode="none"
               scrollEnabled={!dragGuideline.visible && dragMode === 'none'}
               showsVerticalScrollIndicator={true}
               automaticallyAdjustContentInsets={false}
@@ -709,6 +803,7 @@ const NoteDetailScreen = ({
                   console.log('🏷️ Title changed:', newTitle.length, 'characters');
                   setTitle(newTitle);
                 }}
+                // ✅ 플로팅 툴바 사용으로 inputAccessoryViewID 제거
                 onPressIn={() => {
                   console.log('🎯 Title input pressed');
                   dismissMenus();
@@ -716,6 +811,12 @@ const NoteDetailScreen = ({
                 onFocus={() => {
                   dismissMenus();
                   setFocusedIndex(-1);
+                  // 키보드가 나타나면 자동 스크롤 시도
+                  if (keyboardVisible && keyboardHeight > 0) {
+                    setTimeout(() => {
+                      scrollToFocusedInput(keyboardHeight, true);
+                    }, 200);
+                  }
                 }}
                 onContentSizeChange={({ nativeEvent }) => {
                   console.log('📏 Title content size changed:', nativeEvent.contentSize);
@@ -787,7 +888,6 @@ const NoteDetailScreen = ({
                     setHoveredBlockId={setHoveredBlockId}
                     isAuthor={isAuthor}
                     dismissMenus={dismissMenus}
-                    preventNextAutoScroll={preventNextAutoScroll}
                     toolbarId={TOOLBAR_ID}
                     useGlobalKeyboard={true}
                     />
@@ -819,12 +919,12 @@ const NoteDetailScreen = ({
       </KeyboardAvoidingView>
     </SafeAreaView>
 
-
     {/* Page Info Modal */}
     <Modal
         visible={showPageInfoModal}
         animationType="fade"
         transparent={true}
+        presentationStyle="overFullScreen"  // ✅ InputAccessoryView 문제 해결
         onRequestClose={() => setShowPageInfoModal(false)}
       >
         <TouchableWithoutFeedback onPress={() => setShowPageInfoModal(false)}>
@@ -880,6 +980,9 @@ const NoteDetailScreen = ({
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+      
+      {/* ✅ 플로팅 툴바 사용 (키보드 안정성 유지) */}
+      <UnifiedToolbar />
     </>
   );
 };

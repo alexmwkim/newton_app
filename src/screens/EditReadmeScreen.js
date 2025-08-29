@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import Markdown from 'react-native-markdown-display';
 import Colors from '../constants/Colors';
@@ -27,7 +28,7 @@ const EditReadmeScreen = ({ navigation, route }) => {
   const [title, setTitle] = useState(currentTitle || '');
   const [content, setContent] = useState(currentContent || '');
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title for your readme');
       return;
@@ -35,13 +36,25 @@ const EditReadmeScreen = ({ navigation, route }) => {
 
     console.log('💾 Saving readme:', { title: title.trim(), content: content.trim() });
     
-    // Store the new readme data in global so ProfileScreen can pick it up
-    global.newReadmeData = {
+    const readmeData = {
       title: title.trim(),
       content: content.trim()
     };
     
-    console.log('✅ Readme data saved to global:', global.newReadmeData);
+    try {
+      // Store in AsyncStorage for persistence
+      await AsyncStorage.setItem('userReadmeData', JSON.stringify(readmeData));
+      console.log('✅ Readme data saved to AsyncStorage');
+      
+      // Also store in global for immediate update
+      global.newReadmeData = readmeData;
+      
+      console.log('✅ Readme data saved to global:', global.newReadmeData);
+    } catch (error) {
+      console.error('❌ Failed to save readme data:', error);
+      Alert.alert('Error', 'Failed to save readme data');
+      return;
+    }
     
     navigation.goBack();
   };

@@ -21,6 +21,7 @@ import SingleToggle from '../shared/components/form/SingleToggle';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
+import { UnifiedToolbarContent, UnifiedToolbar } from '../components/toolbar/UnifiedToolbar';
 import { UnifiedHeader } from '../shared/components/layout';
 
 // Separated modules
@@ -35,7 +36,7 @@ import { useNoteInsertHandlers } from '../hooks/useNoteInsertHandlers';
 import { NoteBlockRenderer } from '../components/NoteBlockRenderer';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 
-const TOOLBAR_ID = 'create-note-toolbar';
+const TOOLBAR_ID = 'newton-create-toolbar'; // ✅ CreateNoteScreen 전용 TOOLBAR_ID
 
 const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen, route }) => {
   const { user, loading: authLoading, initialized } = useAuth();
@@ -44,13 +45,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   const noteData = note || initialNote;
   const styles = createNoteStyles;
   
-  // Debug user state and toolbar rendering
-  console.log('🔍 CreateNoteScreen - Auth state:', {
-    user: !!user,
-    userId: user?.id,
-    authLoading,
-    initialized
-  });
+  // CreateNoteScreen auth state initialized
   
   // Get initial values from route params if available
   const routeParams = route?.params || {};
@@ -141,11 +136,11 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     if (typeof newLayouts === 'function') {
       setCardLayouts(prev => {
         const result = newLayouts(prev);
-        console.log('🔧 CreateNote setCardLayouts function call: prev =', Object.keys(prev), '→ result =', Object.keys(result));
+        // setCardLayouts function call
         return result;
       });
     } else {
-      console.log('🔧 CreateNote setCardLayouts direct call:', Object.keys(newLayouts));
+      // setCardLayouts direct call
       setCardLayouts(newLayouts);
     }
   }, []);
@@ -189,7 +184,6 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   }, [noteData]);
 
   const handleBack = () => {
-    console.log('Navigate back');
     if (onBack) onBack();
   };
 
@@ -205,7 +199,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   }, [blocks]);
 
   const handleSave = async () => {
-    console.log('💾 CreateNoteScreen handleSave called');
+    // CreateNoteScreen handleSave called
     
     if (authLoading || !initialized) {
       Alert.alert('Please wait', 'Authentication is still loading. Please try again in a moment.');
@@ -267,7 +261,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   // Auto-focus when screen loads
   useEffect(() => {
     const timer = setTimeout(() => {
-      console.log('🎯 Auto-focusing title input on load');
+      // Auto-focusing title input on load
       if (titleInputRef.current) {
         titleInputRef.current.focus();
       }
@@ -280,7 +274,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     return hasContent(title, blocks);
   }, [title, blocks]);
 
-  console.log('🔍 CreateNote render - keyboardVisible:', keyboardVisible, 'keyboardHeight:', keyboardHeight);
+  // CreateNote keyboard state updated
 
   return (
     <>
@@ -288,8 +282,9 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
         <KeyboardAvoidingView 
           style={styles.keyboardContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 25} // iOS: 툴바 높이만큼 오프셋
-          enabled={true}
+          keyboardVerticalOffset={0}
+          // ✅ 키보드 움직임 방지를 위해 완전 비활성화
+          enabled={false}
         >
         {/* Header */}
         <UnifiedHeader
@@ -343,7 +338,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
               ref={scrollRef}
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
+              keyboardDismissMode="none"
+              automaticallyAdjustContentInsets={false}
               scrollEventThrottle={16}
               showsVerticalScrollIndicator={false}
             >
@@ -355,7 +351,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                 placeholderTextColor={Colors.secondaryText}
                 value={title}
                 onChangeText={(newTitle) => {
-                  console.log('🏷️ Title changed:', newTitle.length, 'characters');
+                  // Title changed
                   setTitle(newTitle);
                 }}
                 onFocus={() => {
@@ -365,6 +361,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                 autoCorrect={false}
                 autoComplete="off"
                 spellCheck={false}
+                // ✅ 플로팅 툴바 사용으로 inputAccessoryViewID 제거
               />
 
               {/* Content Blocks */}
@@ -405,7 +402,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                     // Block position tracking
                     blockPositions={blockPositions}
                     setBlockPositions={(newPositions) => {
-                      console.log('📍 CreateNoteScreen setBlockPositions called');
+                      // CreateNoteScreen setBlockPositions called
                       setBlockPositions(newPositions);
                     }}
                     // Simple card layout tracking
@@ -428,7 +425,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
 
               <TouchableWithoutFeedback
                 onPress={() => {
-                  console.log('🎯 Empty space touched, focusing last text block');
+                  // Empty space touched, focusing last text block
                   const lastTextBlock = blocks.filter(b => b.type === 'text').pop();
                   if (lastTextBlock?.ref?.current) {
                     lastTextBlock.ref.current.focus();
@@ -444,7 +441,8 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
       </KeyboardAvoidingView>
     </SafeAreaView>
 
-
+    {/* ✅ 플로팅 툴바 사용 (키보드 안정성 유지) */}
+    <UnifiedToolbar />
     </>
   );
 };

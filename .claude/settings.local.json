@@ -69,7 +69,8 @@
       "WebSearch",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm search:*)"
+      "Bash(npm search:*)",
+      "Read(//Users/alex/Desktop/**)"
     ],
     "deny": []
   },

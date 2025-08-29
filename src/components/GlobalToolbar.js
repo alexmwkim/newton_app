@@ -39,7 +39,13 @@ const GlobalToolbar = () => {
     handleAddCard,
     handleAddGrid,
     handleAddImage,
-    handleDone
+    handleDone,
+    // 텍스트 포맷팅 핸들러들
+    handleBold,
+    handleItalic,
+    handleHeading1,
+    handleHeading2,
+    handleHeading3
   } = currentHandlers;
 
   return (
@@ -55,7 +61,112 @@ const GlobalToolbar = () => {
       height: 44,
       width: '100%',
     }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {/* 텍스트 포맷팅 버튼들 */}
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Global toolbar: Bold format');
+            handleBold?.();
+          }}
+          style={{
+            padding: 6,
+            borderRadius: 4,
+            backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: isAuthor ? 1 : 0.5,
+          }}
+          disabled={!isAuthor}
+        >
+          <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#333' }}>B</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Global toolbar: Italic format');
+            handleItalic?.();
+          }}
+          style={{
+            padding: 6,
+            borderRadius: 4,
+            backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: isAuthor ? 1 : 0.5,
+          }}
+          disabled={!isAuthor}
+        >
+          <Text style={{ fontStyle: 'italic', fontSize: 14, color: '#333' }}>I</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Global toolbar: H1 format');
+            handleHeading1?.();
+          }}
+          style={{
+            padding: 6,
+            borderRadius: 4,
+            backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: isAuthor ? 1 : 0.5,
+          }}
+          disabled={!isAuthor}
+        >
+          <Text style={{ fontWeight: '600', fontSize: 12, color: '#333' }}>H1</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Global toolbar: H2 format');
+            handleHeading2?.();
+          }}
+          style={{
+            padding: 6,
+            borderRadius: 4,
+            backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: isAuthor ? 1 : 0.5,
+          }}
+          disabled={!isAuthor}
+        >
+          <Text style={{ fontWeight: '600', fontSize: 12, color: '#333' }}>H2</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={() => {
+            console.log('🔧 Global toolbar: H3 format');
+            handleHeading3?.();
+          }}
+          style={{
+            padding: 6,
+            borderRadius: 4,
+            backgroundColor: isAuthor ? '#F0F0F0' : '#E0E0E0',
+            minWidth: 32,
+            minHeight: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: isAuthor ? 1 : 0.5,
+          }}
+          disabled={!isAuthor}
+        >
+          <Text style={{ fontWeight: '600', fontSize: 12, color: '#333' }}>H3</Text>
+        </TouchableOpacity>
+        
+        {/* 구분선 */}
+        <View style={{ width: 1, height: 24, backgroundColor: '#E0E0E0', marginHorizontal: 4 }} />
+        
+        {/* 기존 블록 추가 버튼들 */}
         <TouchableOpacity
           onPress={() => {
             console.log('🔧 Global toolbar: Adding card at index:', focusedIndex);

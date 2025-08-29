@@ -18,31 +18,11 @@ export const useKeyboardAndFocus = ({
   const focusTimeoutRef = useRef(null);
   const preventNextAutoScrollRef = useRef(false);
 
-  // 키보드 이벤트 리스너 설정
+  // ✅ 키보드 이벤트 리스너 비활성화 (중복 방지)
+  // 키보드 처리는 CustomKeyboardToolbar에서 담당
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        const height = e.endCoordinates?.height || 0;
-        DEBUG_FOCUS && console.log('⌨️ Keyboard will show, height:', height);
-        setKeyboardVisible(true);
-        setKeyboardHeight(height);
-      }
-    );
-
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        DEBUG_FOCUS && console.log('⌨️ Keyboard will hide');
-        setKeyboardVisible(false);
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
+    // 비활성화됨
+    return () => {};
   }, [DEBUG_FOCUS]);
 
   // 자동 스크롤 방지 함수

@@ -1,32 +1,42 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Keyboard, Platform, Dimensions } from 'react-native';
-import { TOOLBAR_HEIGHT } from '../constants/Toolbar';
 
-export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputRef) => {
+export const useKeyboardHandlers = (focusedIndexRef, blocksRef, scrollRef, titleInputRef) => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [keyboardScreenY, setKeyboardScreenY] = useState(0);
-  const isTyping = useRef(false);
   const lastScrollTime = useRef(0);
-  const preventNextScroll = useRef(false);
+  const scrollTimeoutRef = useRef(null);
+  const wasKeyboardVisible = useRef(false); // 키보드 이전 상태 추적
+  
+  // 로그 제거: 매번 출력하지 않음
+  // console.log('🎹 useKeyboardHandlers: Initialized with simplified industry-standard approach');
 
-  // Handle keyboard events and auto-scroll
+  // Industry-standard keyboard event handling
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', 
       (event) => {
         const keyboardHeight = event.endCoordinates.height;
-        const screenHeight = event.endCoordinates.screenY;
-        console.log('🎹 KEYBOARD SHOW - height:', keyboardHeight, 'screenY:', screenHeight);
+        const wasVisible = wasKeyboardVisible.current;
+        
+        // Keyboard show event
         setKeyboardVisible(true);
         setKeyboardHeight(keyboardHeight);
-        setKeyboardScreenY(event.endCoordinates.screenY);
+        wasKeyboardVisible.current = true;
         
-        // 키보드가 나타날 때 즉시 자동 스크롤
-        if (keyboardHeight > 200) { // 실제 키보드인 경우만
-          setTimeout(() => {
-            scrollToFocusedInput(keyboardHeight, true);
-          }, 50); // 매우 빠른 반응
+        // Clear any existing timeout
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+        
+        // ✅ 업계 표준: 키보드가 새로 나타날 때만 자동 스크롤
+        if (keyboardHeight > 100 && !wasVisible) {
+          // New keyboard show - will auto-scroll
+          scrollTimeoutRef.current = setTimeout(() => {
+            scrollToFocusedInput(keyboardHeight, 'keyboard_show_new');
+          }, 100); // 부드러운 UX를 위해 100ms로 증가
+        } else {
+          // Keyboard already visible - no auto-scroll needed
         }
       }
     );
@@ -34,101 +44,81 @@ export const useKeyboardHandlers = (focusedIndex, blocks, scrollRef, titleInputR
     const keyboardDidHideListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
-        console.log('🎹 KEYBOARD HIDE - keyboard dismissed');
+        // Keyboard hide event
         setKeyboardVisible(false);
         setKeyboardHeight(0);
-        setKeyboardScreenY(0);
+        wasKeyboardVisible.current = false; // 키보드 상태 리셋
+        
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+          scrollTimeoutRef.current = null;
+        }
       }
     );
 
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
-    };
-  }, [focusedIndex, blocks]);
-
-  // Simplified and fast auto-scroll with fallback
-  const scrollToFocusedInput = useCallback((keyboardHeight, forceScroll = false) => {
-    if (!scrollRef.current || focusedIndex < -1 || keyboardHeight <= 0) {
-      return;
-    }
-
-    // Get the focused input element
-    let targetRef = null;
-    if (focusedIndex === -1) {
-      targetRef = titleInputRef.current;
-    } else {
-      const focusedBlock = blocks[focusedIndex];
-      if (!focusedBlock?.ref?.current) {
-        console.log('⚠️ No ref for focused block', focusedIndex);
-        return;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
-      targetRef = focusedBlock.ref.current;
+    };
+  }, []);
+
+  // ✅ 업계 표준 최적화된 스크롤 함수
+  const scrollToFocusedInput = useCallback((keyboardHeight, context = 'unknown') => {
+    // 향상된 throttling (200ms)
+    const currentTime = Date.now();
+    if (currentTime - lastScrollTime.current < 200) {
+      // Scroll throttled
+      return;
     }
+    lastScrollTime.current = currentTime;
     
-    if (!targetRef) {
-      console.log('⚠️ No target ref found');
+    const focusedIndex = focusedIndexRef.current;
+    
+    // Optimized scroll triggered
+    
+    // 기본 유효성 검사
+    if (!scrollRef.current || keyboardHeight <= 0) {
+      // Scroll cancelled - invalid state
       return;
     }
     
-    // 즉시 스크롤 - 간단한 로직으로 성능 향상
-    try {
-      targetRef.measureInWindow((x, y, width, height) => {
-        // 유효한 측정값인지 확인
-        if (y <= 0 || height <= 0) {
-          console.log('⚠️ Invalid measurement, retrying...');
-          // 한 번 더 시도
-          setTimeout(() => {
-            targetRef.measureInWindow((x2, y2, width2, height2) => {
-              if (y2 > 0 && height2 > 0) {
-                performScroll(y2, height2, keyboardHeight);
-              }
-            });
-          }, 50);
-          return;
-        }
-        
-        performScroll(y, height, keyboardHeight);
-      });
-    } catch (error) {
-      console.log('⚠️ Scroll measurement error:', error);
-    }
-  }, [focusedIndex, blocks, scrollRef, titleInputRef]);
-  
-  // 실제 스크롤 수행 함수
-  const performScroll = useCallback((y, height, keyboardHeight) => {
-    const screenHeight = Dimensions.get('window').height;
-    const visibleHeight = screenHeight - keyboardHeight - 100; // 100px 여유공간
+    // 🎯 정밀한 스크롤 계산 - 커서가 키보드에 가려지지 않도록
+    const estimatedBlockHeight = 60; // 50 → 60 (더 정확한 추정)
+    const headerHeight = 180; // 150 → 180 (헤더 영역 고려)
+    const estimatedPosition = focusedIndex >= 0 
+      ? (focusedIndex * estimatedBlockHeight) + headerHeight
+      : headerHeight;
     
-    // 입력 필드의 하단이 보이는 영역을 벗어났으면 스크롤
-    if (y + height > visibleHeight) {
-      const scrollOffset = (y + height) - visibleHeight + 50; // 50px 추가 여유
-      
-      scrollRef.current?.scrollTo({
-        y: scrollOffset,
+    // 🎯 키보드 영역만 계산 (툴바 제거됨)
+    const safetyPadding = 60; // 커서가 키보드 위에 오도록
+    const totalAvoidanceHeight = keyboardHeight + safetyPadding;
+    const screenHeight = Dimensions.get('window').height;
+    
+    // 🎯 커서를 안전 영역 상단에 배치
+    const visibleScreenHeight = screenHeight - totalAvoidanceHeight;
+    const targetScrollY = Math.max(0, estimatedPosition - (visibleScreenHeight * 0.3)); // 0.5 → 0.3 (상단으로 이동)
+    
+    // Optimized scroll calculation completed
+    
+    try {
+      // 🎯 단일 스크롤만 수행 (백업 스크롤 제거)
+      scrollRef.current.scrollTo({
+        y: targetScrollY,
         animated: true
       });
       
-      console.log('✅ Fast scroll:', scrollOffset, 'inputY:', y, 'inputHeight:', height);
-    } else {
-      console.log('✅ Input visible, no scroll needed');
+      // Single smooth scroll completed
+      
+    } catch (error) {
+      // Scroll failed
     }
   }, []);
-
-  // Function to prevent next auto-scroll (for content size changes)
-  const preventNextAutoScroll = useCallback(() => {
-    preventNextScroll.current = true;
-    // Auto-reset after a short delay
-    setTimeout(() => {
-      preventNextScroll.current = false;
-    }, 500);
-  }, []);
-
   return {
     keyboardVisible,
     keyboardHeight,
-    keyboardScreenY,
-    scrollToFocusedInput,
-    preventNextAutoScroll
+    scrollToFocusedInput
   };
 };

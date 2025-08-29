@@ -54,6 +54,20 @@ const ProfileScreen = ({ navigation }) => {
     content: mockUser.readmeContent,
   });
   
+  // Load saved README data from AsyncStorage
+  const loadReadmeData = async () => {
+    try {
+      const savedData = await AsyncStorage.getItem('userReadmeData');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('📝 Loaded README from AsyncStorage:', parsedData);
+        setReadmeData(parsedData);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load README data:', error);
+    }
+  };
+  
   // Social features state
   const [isFollowing, setIsFollowing] = useState(mockUser.isFollowing);
   const [showFollowOptions, setShowFollowOptions] = useState(false);
@@ -115,6 +129,9 @@ const ProfileScreen = ({ navigation }) => {
   const starredNotesCount = userStarredNotes?.length || 0;
 
   useEffect(() => {
+    // Load saved README data first
+    loadReadmeData();
+    
     // Check for global readme data on every render
     const checkForUpdates = () => {
       const newReadmeData = global.newReadmeData;

@@ -23,11 +23,11 @@ export const useNoteInsertHandlers = (
     if (hasContent) {
       // 텍스트가 있는 경우: 다음 줄에 삽입
       updated.splice(index + 1, 0, ...blockSet);
-      console.log('🔧 Block set inserted after current block (preserving text)');
+      // Block set inserted after current block
     } else {
       // 빈 블록인 경우: 교체
       updated.splice(index, 1, ...blockSet);
-      console.log('🔧 Block set replaced empty block');
+      // Block set replaced empty block
     }
     
     setBlocks(updated);
@@ -51,12 +51,7 @@ export const useNoteInsertHandlers = (
     const hasContent = currentBlock && currentBlock.content && currentBlock.content.trim() !== '';
     const isCurrentBlockCard = currentBlock && currentBlock.type === 'card';
     
-    console.log('🔧 Adding card at index:', index);
-    console.log('🔧 Current block:', currentBlock);
-    console.log('🔧 Current block type:', currentBlock?.type);
-    console.log('🔧 Is current block card:', isCurrentBlockCard);
-    console.log('🔧 Has content:', hasContent);
-    console.log('🔧 Current content:', JSON.stringify(currentBlock?.content));
+    // Adding card at index
     
     const card = {
       id: generateId(),
@@ -77,7 +72,7 @@ export const useNoteInsertHandlers = (
       updated.splice(index + 1, 0, card, trailingText);
       setBlocks(updated);
       
-      console.log('🔧 Inserted card after current block');
+      // Inserted card after current block
       
       // 새로 생성된 카드에 포커스
       setTimeout(() => {
@@ -89,7 +84,7 @@ export const useNoteInsertHandlers = (
       }, 100);
     } else {
       // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
-      console.log('🔧 Replacing empty text block with card');
+      // Replacing empty text block with card
       insertBlockSet(index, [card, trailingText], index);
     }
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput, insertBlockSet]);
@@ -126,10 +121,7 @@ export const useNoteInsertHandlers = (
       const hasContent = currentBlock && currentBlock.content && currentBlock.content.trim() !== '';
       const isCurrentBlockCard = currentBlock && currentBlock.type === 'card';
       
-      console.log('🔧 Adding image at index:', index);
-      console.log('🔧 Current block type:', currentBlock?.type);
-      console.log('🔧 Is current block card:', isCurrentBlockCard);
-      console.log('🔧 Has content:', hasContent);
+      // Adding image at index
       
       const uri = result.assets[0].uri;
       const image = {
@@ -150,7 +142,7 @@ export const useNoteInsertHandlers = (
         updated.splice(index + 1, 0, image, trailingText);
         setBlocks(updated);
         
-        console.log('🔧 Inserted image after current block');
+        // Inserted image after current block
         
         // 이미지 다음의 텍스트 블록에 포커스
         setTimeout(() => {
@@ -162,36 +154,82 @@ export const useNoteInsertHandlers = (
         }, 100);
       } else {
         // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
-        console.log('🔧 Replacing empty text block with image');
+        // Replacing empty text block with image
         insertBlockSet(index, [image, trailingText], index + 1);
       }
     }
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput, insertBlockSet]);
 
-  // Handle backspace navigation between blocks
+  // Handle Enter and Backspace navigation between blocks
   const handleKeyPress = useCallback((block, index, key) => {
-    if (key === 'Backspace') {
+    if (key === 'Enter') {
+      // Enter key - create new text block
+      const newBlock = {
+        id: generateId(),
+        type: 'text',
+        content: '',
+        ref: React.createRef()
+      };
+      
+      setTimeout(() => {
+        setBlocks(prev => {
+          const updated = [...prev];
+          updated.splice(index + 1, 0, newBlock);
+          return updated;
+        });
+        
+        // Focus new block after creation
+        setTimeout(() => {
+          newBlock.ref.current?.focus();
+          setFocusedIndex(index + 1);
+          
+          // Auto-scroll for new block creation
+          if (keyboardVisible && keyboardHeight > 0) {
+            setTimeout(() => {
+              scrollToFocusedInput(keyboardHeight, 'new_block_created');
+            }, 100);
+          }
+        }, 50);
+      }, 10);
+      
+    } else if (key === 'Backspace') {
       // If current block is empty and user presses backspace
       if (block.content === '' && index > 0) {
         const previous = blocks[index - 1];
         
         // If previous block is text, merge/focus to it
         if (previous.type === 'text') {
-          const updated = [...blocks];
-          // Remove current empty block
-          updated.splice(index, 1);
-          setBlocks(updated);
+          // ✅ 키보드 안정성을 위해 포커스를 먼저 이동 (블록 제거 전에)
+          const textLength = previous.content.length;
           
-          // Focus on previous block at the end
+          // 1단계: 즉시 포커스 이동 (연속성 보장)
+          previous.ref?.current?.focus();
+          setFocusedIndex(index - 1);
+          
+          // 2단계: 커서 위치 설정
           setTimeout(() => {
-            previous.ref?.current?.focus();
-            const textLength = previous.content.length;
-            previous.ref?.current?.setSelection(textLength, textLength);
-          }, 50);
+            if (previous.ref?.current?.setSelection) {
+              previous.ref.current.setSelection(textLength, textLength);
+            }
+          }, 10);
+          
+          // 3단계: 블록 제거 (포커스 안정 후)
+          setTimeout(() => {
+            setBlocks(prev => prev.filter((_, i) => i !== index));
+            // Empty block removed after focus stabilization
+          }, 20);
+          
+          // 4단계: 스크롤 안정화 (선택사항)
+          if (keyboardVisible && keyboardHeight > 0) {
+            setTimeout(() => {
+              // Block merge - stabilizing scroll
+              scrollToFocusedInput(keyboardHeight, 'block_merge_backspace');
+            }, 150); // 모든 단계 완료 후
+          }
         }
       }
     }
-  }, [blocks, setBlocks]);
+  }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
 
   const handleDeleteBlock = useCallback((index) => {
     Alert.alert('Delete Confirmation', 'Do you want to delete this block?', [
@@ -217,7 +255,7 @@ export const useNoteInsertHandlers = (
   }, [blocks, setBlocks, setCardLayoutModes]);
 
   const handleTextChange = useCallback((id, text) => {
-    console.log('✏️ Text changed in block:', id, 'New text length:', text.length);
+    // Text changed in block
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: text } : b));
   }, [setBlocks]);
 

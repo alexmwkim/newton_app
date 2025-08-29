@@ -81,14 +81,20 @@ export const createNoteStyles = StyleSheet.create({
     position: 'relative',
   },
   textInput: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 0, // 토글과 정확히 정렬 (20px)
-    minHeight: 50,
+    // Industry-standard minimal spacing (consistent with NoteDetailStyles)
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    minHeight: 32, // Increased to accommodate H1 text (fontSize: 24 + lineHeight: 28)
+    marginBottom: 6,
     backgroundColor: 'transparent',
     color: Colors.primaryText,
-    width: '100%', // Text blocks always take full width
-    marginBottom: 8,
+    width: '100%',
+    // Industry-standard cursor positioning fixes
+    lineHeight: Platform.OS === 'ios' ? 20 : 22,
+    textAlignVertical: 'top', // Critical for Android cursor positioning
+    ...(Platform.OS === 'android' && {
+      includeFontPadding: false, // Removes extra padding that affects cursor position
+    }),
   },
   
   // Card styles
@@ -108,12 +114,13 @@ export const createNoteStyles = StyleSheet.create({
   },
   cardTitleInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16, // Base font size, will be overridden by getDynamicTextStyle
     color: Colors.primaryText,
     minHeight: 40,
     paddingVertical: 8,
     paddingHorizontal: 0,
     textAlignVertical: 'top',
+    // Dynamic height adjustment for different text styles will be handled by getDynamicTextStyle
   },
   
   // Grid card styles
