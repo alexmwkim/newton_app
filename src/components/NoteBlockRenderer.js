@@ -1,5 +1,7 @@
 import React, { useRef } from 'react';
-import { View, TextInput, Platform } from 'react-native';
+import { View, TextInput, Platform, TouchableOpacity } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
+import { Colors } from '../constants/Colors';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 import { useFormatting } from './toolbar/ToolbarFormatting';
 import NoteCardBlock from './NoteCardBlock';
@@ -147,7 +149,11 @@ const NoteBlockRenderer = React.memo(({
             placeholder="Small note"
             multiline
             defaultValue={block.content}
-            onChangeText={(text) => handleTextChange(block.id, text)}
+            onChangeText={(text) => {
+              handleTextChange(block.id, text);
+              // 텍스트가 비어있으면 포맷 초기화
+              resetFormatsIfTextEmpty(index, text);
+            }}
             onPressIn={() => {
               console.log('🎯 Grid card block pressed, index:', index);
               dismissMenus();

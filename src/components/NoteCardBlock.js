@@ -505,10 +505,17 @@ const NoteCardBlock = ({
             dismissMenus();
             setFocusedIndex(globalIndex);
             console.log(`🎯 Card line ${globalIndex} focused`);
-            // ✅ 업계 표준: 카드 포커스 시에도 기존 키보드에서는 자동 스크롤하지 않음
-            if (keyboardVisible && keyboardHeight > 0) {
-              console.log('🎯 ❌ Card focus - keyboard already visible, no auto-scroll');
-            }
+            console.log(`🔍 FOCUS DEBUG: block.id=${block.id}, globalIndex=${globalIndex}, blockIndex=${index}`);
+            
+            // ✅ 실제 요소 위치 측정
+            setTimeout(() => {
+              if (cardRef.current) {
+                cardRef.current.measure((x, y, width, height, pageX, pageY) => {
+                  console.log(`📍 🔍 REAL element position: x=${pageX}, y=${pageY}, h=${height}`);
+                  console.log(`📍 🔍 Line within card: ${globalIndex % 100}, estimated line pos: ${pageY + (globalIndex % 100) * 24}`);
+                });
+              }
+            }, 100);
           }}
           onBlur={(globalIndex) => {
             console.log(`🎯 Card line ${globalIndex} lost focus`);
@@ -525,8 +532,8 @@ const NoteCardBlock = ({
           blocks={blocks}
           setFocusedIndex={setFocusedIndex}
           isAuthor={isAuthor && !isDragging}
-          // ✅ InputAccessoryView 동기화를 위한 설정
-          inputAccessoryViewID={toolbarId}
+          // ✅ InputAccessoryView 제거 (플로팅 툴바 사용)
+          // inputAccessoryViewID={toolbarId}
           {...(Platform.OS === 'android' && useGlobalKeyboard ? { showSoftInputOnFocus: false } : {})}
         />
         {isAuthor && (

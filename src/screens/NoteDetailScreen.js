@@ -3,7 +3,6 @@ import {
   View,
   TextInput,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   TouchableOpacity,
@@ -16,6 +15,7 @@ import {
   Image,
   Keyboard
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 // SafeArea fallback - use React Native's built-in SafeAreaView instead
 const useSafeAreaInsets = () => ({ bottom: 34, top: 44, left: 0, right: 0 });
 import Icon from 'react-native-vector-icons/Feather';
@@ -106,6 +106,7 @@ const NoteDetailScreen = ({
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [hoverTargetBlockId, setHoverTargetBlockId] = useState(null);
   const [dragMode, setDragMode] = useState('none'); // 'none', 'resize', 'reorder'
+  const [preventAutoScroll, setPreventAutoScroll] = useState(false); // TextInput 자동 스크롤 방지
   const [blockPositions, setBlockPositions] = useState({}); // Track block positions for drag targeting
   const [cardLayouts, setCardLayouts] = useState({}); // Simple card position tracking
   
@@ -203,11 +204,15 @@ const NoteDetailScreen = ({
   const blocksRef = useRef(blocks);
   blocksRef.current = blocks;
   
+  const cardLayoutsRef = useRef(cardLayouts);
+  cardLayoutsRef.current = cardLayouts; // 항상 최신 상태 유지
+  
   const { keyboardVisible, keyboardHeight, scrollToFocusedInput } = useKeyboardHandlers(
     focusedIndexRef, 
     blocksRef, 
     scrollRef, 
-    titleInputRef
+    titleInputRef,
+    cardLayoutsRef
   );
 
   const { handleAddCard, handleAddGrid, handleAddImage, handleDeleteBlock, handleKeyPress, handleTextChange } = useNoteDetailHandlers(
@@ -624,13 +629,7 @@ const NoteDetailScreen = ({
   return (
     <>
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-        // ✅ 키보드 움직임 방지를 위해 완전 비활성화
-        enabled={false}
-      >
+      {/* ✅ KeyboardAvoidingView 제거 - KeyboardAwareScrollView와 충돌 방지 */}
         {/* Settings menu */}
         {showSettingsMenu && (
           <View style={styles.settingsMenu}>
@@ -729,19 +728,53 @@ const NoteDetailScreen = ({
               ]}
             />
 
-            <ScrollView
+            <KeyboardAwareScrollView
               ref={scrollRef}
               contentContainerStyle={[styles.scrollContent, {
-                paddingBottom: 0 // 완전히 제거 - 툴바 위 여백 없애기
+                paddingBottom: 100, // ✅ 줄인 패딩 - KeyboardAwareScrollView가 자동 처리
+                minHeight: 800 // ✅ 줄인 최소 높이 - 자동 스크롤 시스템 사용
               }]}
+              // ✅ 동적 키보드 + 툴바 높이 계산 (디바이스별 대응)
+              enableAutomaticScroll={true}
+              enableResetScrollToCoords={false}
+              extraScrollHeight={keyboardVisible ? Math.max(80, keyboardHeight * 0.3) : 80} // ✅ 키보드 높이의 30% 추가 여유
+              extraHeight={keyboardVisible ? keyboardHeight + 48 : 100} // ✅ 실제 키보드 높이 + 툴바(48px)
+              keyboardVerticalOffset={0} // ✅ extraHeight에서 툴바 포함으로 0 설정 
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="none"
-              scrollEnabled={!dragGuideline.visible && dragMode === 'none'}
+              enableOnAndroid={true}
+              keyboardOpeningTime={250}
+              viewIsInsideTabBar={false}
+              // ✅ 기존 기능 유지
+              nestedScrollEnabled={false}
+              removeClippedSubviews={false}
+              scrollEnabled={(() => {
+                const isEnabled = !dragGuideline.visible && dragMode === 'none' && !preventAutoScroll;
+                return isEnabled;
+              })()}
               showsVerticalScrollIndicator={true}
               automaticallyAdjustContentInsets={false}
               onTouchStart={() => {
                 dismissMenus();
               }}
+              onScroll={(event) => {
+                // ✅ 성능 최적화: 개발 모드에서만 간소화된 로그
+                if (__DEV__ && event.nativeEvent.contentOffset.y % 100 < 16) {
+                  console.log('📍 🔄 Scroll Y:', Math.round(event.nativeEvent.contentOffset.y));
+                }
+              }}
+              onScrollBeginDrag={() => {
+                if (__DEV__) console.log('📍 🚀 Scroll Begin');
+              }}
+              onScrollEndDrag={(event) => {
+                if (__DEV__) {
+                  const scrollY = Math.round(event.nativeEvent.contentOffset.y);
+                  const extraScrollCalc = Math.max(80, keyboardHeight * 0.3);
+                  const extraHeightCalc = keyboardHeight + 48;
+                  console.log(`📍 ✅ Scroll End: Y=${scrollY}px | Config: KB=${keyboardHeight}px, Total=${Math.round(extraScrollCalc + extraHeightCalc)}px`);
+                }
+              }}
+              scrollEventThrottle={100} // ✅ 로그 빈도 줄임 (16ms → 100ms)
             >
               {/* Drag Guidelines */}
               {dragGuideline.visible && (
@@ -812,11 +845,8 @@ const NoteDetailScreen = ({
                   dismissMenus();
                   setFocusedIndex(-1);
                   // 키보드가 나타나면 자동 스크롤 시도
-                  if (keyboardVisible && keyboardHeight > 0) {
-                    setTimeout(() => {
-                      scrollToFocusedInput(keyboardHeight, true);
-                    }, 200);
-                  }
+                  // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
+                  // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
                 }}
                 onContentSizeChange={({ nativeEvent }) => {
                   console.log('📏 Title content size changed:', nativeEvent.contentSize);
@@ -912,11 +942,10 @@ const NoteDetailScreen = ({
               >
                 <View style={styles.touchableSpacer} />
               </TouchableWithoutFeedback>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
         </TouchableWithoutFeedback>
 
-      </KeyboardAvoidingView>
     </SafeAreaView>
 
     {/* Page Info Modal */}

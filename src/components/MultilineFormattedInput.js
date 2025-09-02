@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, TextInput, Platform } from 'react-native';
 import { useFormatting } from './toolbar/ToolbarFormatting';
+import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 import { Colors } from '../constants/Colors';
 
 /**
@@ -21,7 +22,8 @@ const MultilineFormattedInput = ({
   inputAccessoryViewID = null, // ✅ InputAccessoryView ID 추가
   ...props
 }) => {
-  const { getDynamicTextStyle, setCurrentFocusedIndex } = useFormatting();
+  const { getDynamicTextStyle, setCurrentFocusedIndex, resetFormatsIfTextEmpty } = useFormatting();
+  const { keyboardVisible } = useSimpleToolbar();
   
   // 텍스트를 줄별로 분할
   const lines = value.split('\n');
@@ -33,8 +35,15 @@ const MultilineFormattedInput = ({
     const newLines = [...lines];
     newLines[lineIndex] = newText;
     const newValue = newLines.join('\n');
+    
+    // ✅ 텍스트가 비어있으면 해당 줄의 포맷 초기화
+    const globalIndex = baseIndex + lineIndex;
+    if (resetFormatsIfTextEmpty) {
+      resetFormatsIfTextEmpty(globalIndex, newText);
+    }
+    
     onChangeText?.(newValue);
-  }, [lines, onChangeText]);
+  }, [lines, onChangeText, baseIndex, resetFormatsIfTextEmpty]);
   
   // 새 줄 추가 (Enter 키)
   const handleEnterPress = useCallback((lineIndex) => {
@@ -43,15 +52,23 @@ const MultilineFormattedInput = ({
     const newValue = newLines.join('\n');
     onChangeText?.(newValue);
     
-    // 다음 줄로 포커스 이동
-    setTimeout(() => {
+    // ✅ Enter 키도 즉시 처리로 부드러운 경험
+    const nextGlobalIndex = baseIndex + lineIndex + 1;
+    
+    // 상태 즉시 업데이트  
+    setFocusedLineIndex(lineIndex + 1);
+    setFocusedIndex?.(nextGlobalIndex);
+    setCurrentFocusedIndex(nextGlobalIndex, blocks);
+    
+    // requestAnimationFrame으로 DOM 업데이트 후 포커스
+    requestAnimationFrame(() => {
       const nextLineRef = lineRefs.current[lineIndex + 1];
       if (nextLineRef) {
         nextLineRef.focus();
-        console.log('📝 New line created in card - should reset formats');
+        console.log('📝 New line created and focused (smooth Enter transition)');
       }
-    }, 100);
-  }, [lines, onChangeText]);
+    });
+  }, [lines, onChangeText, keyboardVisible, baseIndex, setFocusedIndex, setCurrentFocusedIndex, blocks, setFocusedLineIndex]);
   
   // 줄 삭제 (빈 줄에서 Backspace)
   const handleLineDelete = useCallback((lineIndex) => {
@@ -62,14 +79,21 @@ const MultilineFormattedInput = ({
     const newValue = newLines.join('\n');
     onChangeText?.(newValue);
     
-    // 이전 줄로 포커스 이동
-    setTimeout(() => {
-      const prevLineRef = lineRefs.current[lineIndex - 1];
-      if (prevLineRef) {
-        prevLineRef.focus();
-      }
-    }, 100);
-  }, [lines, onChangeText]);
+    // ✅ 키보드 유지를 위한 즉시 포커스 이동 (setTimeout 제거로 빠른 전환)
+    const prevGlobalIndex = baseIndex + lineIndex - 1;
+    
+    // 상태 즉시 업데이트
+    setFocusedLineIndex(lineIndex - 1);
+    setFocusedIndex?.(prevGlobalIndex);
+    setCurrentFocusedIndex(prevGlobalIndex, blocks);
+    
+    // 즉시 포커스 이동으로 키보드 유지
+    const prevLineRef = lineRefs.current[lineIndex - 1];
+    if (prevLineRef) {
+      prevLineRef.focus();
+      console.log('📝 Line deleted - instant focus move (keyboard should stay)');
+    }
+  }, [lines, onChangeText, keyboardVisible, baseIndex, setFocusedIndex, setCurrentFocusedIndex, blocks, setFocusedLineIndex]);
   
   // 줄 포커스 처리
   const handleLineFocus = useCallback((lineIndex) => {
@@ -118,6 +142,7 @@ const MultilineFormattedInput = ({
             ref={(ref) => {
               lineRefs.current[lineIndex] = ref;
             }}
+            // ✅ autoFocus 제거 - TextInput 자동 스크롤 방지
             style={[
               {
                 fontSize: 16,
@@ -154,8 +179,8 @@ const MultilineFormattedInput = ({
             autoComplete="off"
             spellCheck={false}
             editable={isAuthor}
-            // ✅ 원래 InputAccessoryView 툴바 연결
-            inputAccessoryViewID={inputAccessoryViewID}
+            // ✅ InputAccessoryView 제거 (플로팅 툴바 사용)
+            // inputAccessoryViewID={inputAccessoryViewID}
             {...props}
           />
         );

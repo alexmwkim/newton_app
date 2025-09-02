@@ -32,13 +32,14 @@ export const UnifiedToolbarContent = React.memo(() => {
     <View 
       style={{
         // ✅ 플로팅 툴바용 스타일 (높이 제한 없음)
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FFFFFF', // ✅ 완전 불투명 흰색 배경
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 0, // 외부 컨테이너에서 패딩 처리
         paddingVertical: 0,
         flex: 1,
+        opacity: 1, // ✅ 완전히 불투명하게 설정
       }}
     >
       {/* 스크롤 가능한 툴바 버튼들 */}
@@ -214,24 +215,48 @@ export const UnifiedToolbar = React.memo(() => {
     : -48; // 키보드 없을 때는 화면 아래로 완전히 숨김
   
   return (
-    <Animated.View 
-      style={{
-        position: 'absolute',
-        bottom: bottomPosition, // 계산된 위치
-        left: 0,
-        right: 0,
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#E5E5E5',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        height: 48,
-        zIndex: 1000,
-        // ✅ transform으로 아래에서 올라오는 애니메이션 구현
-        transform: [{ translateY: toolbarTranslateY }],
-      }}
-    >
-      <UnifiedToolbarContent />
-    </Animated.View>
+    <>
+      {/* ✅ 툴바 아래 키보드까지 흰색 배경으로 채움 */}
+      {keyboardHeightValue > 0 && (
+        <Animated.View 
+          style={{
+            position: 'absolute',
+            bottom: 0, // 화면 맨 아래부터
+            left: 0,
+            right: 0,
+            height: keyboardHeightValue, // 키보드 높이만큼
+            backgroundColor: '#FFFFFF', // ✅ 완전히 불투명한 흰색 배경
+            zIndex: 999, // 툴바보다 약간 낮게
+          }}
+        />
+      )}
+      
+      {/* ✅ 기존 툴바 */}
+      <Animated.View 
+        style={{
+          position: 'absolute',
+          bottom: bottomPosition, // 계산된 위치
+          left: 0,
+          right: 0,
+          backgroundColor: '#FFFFFF', // ✅ 완전히 불투명한 흰색 배경
+          borderTopWidth: 1,
+          borderTopColor: '#E5E5E5',
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          height: 48,
+          zIndex: 1000,
+          // ✅ 그림자 추가로 뒤 콘텐츠와 확실히 구분
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 8, // Android 그림자
+          // ✅ transform으로 아래에서 올라오는 애니메이션 구현
+          transform: [{ translateY: toolbarTranslateY }],
+        }}
+      >
+        <UnifiedToolbarContent />
+      </Animated.View>
+    </>
   );
 });

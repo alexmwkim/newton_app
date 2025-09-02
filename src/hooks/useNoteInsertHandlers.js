@@ -38,10 +38,8 @@ export const useNoteInsertHandlers = (
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
         setFocusedIndex(targetIndex);
-        // Auto-scroll to the focused element
-        if (keyboardVisible) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
-        }
+        // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
+        // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
       }
     }, 100);
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
@@ -78,9 +76,7 @@ export const useNoteInsertHandlers = (
       setTimeout(() => {
         card.ref?.current?.focus();
         setFocusedIndex(index + 1);
-        if (keyboardVisible) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
-        }
+        // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
       }, 100);
     } else {
       // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
@@ -148,9 +144,7 @@ export const useNoteInsertHandlers = (
         setTimeout(() => {
           trailingText.ref?.current?.focus();
           setFocusedIndex(index + 2); // 이미지 다음 텍스트로
-          if (keyboardVisible) {
-            setTimeout(() => scrollToFocusedInput(keyboardHeight), 100);
-          }
+          // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
         }, 100);
       } else {
         // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)

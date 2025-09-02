@@ -60,10 +60,8 @@ export const useNoteDetailHandlers = (
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
         setFocusedIndex(targetIndex);
-        // 즉시 스크롤 (키보드가 올라와 있을 때)
-        if (keyboardVisible && keyboardHeight > 100) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 10);
-        }
+        // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
+        // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
       }
     }, 50); // 더 빠른 포커스
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
@@ -110,10 +108,8 @@ export const useNoteDetailHandlers = (
       setTimeout(() => {
         card.ref?.current?.focus();
         setFocusedIndex(index + 1);
-        // 즉시 스크롤 (키보드가 올라와 있을 때)
-        if (keyboardVisible && keyboardHeight > 0) {
-          setTimeout(() => scrollToFocusedInput(keyboardHeight), 10);
-        }
+        // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
+        // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
       }, 50); // 더 빠른 포커스
     } else {
       // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
@@ -231,9 +227,8 @@ export const useNoteDetailHandlers = (
             setTimeout(() => {
               console.log('⌨️ Attempt 2: Delayed focus');
               trailingText.ref?.current?.focus();
-              if (scrollToFocusedInput) {
-                scrollToFocusedInput(savedKeyboardHeight || 300);
-              }
+              // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
+              // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
             }, 300);
             
             // 마지막 시도
