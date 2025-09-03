@@ -157,26 +157,27 @@ export const UnifiedToolbarContent = React.memo(() => {
       <TouchableOpacity
         onPress={hideKeyboard}
         style={{
-          backgroundColor: '#EB754B',
-          paddingHorizontal: 14,
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderColor: '#D0D0D0',
+          paddingHorizontal: 7, // 1px 줄여서 테두리 공간 확보
           paddingVertical: 0, 
           borderRadius: 6,
-          minWidth: 65,
-          height: 36,
+          minWidth: 34, // 2px 줄여서 전체 크기 동일하게
+          height: 34, // 2px 줄여서 전체 크기 동일하게
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row', 
           marginLeft: 8,
+          marginTop: 1, // 중앙 정렬 보정
         }}
         activeOpacity={0.8}
       >
-        <Text style={{ 
-          color: '#FFFFFF', 
-          fontWeight: 'bold', 
-          fontSize: 14,
-          textAlign: 'center',
-          lineHeight: 16,
-        }}>Done</Text>
+        <Icon 
+          name="chevrons-down" 
+          size={16} 
+          color="#666666" 
+        />
       </TouchableOpacity>
     </View>
   );
