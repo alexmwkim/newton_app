@@ -60,8 +60,8 @@ export const useNoteDetailHandlers = (
       if (targetRef?.current?.focus) {
         targetRef.current.focus();
         setFocusedIndex(targetIndex);
-        // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
-        // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
+        // ✅ KeyboardAwareScrollView 사용으로 자동 스크롤 제거
+        // KeyboardAwareScrollView가 자동으로 포커스 추적 및 스크롤 처리
       }
     }, 50); // 더 빠른 포커스
   }, [blocks, setBlocks, setFocusedIndex, keyboardVisible, keyboardHeight, scrollToFocusedInput]);
@@ -108,8 +108,8 @@ export const useNoteDetailHandlers = (
       setTimeout(() => {
         card.ref?.current?.focus();
         setFocusedIndex(index + 1);
-        // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
-        // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
+        // ✅ KeyboardAwareScrollView 사용으로 자동 스크롤 제거
+        // KeyboardAwareScrollView가 자동으로 포커스 추적 및 스크롤 처리
       }, 50); // 더 빠른 포커스
     } else {
       // 빈 텍스트 블록인 경우: 기존 로직 (블록 교체)
@@ -306,13 +306,9 @@ export const useNoteDetailHandlers = (
           setFocusedIndex(index + 1);
           // Focus moved to new block
           
-          // ✅ 새 블록 생성 시에는 자동 스크롤 필요 (업계 표준)
-          if (keyboardVisible && keyboardHeight > 0) {
-            setTimeout(() => {
-              // New block created - triggering auto-scroll
-              scrollToFocusedInput(keyboardHeight, 'new_block_created');
-            }, 150); // 포커스가 완전히 이동한 후 스크롤
-          }
+          // ✅ KeyboardAwareScrollView 사용 시에는 자동 스크롤 비활성화
+          // KeyboardAwareScrollView가 자동으로 스크롤 처리하므로 수동 스크롤 제거
+          // ReadmeDetailScreen과 NoteDetailScreen 모두 KeyboardAwareScrollView 사용
         }, 50);
       }, 10); // 블록 저장 후 새 블록 생성
       
@@ -343,13 +339,8 @@ export const useNoteDetailHandlers = (
             // Empty block removed after focus stabilization
           }, 20);
           
-          // 4단계: 스크롤 안정화 (선택사항)
-          if (keyboardVisible && keyboardHeight > 0) {
-            setTimeout(() => {
-              // Block merge - stabilizing scroll
-              scrollToFocusedInput(keyboardHeight, 'block_merge_backspace');
-            }, 150); // 모든 단계 완료 후
-          }
+          // 4단계: 스크롤 안정화 제거 - KeyboardAwareScrollView가 처리
+          // KeyboardAwareScrollView가 자동으로 포커스된 입력 필드를 화면에 유지
         }
       }
     }
@@ -373,7 +364,14 @@ export const useNoteDetailHandlers = (
 
   // Enhanced auto-save with different delays for title vs content
   useEffect(() => {
-    if (!isAuthor || loadingNote || !noteId || !updateNote) {
+    if (!isAuthor || loadingNote || !noteId || !updateNote || typeof updateNote !== 'function') {
+      console.log('🚫 Auto-save skipped:', {
+        isAuthor,
+        loadingNote,
+        noteId,
+        updateNoteExists: !!updateNote,
+        updateNoteType: typeof updateNote
+      });
       return;
     }
     

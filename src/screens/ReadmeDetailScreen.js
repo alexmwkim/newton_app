@@ -287,6 +287,16 @@ const ReadmeDetailScreen = ({
     }
   }, [blocks.length]);
 
+  // 🔍 블록 변경 추적 - 빈 줄이 언제 사라지는지 확인
+  useEffect(() => {
+    console.log('🔍 README blocks changed:', blocks.map((b, i) => ({
+      index: i,
+      type: b.type,
+      content: b.content === '' ? 'EMPTY_LINE' : b.content,
+      contentLength: (b.content || '').length
+    })));
+  }, [blocks]);
+
   // 뒤로가기 핸들러 (자동저장 포함)
   const handleBack = useCallback(async () => {
     console.log('📝 ReadmeDetailScreen handleBack called - auto saving');
@@ -402,8 +412,8 @@ const ReadmeDetailScreen = ({
             }]}
             enableAutomaticScroll={!isRefocusFromDropdown}
             enableResetScrollToCoords={false}
-            extraScrollHeight={isRefocusFromDropdown ? 0 : Math.max(80, keyboardHeightValue * 0.3)}
-            extraHeight={isRefocusFromDropdown ? 0 : 48}
+            extraScrollHeight={isRefocusFromDropdown ? 0 : 25}
+            extraHeight={isRefocusFromDropdown ? 0 : 15}
             keyboardVerticalOffset={0} 
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="none"

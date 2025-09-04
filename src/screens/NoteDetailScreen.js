@@ -132,31 +132,9 @@ const NoteDetailScreen = ({
   }, []);
   const [hoveredBlockId, setHoveredBlockId] = useState(null); // Which block is being hovered over
 
-  // Debug blockPositions changes
-  useEffect(() => {
-    console.log('📍 BlockPositions updated:', Object.keys(blockPositions).length, 'blocks tracked');
-    Object.entries(blockPositions).forEach(([id, pos]) => {
-      console.log('📍', id, ':', pos);
-    });
-  }, [blockPositions]);
+  // Debug effects removed for performance
 
-  // Debug cardLayouts changes
-  useEffect(() => {
-    console.log('🎯 CardLayouts updated:', Object.keys(cardLayouts).length, 'layouts registered');
-    Object.entries(cardLayouts).forEach(([id, layout]) => {
-      console.log('🎯', id, ':', layout);
-    });
-  }, [cardLayouts]);
 
-  // Debug blocks changes
-  useEffect(() => {
-    console.log('🎯 ===== BLOCKS UPDATED =====');
-    console.log('🎯 Total blocks:', blocks.length);
-    blocks.forEach((block, index) => {
-      console.log(`🎯 Block ${index}: ${block.type} (${block.id})`);
-    });
-    console.log('🎯 ========================');
-  }, [blocks]);
 
 
   
@@ -559,16 +537,15 @@ const NoteDetailScreen = ({
           // 멀티라인 블록을 여러 단일라인 블록으로 분리
           const lines = block.content.split('\n');
           lines.forEach(line => {
-            if (line.trim() || migratedBlocks.length === 0) { // 빈 줄 제거 (첫 블록 제외)
-              migratedBlocks.push({
-                id: generateId(),
-                type: 'text',
-                content: line,
-                ref: React.createRef(),
-                layoutMode: 'full',
-                groupId: null
-              });
-            }
+            // ✅ 빈 줄도 유지 - 사용자 의도대로 저장
+            migratedBlocks.push({
+              id: generateId(),
+              type: 'text',
+              content: line, // 빈 줄도 포함
+              ref: React.createRef(),
+              layoutMode: 'full',
+              groupId: null
+            });
           });
         } else {
           // 일반 블록은 그대로 유지
@@ -858,19 +835,19 @@ const NoteDetailScreen = ({
               }]}
               // 🔧 조건부 자동 스크롤 - 드롭다운 refocus 시에만 비활성화
               enableAutomaticScroll={!isRefocusFromDropdown} // 드롭다운 refocus 시에만 비활성화
-              // 🔍 디버깅: 현재 상태 출력
+              // 🔍 디버깅: 현재 상태 출력 (실제 설정값과 일치)
               {...(() => {
                 console.log('📍 KeyboardAware Config:', {
                   isRefocusFromDropdown,
                   enableAutomaticScroll: !isRefocusFromDropdown,
-                  extraScrollHeight: isRefocusFromDropdown ? 0 : Math.max(80, keyboardHeightValue * 0.3),
-                  extraHeight: isRefocusFromDropdown ? 0 : 48
+                  extraScrollHeight: isRefocusFromDropdown ? 0 : 25,
+                  extraHeight: isRefocusFromDropdown ? 0 : 15
                 });
                 return {};
               })()}
               enableResetScrollToCoords={false}
-              extraScrollHeight={isRefocusFromDropdown ? 0 : Math.max(80, keyboardHeightValue * 0.3)} // 드롭다운 refocus 시 제거
-              extraHeight={isRefocusFromDropdown ? 0 : 48} // 드롭다운 refocus 시 제거
+              extraScrollHeight={isRefocusFromDropdown ? 0 : 25} // 적당한 간격 확보
+              extraHeight={isRefocusFromDropdown ? 0 : 15} // 키보드와 충분한 거리
               keyboardVerticalOffset={0} 
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="none"

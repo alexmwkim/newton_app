@@ -18,8 +18,8 @@ export const cleanLegacyContent = (content) => {
   // Remove folder references: 📁 [FolderName](#folder-id)
   cleaned = cleaned.replace(/📁\s*\[([^\]]+)\]\([^)]+\)/g, '$1');
   
-  // Clean up extra newlines and whitespace
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  // ✅ 빈 줄 유지 - 사용자 의도 보존
+  // 정규식과 trim() 모두 제거하여 원본 개행 구조 완전 보존
   
   return cleaned;
 };
@@ -38,7 +38,30 @@ export const getKeyboardAwareConfig = () => {
 
 // Initialize content from note data
 export const parseNoteContentToBlocks = (noteData) => {
-  if (!noteData || !noteData.content || !noteData.content.trim()) {
+  console.log('🔄 PARSING START - Raw content:', {
+    hasContent: !!(noteData?.content),
+    contentLength: (noteData?.content || '').length,
+    content: noteData?.content || 'NO_CONTENT',
+    trimmedContent: (noteData?.content || '').trim() || 'EMPTY_AFTER_TRIM'
+  });
+
+  if (!noteData || !noteData.content) {
+    console.log('🔄 PARSING - No content provided, creating default empty block');
+    return [
+      { 
+        id: generateId(), 
+        type: 'text', 
+        content: '', 
+        ref: React.createRef(),
+        layoutMode: 'full',
+        groupId: null
+      }
+    ];
+  }
+
+  // ✅ 빈 줄로만 구성된 콘텐츠도 처리 - trim() 조건 제거
+  if (noteData.content === '') {
+    console.log('🔄 PARSING - Empty string content, creating default empty block');
     return [
       { 
         id: generateId(), 
@@ -62,13 +85,12 @@ export const parseNoteContentToBlocks = (noteData) => {
   console.log('📋 Content parts:', parts);
   
   for (let i = 0; i < parts.length; i++) {
-    const part = parts[i].trim();
+    const part = parts[i];
+    const trimmedPart = part.trim();
     
-    if (!part) continue; // Skip empty parts
+    console.log('📋 Processing part:', part, '(trimmed:', trimmedPart, ')');
     
-    console.log('📋 Processing part:', part);
-    
-    if (part.startsWith('📋 Card:')) {
+    if (trimmedPart.startsWith('📋 Card:')) {
       // Card block - include all content after "📋 Card:" as card content
       const cardContent = part.replace('📋 Card:', '').trim();
       console.log('📋 Found card with multiline content:', cardContent);
@@ -80,7 +102,7 @@ export const parseNoteContentToBlocks = (noteData) => {
         layoutMode: 'full',
         groupId: null
       });
-    } else if (part.startsWith('🔲 Grid:')) {
+    } else if (trimmedPart.startsWith('🔲 Grid:')) {
       // Grid card block - include all content after "🔲 Grid:" as grid card content
       const gridCardContent = part.replace('🔲 Grid:', '').trim();
       console.log('🔲 Found grid card with content:', gridCardContent);
@@ -92,7 +114,7 @@ export const parseNoteContentToBlocks = (noteData) => {
         layoutMode: 'grid-left',
         groupId: null
       });
-    } else if (part.startsWith('🖼️ Image:')) {
+    } else if (trimmedPart.startsWith('🖼️ Image:')) {
       // Image block
       const imageUri = part.replace('🖼️ Image:', '').trim();
       console.log('🖼️ Found image with URI:', imageUri);
@@ -105,22 +127,33 @@ export const parseNoteContentToBlocks = (noteData) => {
       });
     } else {
       // Text part - could be multiple lines, split and create text blocks
-      const lines = part.split('\n');
-      console.log('📝 Found text part with lines:', lines);
-      
-      lines.forEach(line => {
-        const trimmedLine = line.trim();
-        if (trimmedLine) {
+      // ✅ 빈 part도 처리 (연속 빈 줄 = 빈 part)
+      if (!trimmedPart) {
+        // 완전히 빈 part = 빈 줄
+        newBlocks.push({
+          id: generateId(),
+          type: 'text',
+          content: '',
+          ref: React.createRef(),
+          layoutMode: 'full',
+          groupId: null
+        });
+      } else {
+        const lines = part.split('\n');
+        console.log('📝 Found text part with lines:', lines);
+        
+        lines.forEach(line => {
+          // ✅ 빈 줄도 유지 - 사용자 의도대로 저장
           newBlocks.push({
             id: generateId(),
             type: 'text',
-            content: trimmedLine,
+            content: line, // trim() 제거 - 원본 유지
             ref: React.createRef(),
             layoutMode: 'full',
             groupId: null
           });
-        }
-      });
+        });
+      }
     }
   }
   
@@ -142,13 +175,26 @@ export const parseNoteContentToBlocks = (noteData) => {
 
 // Convert blocks back to content string for saving
 export const convertBlocksToContent = (blocks) => {
-  console.log('🔍 All blocks before filtering:', blocks.map(b => ({ type: b.type, content: b.content?.substring(0, 50) || 'empty' })));
+  console.log('🔍 All blocks before filtering:', blocks.map(b => ({ 
+    type: b.type, 
+    content: b.content === '' ? 'EMPTY_STRING' : (b.content?.substring(0, 50) || 'undefined_content'),
+    contentLength: (b.content || '').length
+  })));
   
   const contentParts = [];
   
-  blocks.forEach(block => {
-    if (block.type === 'text' && block.content?.trim()) {
-      contentParts.push(block.content);
+  blocks.forEach((block, index) => {
+    console.log(`🔍 Processing block ${index}:`, {
+      type: block.type,
+      content: block.content === '' ? 'EMPTY_STRING' : block.content,
+      contentLength: (block.content || '').length
+    });
+    
+    if (block.type === 'text') {
+      // ✅ 빈 텍스트 블록도 저장 - 빈 줄 유지
+      const content = block.content || '';
+      contentParts.push(content);
+      console.log(`🔍 Added text block ${index} to parts:`, content === '' ? 'EMPTY_STRING' : content);
     } else if (block.type === 'card') {
       // Save card even if empty
       const cardContent = block.content?.trim() || '';
@@ -163,7 +209,8 @@ export const convertBlocksToContent = (blocks) => {
   });
   
   const blockContent = contentParts.join('\n\n');
-  const contentText = cleanLegacyContent(blockContent.trim());
+  // ✅ trim() 제거 - 앞뒤 빈 줄도 유지
+  const contentText = cleanLegacyContent(blockContent);
   
   console.log('💾 Content conversion details:', {
     totalBlocks: blocks.length,
