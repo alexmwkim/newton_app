@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import Markdown from 'react-native-markdown-display';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '../constants/Colors';
@@ -22,22 +21,8 @@ import { UnifiedHeader } from '../shared/components/layout';
 const mockUser = {
   id: 1,
   username: 'Userid',
-  readmeTitle: 'Hello world!',
-  readmeContent: `## Welcome to my profile!
-
-I'm a **developer** who loves to create amazing apps. Here's what I'm working on:
-
-- Mobile app development with *React Native*
-- Building user-friendly interfaces
-- Always learning new technologies
-
-### Current Projects
-- [Newton App](https://github.com/newton) - A note-taking app
-- Personal portfolio website
-
-> "The best way to predict the future is to create it."
-
-Feel free to check out my public notes below!`,
+  readmeTitle: 'README',
+  readmeContent: '',
   myNotesCount: 12,
   starredNotesCount: 4,
   followersCount: 1247,
@@ -53,6 +38,11 @@ const ProfileScreen = ({ navigation }) => {
     title: mockUser.readmeTitle,
     content: mockUser.readmeContent,
   });
+
+  // README 데이터 변경 감지
+  useEffect(() => {
+    console.log('🔍 DEBUG: readmeData state changed:', readmeData);
+  }, [readmeData]);
   
   // Load saved README data from AsyncStorage
   const loadReadmeData = async () => {
@@ -136,9 +126,11 @@ const ProfileScreen = ({ navigation }) => {
     const checkForUpdates = () => {
       const newReadmeData = global.newReadmeData;
       if (newReadmeData) {
-        console.log('📝 Updating readme with new data:', newReadmeData);
+        console.log('📝 ProfileScreen: Updating readme with new data:', newReadmeData);
+        console.log('📝 ProfileScreen: Current readmeData before update:', readmeData);
         setReadmeData(newReadmeData);
         global.newReadmeData = null; // Clear the global data
+        console.log('📝 ProfileScreen: README data updated successfully');
       }
     };
 
@@ -669,11 +661,16 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleEditReadme = () => {
-    console.log('📝 Opening edit readme with current data:', readmeData);
+    console.log('📝 Opening README detail screen with current data:', readmeData);
     
-    navigation.navigate('editReadme', {
-      currentTitle: readmeData.title,
-      currentContent: readmeData.content,
+    navigation.navigate('ReadmeDetailScreen', {
+      profileUserId: user?.id,
+      readmeContent: readmeData.content || '',
+      profileData: {
+        userId: user?.id,
+        username: getUsernameForDisplay(),
+        readmeTitle: readmeData.title || 'README'
+      }
     });
   };
 
@@ -873,25 +870,29 @@ const ProfileScreen = ({ navigation }) => {
             {/* Readme Header */}
             <View style={styles.readmeHeader}>
               <Text style={styles.readmeLabel}>Readme</Text>
-              <TouchableOpacity onPress={handleEditReadme}>
-                <Text style={styles.editButton}>Edit</Text>
-              </TouchableOpacity>
             </View>
 
             {/* Readme Section */}
-            <View style={styles.readmeSection}>
+            <TouchableOpacity style={styles.readmeSection} onPress={handleEditReadme}>
               <View style={styles.readmeContent}>
-                <Text style={styles.readmeTitle}>{readmeData.title}</Text>
-                <ScrollView style={styles.markdownContainer} nestedScrollEnabled={true}>
-                  <Markdown 
-                    style={markdownStyles}
-                    mergeStyle={false}
-                  >
-                    {readmeData.content || '*No content yet. Click Edit to add some!*'}
-                  </Markdown>
-                </ScrollView>
+                {(readmeData.title && readmeData.title !== 'README') || readmeData.content ? (
+                  <>
+                    {readmeData.title && readmeData.title !== 'README' && (
+                      <Text style={styles.readmeTitle}>{readmeData.title}</Text>
+                    )}
+                    {readmeData.content && (
+                      <Text style={styles.readmePreview}>
+                        {readmeData.content}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.readmeGuide}>
+                    Write about yourself, your interests, or anything you'd like others to know about you.
+                  </Text>
+                )}
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* My Notes Section */}
             <TouchableOpacity style={styles.menuItem} onPress={handleMyNotesPress}>
@@ -1157,26 +1158,29 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: Colors.secondaryText,
   },
-  editButton: {
-    fontSize: Typography.fontSize.small,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.secondaryText,
-  },
   readmeContent: {
-    // No background or border radius - just content styling
+    // Content styling
   },
   readmeTitle: {
     fontSize: Typography.fontSize.title,
     fontWeight: Typography.fontWeight.bold,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
-    marginBottom: Layout.spacing.md,
+    marginBottom: Layout.spacing.sm,
   },
-  readmeText: {
+  readmePreview: {
     fontSize: Typography.fontSize.body,
     fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
+    color: Colors.secondaryText,
     lineHeight: 22,
+    numberOfLines: 3,
+  },
+  readmeGuide: {
+    fontSize: Typography.fontSize.body,
+    fontFamily: Typography.fontFamily.primary,
+    color: Colors.secondaryText,
+    lineHeight: 22,
+    fontStyle: 'italic',
   },
   menuItem: {
     flexDirection: 'row',
@@ -1283,86 +1287,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     pointerEvents: 'box-none',
   },
-  markdownContainer: {
-    maxHeight: 150,
-  },
 });
-
-// Markdown styles for readme content
-const markdownStyles = {
-  body: {
-    fontSize: Typography.fontSize.body,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    lineHeight: 22,
-  },
-  heading1: {
-    fontSize: Typography.fontSize.large,
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    marginBottom: Layout.spacing.sm,
-    marginTop: Layout.spacing.sm,
-  },
-  heading2: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primaryText,
-    marginBottom: 6,
-    marginTop: 10,
-    lineHeight: 20,
-  },
-  heading3: {
-    fontSize: Typography.fontSize.body,
-    fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.primary,
-    color: Colors.primaryText,
-    marginBottom: Layout.spacing.xs,
-    marginTop: Layout.spacing.sm,
-  },
-  strong: {
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.primaryText,
-  },
-  em: {
-    fontStyle: 'italic',
-    color: Colors.primaryText,
-  },
-  link: {
-    color: Colors.floatingButton,
-    textDecorationLine: 'underline',
-  },
-  paragraph: {
-    marginBottom: Layout.spacing.sm,
-    lineHeight: 22,
-  },
-  list_item: {
-    marginBottom: Layout.spacing.xs,
-  },
-  blockquote: {
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.border,
-    paddingLeft: Layout.spacing.sm,
-    marginLeft: Layout.spacing.xs,
-    fontStyle: 'italic',
-    color: Colors.secondaryText,
-  },
-  code_inline: {
-    backgroundColor: Colors.border,
-    fontFamily: 'Courier',
-    fontSize: Typography.fontSize.small,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    borderRadius: 3,
-  },
-  code_block: {
-    backgroundColor: Colors.border,
-    fontFamily: 'Courier',
-    fontSize: Typography.fontSize.small,
-    padding: Layout.spacing.sm,
-    borderRadius: 6,
-    marginVertical: Layout.spacing.xs,
-  },
-};
 
 export default ProfileScreen;

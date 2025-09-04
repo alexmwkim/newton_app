@@ -156,18 +156,61 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     setCardLayoutModes
   );
 
+  // 키보드 다시 포커스 함수 - 드롭다운 전환용
+  const refocusCurrentInput = useCallback(() => {
+    console.log('🎯 CREATE NOTE REFOCUS: Restoring keyboard after dropdown');
+    
+    const retryFocus = (attempt = 1) => {
+      console.log(`🎯 CreateNote refocus attempt ${attempt}/5`);
+      
+      // 현재 블록에서 텍스트 블록 찾기
+      const textBlocks = blocks.filter(block => block.type === 'text');
+      console.log(`🎯 Found ${textBlocks.length} text blocks`);
+      
+      // 마지막 텍스트 블록부터 시도
+      for (let i = textBlocks.length - 1; i >= 0; i--) {
+        const block = textBlocks[i];
+        console.log(`🎯 Checking block ${i}: ref=${!!block.ref}, current=${!!(block.ref?.current)}`);
+        
+        if (block.ref?.current) {
+          console.log(`🎯 SUCCESS: Block ${i} ref is valid, focusing now`);
+          try {
+            block.ref.current.focus();
+            const blockIndex = blocks.indexOf(block);
+            setFocusedIndex(blockIndex);
+            console.log(`🎯 Focused on CreateNote block index ${blockIndex}`);
+            return;
+          } catch (error) {
+            console.log(`🎯 Focus failed on block ${i}:`, error);
+          }
+        }
+      }
+      
+      // 재시도 로직
+      if (attempt < 5) {
+        console.log(`🎯 All blocks failed, retrying in ${attempt * 100}ms`);
+        setTimeout(() => retryFocus(attempt + 1), attempt * 100);
+      } else {
+        console.log('🎯 All CreateNote refocus attempts failed');
+      }
+    };
+    
+    retryFocus(1);
+  }, [blocks]);
+
   // Register handlers with global toolbar
   useEffect(() => {
     setActiveScreenHandlers({
       handleAddCard,
       handleAddGrid,
-      handleAddImage
+      handleAddImage,
+      refocusCurrentInput // 키보드 refocus 함수 추가
     });
     
     return () => {
       setActiveScreenHandlers(null);
     };
-  }, [handleAddCard, handleAddGrid, handleAddImage, setActiveScreenHandlers]);
+  }, [handleAddCard, handleAddGrid, handleAddImage, refocusCurrentInput, setActiveScreenHandlers]);
 
   // Sync focusedIndex with global toolbar
   useEffect(() => {

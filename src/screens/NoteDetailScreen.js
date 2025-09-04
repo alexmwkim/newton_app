@@ -72,11 +72,15 @@ const NoteDetailScreen = ({
   onFork,
   onUnstar
 }) => {
+  // README 모드 감지
+  const isReadmeMode = route?.params?.isReadmeMode || false;
+  const profileUserId = route?.params?.profileUserId || null;
+  
   // 최소 로그: 첫 렌더와 noteId 변경시만
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
   if (renderCountRef.current === 1) {
-    console.log('🔍 NoteDetailScreen FIRST render with noteId:', noteId, 'note:', note?.title || 'no note');
+    console.log('🔍 NoteDetailScreen FIRST render with noteId:', noteId, 'note:', note?.title || 'no note', 'README mode:', isReadmeMode);
   } else if (renderCountRef.current <= 3) {
     console.log('🔍 NoteDetailScreen re-render #' + renderCountRef.current);
   }
@@ -194,10 +198,17 @@ const NoteDetailScreen = ({
     };
   }, [storeNote, noteId]);
   
-  // Check if user is author
+  // Check if user is author (README 모드 고려)
   const isAuthor = useMemo(() => {
-    if (!displayNote || !user) return false;
+    if (!user) return false;
     
+    // README 모드: 해당 프로필의 소유자만 편집 가능
+    if (isReadmeMode) {
+      return user.id === profileUserId;
+    }
+    
+    // 일반 노트 모드
+    if (!displayNote) return false;
     
     // 🚧 임시: 개발 중이므로 항상 편집 가능하도록 설정
     if (__DEV__) {
@@ -205,7 +216,7 @@ const NoteDetailScreen = ({
     }
     
     return displayNote.user_id === user.id || !displayNote.user_id;
-  }, [displayNote?.user_id, user?.id]);
+  }, [displayNote?.user_id, user?.id, isReadmeMode, profileUserId]);
 
   // Use separated hooks - focusedIndex와 blocks를 ref로 최신값 보장
   const focusedIndexRef = useRef(focusedIndex);

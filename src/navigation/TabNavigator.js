@@ -14,6 +14,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import NoteDetailScreen from '../screens/NoteDetailScreen';
 import CreateNoteScreen from '../screens/CreateNoteScreen';
 import EditReadmeScreen from '../screens/EditReadmeScreen';
+import ReadmeDetailScreen from '../screens/ReadmeDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import MoreScreen from '../screens/MoreScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -225,6 +226,9 @@ const TabNavigator = ({ logout }) => {
       case 'editReadme':
         console.log('📝 Rendering EditReadmeScreen with screenProps:', screenProps);
         return <EditReadmeScreen key="edit-readme" navigation={navigationProps} route={{ params: screenProps }} />;
+      case 'ReadmeDetailScreen':
+        console.log('📝 Rendering ReadmeDetailScreen with screenProps:', screenProps);
+        return <ReadmeDetailScreen key="readme-detail" navigation={navigationProps} route={{ params: screenProps }} />;
       case 'settings':
         console.log('⚙️ Rendering SettingsScreen');
         return <SettingsScreen key="settings" navigation={navigationProps} />;
