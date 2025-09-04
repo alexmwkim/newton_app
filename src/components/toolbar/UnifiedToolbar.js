@@ -5,14 +5,24 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useSimpleToolbar } from '../../contexts/SimpleToolbarContext';
 import { useFormatting } from './ToolbarFormatting';
 import { ToolbarButton } from './ToolbarButton';
+import { DROPDOWN_TYPES } from '../../constants/DropdownConfig';
 
 // ✅ InputAccessoryView에서 사용할 툴바 컨텐츠 (위치 고정 없음)
 export const UnifiedToolbarContent = React.memo(() => {
   const { 
     activeScreenHandlers, 
     focusedIndex, 
-    hideKeyboard
+    hideKeyboard,
+    activeDropdown,
+    toggleDropdown
   } = useSimpleToolbar();
+  
+  // 🔧 로그 비활성화 - 무한 출력 방지
+  // console.log('🔧 UnifiedToolbarContent render:', {
+  //   activeScreenHandlers: !!activeScreenHandlers,
+  //   activeDropdown,
+  //   toggleDropdown: !!toggleDropdown
+  // });
   
   const { 
     activeFormats, 
@@ -70,8 +80,11 @@ export const UnifiedToolbarContent = React.memo(() => {
           type="icon"
           iconName="plus"
           iconSize={16}
+          isActive={activeDropdown === DROPDOWN_TYPES.PURPOSE}
           onPress={() => {
-            // TODO: 플러스 메뉴 구현
+            console.log('🎯 Plus button clicked! Current dropdown:', activeDropdown);
+            toggleDropdown(DROPDOWN_TYPES.PURPOSE);
+            console.log('🎯 Toggle called for PURPOSE');
           }}
           style={{ marginRight: 12 }}
         />
@@ -155,7 +168,10 @@ export const UnifiedToolbarContent = React.memo(() => {
       </ScrollView>
       
       <TouchableOpacity
-        onPress={hideKeyboard}
+        onPress={() => {
+          console.log('🔧 Done button pressed - calling hideKeyboard');
+          hideKeyboard();
+        }}
         style={{
           backgroundColor: 'transparent',
           borderWidth: 1,
@@ -190,74 +206,80 @@ export const UnifiedToolbar = React.memo(() => {
     keyboardVisible, 
     keyboardHeight, // Animated 값
     keyboardHeightValue, // 실제 높이 값
-    toolbarTranslateY // 툴바 transform 애니메이션 값
+    toolbarTranslateY, // 툴바 transform 애니메이션 값
+    activeDropdown, // 드롭다운 상태도 함께 가져오기
+    dropdownHeight, // 드롭다운 높이
+    userHasInteracted // ✅ 사용자 인터랙션 상태
   } = useSimpleToolbar();
+  
+  console.log('🔧 UnifiedToolbar render:', {
+    activeScreenHandlers: !!activeScreenHandlers,
+    keyboardVisible,
+    keyboardHeightValue,
+    activeDropdown,
+    userHasInteracted
+  });
   
   const insets = useSafeAreaInsets();
   
-  // ✅ 성능 최적화: 개발 모드에서만 로그 출력
-  if (__DEV__ && false) {
-    console.log('🔧 UnifiedToolbar render:', {
-      keyboardVisible,
-      keyboardHeightValue,
-      'insets.bottom': insets.bottom,
-      hasHandlers: !!activeScreenHandlers
-    });
-  }
+  // 🔧 Notion 방식으로 단순화됨 - 이전 복잡한 로직 제거
   
-  // 핸들러가 없으면 숨김 (키보드 상태와 관계없이 항상 렌더링)
+  // 핸들러가 없으면 숨김
   if (!activeScreenHandlers) {
     return null;
   }
   
-  // ✅ 키보드 위쪽에 정확히 위치하도록 계산
-  const bottomPosition = keyboardHeightValue > 0 
-    ? keyboardHeightValue  // 키보드 바로 위에 위치
-    : -48; // 키보드 없을 때는 화면 아래로 완전히 숨김
+  
+  // ✅ 안전한 조건: 키보드가 실제로 있거나 드롭다운 활성화시에만
+  const hasInputArea = (userHasInteracted && keyboardHeightValue > 0) || activeDropdown !== DROPDOWN_TYPES.NONE;
+  const inputAreaHeight = keyboardHeightValue > 0 ? keyboardHeightValue : 300; // 항상 최소 300px 보장  
+  const shouldShowToolbar = hasInputArea;
   
   return (
     <>
-      {/* ✅ 툴바 아래 키보드까지 흰색 배경으로 채움 */}
-      {keyboardHeightValue > 0 && (
+      {/* ✅ Notion 방식: 입력 영역 배경 (키보드 자리 or 드롭다운 자리) */}
+      {shouldShowToolbar && (
         <Animated.View 
           style={{
             position: 'absolute',
             bottom: 0, // 화면 맨 아래부터
             left: 0,
             right: 0,
-            height: keyboardHeightValue, // 키보드 높이만큼
+            height: inputAreaHeight, // 입력 영역 높이 (키보드 or 300px)
             backgroundColor: '#FFFFFF', // ✅ 완전히 불투명한 흰색 배경
             zIndex: 999, // 툴바보다 약간 낮게
           }}
         />
       )}
       
-      {/* ✅ 기존 툴바 */}
-      <Animated.View 
-        style={{
-          position: 'absolute',
-          bottom: bottomPosition, // 계산된 위치
-          left: 0,
-          right: 0,
-          backgroundColor: '#FFFFFF', // ✅ 완전히 불투명한 흰색 배경
-          borderTopWidth: 1,
-          borderTopColor: '#E5E5E5',
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          height: 48,
-          zIndex: 1000,
-          // ✅ 그림자 추가로 뒤 콘텐츠와 확실히 구분
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 8, // Android 그림자
-          // ✅ transform으로 아래에서 올라오는 애니메이션 구현
-          transform: [{ translateY: toolbarTranslateY }],
-        }}
-      >
-        <UnifiedToolbarContent />
-      </Animated.View>
+      {/* ✅ 툴바 - 키보드 또는 드롭다운 활성화시에만 표시 */}
+      {shouldShowToolbar && (
+        <Animated.View 
+          style={{
+            position: 'absolute',
+            bottom: inputAreaHeight, // Notion 방식: 항상 입력 영역 위
+            left: 0,
+            right: 0,
+            backgroundColor: '#FFFFFF', // ✅ 완전히 불투명한 흰색 배경
+            borderTopWidth: 1,
+            borderTopColor: '#E5E5E5',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            height: 48,
+            zIndex: 1000,
+            // ✅ 그림자 추가로 뒤 콘텐츠와 확실히 구분
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 8, // Android 그림자
+            // ✅ transform으로 아래에서 올라오는 애니메이션 구현
+            transform: [{ translateY: toolbarTranslateY }],
+          }}
+        >
+          <UnifiedToolbarContent />
+        </Animated.View>
+      )}
     </>
   );
 });

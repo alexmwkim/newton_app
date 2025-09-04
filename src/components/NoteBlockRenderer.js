@@ -29,7 +29,8 @@ const NoteBlockRenderer = React.memo(({
   setHoveredBlockId = () => {},
   draggingBlockId = null,
   setDraggingBlockId = () => {},
-  toolbarId = 'newton-toolbar'
+  toolbarId = 'newton-toolbar',
+  setIsRefocusFromDropdown = () => {} // 드롭다운 플래그 초기화 함수
 }) => {
   const styles = createNoteStyles;
   const blockRef = useRef(null);
@@ -68,19 +69,21 @@ const NoteBlockRenderer = React.memo(({
             resetFormatsIfTextEmpty(index, text);
           }}
           onPressIn={() => {
-            // Text block pressed
+            console.log('🎯 TextInput pressed - user direct interaction');
             dismissMenus();
+            // 🔧 사용자 직접 터치 시 드롭다운 플래그 초기화
+            setIsRefocusFromDropdown(false);
+            console.log('🔧 Dropdown refocus flag cleared by user interaction');
           }}
           onFocus={() => {
+            console.log('🎯 TextInput focused - user direct interaction');
             dismissMenus();
             setFocusedIndex(index);
             setCurrentFocusedIndex(index, blocks); // Pass blocks for format loading
-            // Text block focused
             
-            // Industry standard: no auto-scroll for existing focus
-            if (keyboardVisible && keyboardHeight > 0) {
-              // Keyboard already visible - no auto-scroll needed
-            }
+            // 🔧 사용자 직접 포커스 시 드롭다운 플래그 초기화
+            // NoteDetailScreen에서 isRefocusFromDropdown 상태를 초기화해야 함
+            // 여기서는 로그로 표시만 함 - 실제 초기화는 onPressIn에서
           }}
           onSubmitEditing={() => {
             // Enter pressed - creating new block

@@ -5,9 +5,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import TabNavigator from './src/navigation/TabNavigator';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
-import { SimpleToolbarProvider } from './src/contexts/SimpleToolbarContext';
+import { SimpleToolbarProvider, useSimpleToolbar } from './src/contexts/SimpleToolbarContext';
 import { FormattingProvider } from './src/components/toolbar/ToolbarFormatting';
 import { UnifiedToolbar } from './src/components/toolbar/UnifiedToolbar';
+import { DropdownManager } from './src/components/toolbar/dropdowns/DropdownManager';
 // import { CustomKeyboardToolbar } from './src/components/toolbar/CustomKeyboardToolbar'; // 비활성화
 
 // Initialize debug tools in development (temporarily disabled for debugging)
@@ -32,6 +33,17 @@ if (__DEV__) {
 
 function AppContent() {
   const { user, loading, initialized } = useAuth();
+  const { activeDropdown, hideDropdown, activeScreenHandlers } = useSimpleToolbar();
+
+  // 목적별 노트 선택 핸들러
+  const handlePurposeSelect = ({ purpose, template }) => {
+    console.log('🎯 App: Purpose selected:', purpose.id);
+    console.log('📝 App: Template:', template.title);
+    
+    // TODO: CreateNoteScreen으로 네비게이션 구현
+    // 현재는 콘솔 로그만 출력
+    alert(`Selected: ${purpose.label}\nTemplate: ${template.title}`);
+  };
 
   // App render state updated
   
@@ -72,6 +84,21 @@ function AppContent() {
       ) : (
         <AuthNavigator onAuthComplete={() => console.log('Auth completed')} />
       )}
+      
+      {/* 🎯 드롭다운 매니저 - 편집 화면에서만 표시 */}
+      {activeScreenHandlers && (
+        (() => {
+          console.log('🔧 App: Rendering DropdownManager with:', { activeDropdown, activeScreenHandlers: !!activeScreenHandlers });
+          return (
+            <DropdownManager 
+              activeDropdown={activeDropdown}
+              onCloseDropdown={hideDropdown}
+              onPurposeSelect={handlePurposeSelect}
+            />
+          );
+        })()
+      )}
+      
       <StatusBar style="auto" />
     </>
   );

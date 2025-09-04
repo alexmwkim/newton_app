@@ -31,7 +31,12 @@ export const ToolbarButton = ({
 
   return (
     <TouchableOpacity 
-      onPress={onPress} 
+      onPress={() => {
+        console.log('🔘 ToolbarButton pressed:', { type, title, iconName });
+        if (onPress) {
+          onPress();
+        }
+      }}
       style={buttonStyle}
       activeOpacity={0.7}
       // 키보드 dismiss 방지를 위한 중요한 설정들

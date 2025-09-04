@@ -82,7 +82,9 @@ const NoteDetailScreen = ({
   }
   
   // Component state  
-  const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex } = useSimpleToolbar();
+  // 🔧 로그 비활성화 - 무한 출력 방지
+  // console.log('🔧 NoteDetailScreen: Component mounting/rendering');
+  const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex, hideDropdown } = useSimpleToolbar();
   const { setCurrentFocusedIndex, setCurrentBlockRef, getDynamicTextStyle, setSetBlocks } = useFormatting();
   const scrollRef = useRef(null);
   const titleInputRef = useRef(null);
@@ -107,6 +109,7 @@ const NoteDetailScreen = ({
   const [hoverTargetBlockId, setHoverTargetBlockId] = useState(null);
   const [dragMode, setDragMode] = useState('none'); // 'none', 'resize', 'reorder'
   const [preventAutoScroll, setPreventAutoScroll] = useState(false); // TextInput 자동 스크롤 방지
+  const [isRefocusFromDropdown, setIsRefocusFromDropdown] = useState(false); // 드롭다운에서 온 refocus인지 추적
   const [blockPositions, setBlockPositions] = useState({}); // Track block positions for drag targeting
   const [cardLayouts, setCardLayouts] = useState({}); // Simple card position tracking
   
@@ -194,6 +197,13 @@ const NoteDetailScreen = ({
   // Check if user is author
   const isAuthor = useMemo(() => {
     if (!displayNote || !user) return false;
+    
+    
+    // 🚧 임시: 개발 중이므로 항상 편집 가능하도록 설정
+    if (__DEV__) {
+      return true; // 개발 모드에서는 항상 편집 가능
+    }
+    
     return displayNote.user_id === user.id || !displayNote.user_id;
   }, [displayNote?.user_id, user?.id]);
 
@@ -207,13 +217,12 @@ const NoteDetailScreen = ({
   const cardLayoutsRef = useRef(cardLayouts);
   cardLayoutsRef.current = cardLayouts; // 항상 최신 상태 유지
   
-  const { keyboardVisible, keyboardHeight, scrollToFocusedInput } = useKeyboardHandlers(
-    focusedIndexRef, 
-    blocksRef, 
-    scrollRef, 
-    titleInputRef,
-    cardLayoutsRef
-  );
+  // 🔧 useKeyboardHandlers 제거 - SimpleToolbarContext의 전역 키보드 관리 사용
+  const { keyboardVisible, keyboardHeight: globalKeyboardHeight, keyboardHeightValue } = useSimpleToolbar();
+  const keyboardHeight = globalKeyboardHeight;
+  
+  // scrollToFocusedInput 함수는 KeyboardAwareScrollView가 자동 처리
+  const scrollToFocusedInput = () => {}; // 빈 함수로 대체
 
   const { handleAddCard, handleAddGrid, handleAddImage, handleDeleteBlock, handleKeyPress, handleTextChange } = useNoteDetailHandlers(
     blocks,
@@ -233,6 +242,105 @@ const NoteDetailScreen = ({
 
   // 포맷팅 관리는 이제 FormattingProvider에서 처리됨
 
+  // 화면 진입 시 드롭다운 상태 초기화
+  useEffect(() => {
+    console.log('🔧 NoteDetailScreen: Initializing dropdown state - calling hideDropdown()');
+    hideDropdown(); // 드롭다운 상태 초기화
+    console.log('🔧 NoteDetailScreen: hideDropdown() called');
+  }, []); // 의존성 배열을 빈 배열로 변경하여 마운트 시에만 실행
+
+  // 현재 입력 필드 blur 함수 (키보드 dismiss)
+  const blurCurrentInput = useCallback(() => {
+    console.log('🎯 AGGRESSIVE BLUR: Starting at index:', focusedIndex);
+    
+    // 1. 즉시 전역 키보드 dismiss 호출
+    Keyboard.dismiss();
+    console.log('🎯 STEP 1: Immediate global Keyboard.dismiss() called');
+    
+    // 2. 현재 포커스된 TextInput blur 시도
+    if (focusedIndex >= 0 && focusedIndex < blocks.length) {
+      const currentBlock = blocks[focusedIndex];
+      if (currentBlock && currentBlock.ref && currentBlock.ref.current) {
+        console.log('🎯 STEP 2: Calling blur() on TextInput ref');
+        currentBlock.ref.current.blur();
+      }
+    }
+    
+    // 3. 포커스 인덱스 초기화로 완전한 blur 상태 보장
+    setFocusedIndex(-1);
+    console.log('🎯 STEP 3: FocusedIndex set to -1 for complete blur');
+    
+    // 4. 추가 안전장치 - 강제 키보드 숨김
+    setTimeout(() => {
+      Keyboard.dismiss();
+      console.log('🎯 STEP 4: Safety Keyboard.dismiss() called after 100ms');
+    }, 100);
+  }, [focusedIndex, blocks]);
+
+  // 키보드 다시 포커스 함수 - 드롭다운 전환용 (자동 스크롤 방지)
+  const refocusCurrentInput = useCallback(() => {
+    console.log('🎯 DROPDOWN REFOCUS: No auto-scroll needed');
+    
+    // 🔧 드롭다운에서 온 refocus 표시 (자동 스크롤 방지용)
+    setIsRefocusFromDropdown(true);
+    
+    // 🆕 블록 상태를 실시간으로 다시 확인
+    const retryFocus = (attempt = 1) => {
+      console.log(`🎯 Refocus attempt ${attempt}/5`);
+      
+      // 현재 블록 배열에서 최신 상태 사용
+      const currentBlocks = blocksRef.current;
+      const textBlocks = currentBlocks.filter(block => block.type === 'text');
+      console.log(`🎯 Found ${textBlocks.length} text blocks`);
+      
+      // 마지막 텍스트 블록부터 시도 (일반적으로 비어있고 포커스되어야 할 블록)
+      for (let i = textBlocks.length - 1; i >= 0; i--) {
+        const block = textBlocks[i];
+        console.log(`🎯 Checking block ${i}: ref=${!!block.ref}, current=${!!(block.ref?.current)}`);
+        
+        if (block.ref?.current) {
+          console.log(`🎯 SUCCESS: Block ${i} ref is valid, focusing now`);
+          try {
+            // 즉시 포커스 (지연 제거)
+            block.ref.current.focus();
+            const blockIndex = currentBlocks.indexOf(block);
+            setFocusedIndex(blockIndex);
+            console.log(`🎯 Focused on block index ${blockIndex}`);
+            
+            // 🔧 드롭다운 refocus 완료 후 플래그 초기화
+            setTimeout(() => {
+              setIsRefocusFromDropdown(false);
+              console.log('🎯 Dropdown refocus flag cleared');
+            }, 500); // 키보드 애니메이션 완료 후
+            
+            return; // 성공하면 종료
+          } catch (error) {
+            console.log(`🎯 Focus failed on block ${i}:`, error);
+          }
+        }
+      }
+      
+      // 모든 블록에서 실패했으면 재시도
+      if (attempt < 5) {
+        console.log(`🎯 All blocks failed, retrying in ${attempt * 100}ms`);
+        setTimeout(() => retryFocus(attempt + 1), attempt * 100);
+      } else {
+        console.log('🎯 All refocus attempts failed');
+        // 최후 수단: 강제로 포커스 인덱스 설정
+        const lastTextBlockIndex = currentBlocks.length - 1;
+        if (lastTextBlockIndex >= 0 && currentBlocks[lastTextBlockIndex].type === 'text') {
+          console.log('🎯 FALLBACK: Setting focus index without ref');
+          setFocusedIndex(lastTextBlockIndex);
+        }
+        // 실패해도 플래그 초기화
+        setTimeout(() => setIsRefocusFromDropdown(false), 500);
+      }
+    };
+    
+    // 즉시 시도 (지연 제거)
+    retryFocus(1);
+  }, []);
+
   // Register handlers with global toolbar
   useEffect(() => {
     // 저자인 경우에만 handlers 설정
@@ -240,7 +348,9 @@ const NoteDetailScreen = ({
       setActiveScreenHandlers({
         handleAddCard,
         handleAddGrid,
-        handleAddImage
+        handleAddImage,
+        blurCurrentInput, // 키보드 blur 함수 추가
+        refocusCurrentInput // 키보드 재포커스 함수 추가
       });
     } else {
       setActiveScreenHandlers(null);
@@ -248,8 +358,9 @@ const NoteDetailScreen = ({
     
     return () => {
       setActiveScreenHandlers(null);
+      hideDropdown(); // 화면 떠날 때도 드롭다운 정리
     };
-  }, [handleAddCard, handleAddGrid, handleAddImage, setActiveScreenHandlers, isAuthor]);
+  }, [setActiveScreenHandlers, isAuthor]); // 함수들은 useCallback으로 안정화됨 - 의존성에서 제외
 
   // Sync focusedIndex with global toolbar and formatting system
   useEffect(() => {
@@ -617,18 +728,18 @@ const NoteDetailScreen = ({
   // Show loading spinner
   if (loadingNote) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.floatingButton} />
           <Text style={styles.loadingText}>Loading note...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
     <>
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* ✅ KeyboardAvoidingView 제거 - KeyboardAwareScrollView와 충돌 방지 */}
         {/* Settings menu */}
         {showSettingsMenu && (
@@ -734,15 +845,25 @@ const NoteDetailScreen = ({
                 paddingBottom: 100, // ✅ 줄인 패딩 - KeyboardAwareScrollView가 자동 처리
                 minHeight: 800 // ✅ 줄인 최소 높이 - 자동 스크롤 시스템 사용
               }]}
-              // ✅ 동적 키보드 + 툴바 높이 계산 (디바이스별 대응)
-              enableAutomaticScroll={true}
+              // 🔧 조건부 자동 스크롤 - 드롭다운 refocus 시에만 비활성화
+              enableAutomaticScroll={!isRefocusFromDropdown} // 드롭다운 refocus 시에만 비활성화
+              // 🔍 디버깅: 현재 상태 출력
+              {...(() => {
+                console.log('📍 KeyboardAware Config:', {
+                  isRefocusFromDropdown,
+                  enableAutomaticScroll: !isRefocusFromDropdown,
+                  extraScrollHeight: isRefocusFromDropdown ? 0 : Math.max(80, keyboardHeightValue * 0.3),
+                  extraHeight: isRefocusFromDropdown ? 0 : 48
+                });
+                return {};
+              })()}
               enableResetScrollToCoords={false}
-              extraScrollHeight={keyboardVisible ? Math.max(80, keyboardHeight * 0.3) : 80} // ✅ 키보드 높이의 30% 추가 여유
-              extraHeight={keyboardVisible ? keyboardHeight + 48 : 100} // ✅ 실제 키보드 높이 + 툴바(48px)
-              keyboardVerticalOffset={0} // ✅ extraHeight에서 툴바 포함으로 0 설정 
+              extraScrollHeight={isRefocusFromDropdown ? 0 : Math.max(80, keyboardHeightValue * 0.3)} // 드롭다운 refocus 시 제거
+              extraHeight={isRefocusFromDropdown ? 0 : 48} // 드롭다운 refocus 시 제거
+              keyboardVerticalOffset={0} 
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="none"
-              enableOnAndroid={true}
+              enableOnAndroid={!isRefocusFromDropdown} // 드롭다운 refocus 시에만 비활성화
               keyboardOpeningTime={250}
               viewIsInsideTabBar={false}
               // ✅ 기존 기능 유지
@@ -842,11 +963,11 @@ const NoteDetailScreen = ({
                   dismissMenus();
                 }}
                 onFocus={() => {
+                  console.log('🎯 Title input focused - user direct interaction');
                   dismissMenus();
                   setFocusedIndex(-1);
-                  // 키보드가 나타나면 자동 스크롤 시도
-                  // ✅ 자동 스크롤 제거 - AUTO_SCROLL_OPTIMIZATION.md 권장사항
-                  // 키보드가 이미 보이는 상태에서는 스크롤하지 않음
+                  // 🔧 사용자 직접 포커스 시 드롭다운 플래그 초기화
+                  setIsRefocusFromDropdown(false);
                 }}
                 onContentSizeChange={({ nativeEvent }) => {
                   console.log('📏 Title content size changed:', nativeEvent.contentSize);
@@ -920,6 +1041,7 @@ const NoteDetailScreen = ({
                     dismissMenus={dismissMenus}
                     toolbarId={TOOLBAR_ID}
                     useGlobalKeyboard={true}
+                    setIsRefocusFromDropdown={setIsRefocusFromDropdown} // 드롭다운 플래그 초기화 함수 전달
                     />
                   </View>
                 ))}
@@ -946,7 +1068,7 @@ const NoteDetailScreen = ({
           </View>
         </TouchableWithoutFeedback>
 
-    </SafeAreaView>
+    </View>
 
     {/* Page Info Modal */}
     <Modal
