@@ -21,6 +21,7 @@ import SingleToggle from '../shared/components/form/SingleToggle';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
+import { useFormatting } from '../components/toolbar/ToolbarFormatting';
 // UnifiedToolbar는 App.js에서 전역 렌더링
 import { UnifiedHeader } from '../shared/components/layout';
 
@@ -41,6 +42,8 @@ const TOOLBAR_ID = 'newton-create-toolbar'; // ✅ CreateNoteScreen 전용 TOOLB
 const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEditing, isForked, returnToScreen, route }) => {
   const { user, loading: authLoading, initialized } = useAuth();
   const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex } = useSimpleToolbar();
+  // 🔧 FIX: FormattingProvider 연결 추가
+  const { setSetBlocks } = useFormatting();
   const notesStore = useNotesStore();
   const noteData = note || initialNote;
   const styles = createNoteStyles;
@@ -51,7 +54,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   const routeParams = route?.params || {};
   const [title, setTitle] = useState(noteData?.title || '');
   const [blocks, setBlocks] = useState([
-    { id: generateId(), type: 'text', content: '', ref: React.createRef() },
+    { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null, savedFormats: null },
   ]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isPublic, setIsPublic] = useState(noteData?.is_public ?? routeParams.isPublic ?? false);
@@ -145,7 +148,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     }
   }, []);
 
-  const { handleAddCard, handleAddGrid, handleAddImage, handleKeyPress, handleDeleteBlock, handleTextChange } = useNoteInsertHandlers(
+  const { handleAddCard, handleAddImage, handleKeyPress, handleDeleteBlock, handleTextChange } = useNoteInsertHandlers(
     blocks,
     setBlocks,
     setFocusedIndex,
@@ -202,7 +205,6 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
   useEffect(() => {
     setActiveScreenHandlers({
       handleAddCard,
-      handleAddGrid,
       handleAddImage,
       refocusCurrentInput // 키보드 refocus 함수 추가
     });
@@ -210,7 +212,16 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     return () => {
       setActiveScreenHandlers(null);
     };
-  }, [handleAddCard, handleAddGrid, handleAddImage, refocusCurrentInput, setActiveScreenHandlers]);
+  }, [handleAddCard, handleAddImage, refocusCurrentInput, setActiveScreenHandlers]);
+
+  // 🔧 FIX: FormattingProvider에 setBlocks 함수 등록
+  useEffect(() => {
+    setSetBlocks(setBlocks);
+    
+    return () => {
+      setSetBlocks(null);
+    };
+  }, [setSetBlocks, setBlocks]);
 
   // Sync focusedIndex with global toolbar
   useEffect(() => {
@@ -236,7 +247,7 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
     if (blocks.length === 0 || blocks[blocks.length - 1].type !== 'text') {
       setBlocks(prev => ([
         ...prev,
-        { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+        { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null, savedFormats: null }
       ]));
     }
   }, [blocks]);
@@ -394,13 +405,20 @@ const CreateNoteScreen = ({ onBack, onSave, initialNote, navigation, note, isEdi
                 placeholderTextColor={Colors.secondaryText}
                 value={title}
                 onChangeText={(newTitle) => {
-                  // Title changed
-                  setTitle(newTitle);
+                  // 🔧 FIX: multiline에서 Enter 키로 인한 줄바꿈 제거 - 타이틀은 단일 제목
+                  const cleanTitle = newTitle.replace(/\n/g, '');
+                  console.log('🏷️ Title changed:', cleanTitle.length, 'characters');
+                  setTitle(cleanTitle);
                 }}
                 onFocus={() => {
                   setFocusedIndex(-1);
                 }}
+                onSelectionChange={({ nativeEvent }) => {
+                  console.log('🎯 Create Title selection changed:', nativeEvent.selection);
+                  // Selection change indicates proper cursor positioning
+                }}
                 multiline
+                scrollEnabled={false}
                 autoCorrect={false}
                 autoComplete="off"
                 spellCheck={false}

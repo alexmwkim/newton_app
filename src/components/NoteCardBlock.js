@@ -14,7 +14,6 @@ import { Colors } from '../constants/Colors';
 import { createNoteStyles } from '../styles/CreateNoteStyles';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
 import { useFormatting } from './toolbar/ToolbarFormatting';
-import MultilineFormattedInput from './MultilineFormattedInput';
 
 const NoteCardBlock = ({
   block,
@@ -42,16 +41,14 @@ const NoteCardBlock = ({
   const cardRef = useRef(null);
   const styles = createNoteStyles;
   const { handleInputFocus } = useSimpleToolbar();
-  const { getDynamicTextStyle, activeFormats, setCurrentFocusedIndex, currentFocusedIndex } = useFormatting();
+  const { getDynamicTextStyle, setCurrentFocusedIndex, resetFormatsIfTextEmpty } = useFormatting();
   
-  // 카드 블록용 스타일 계산 (독립성 보장)
-  const cardTextStyle = useMemo(() => {
-    const style = getDynamicTextStyle(index, block);
-    // Card block style computation
-    return style;
-  }, [getDynamicTextStyle, index, block.id, block.savedFormats,
-      // 이 카드가 포커스될 때만 업데이트
-      currentFocusedIndex === index ? JSON.stringify(activeFormats) : null]);
+  
+  // 카드블록의 한계를 인정하고 현실적인 해결책 제공
+  // 카드블록은 전체 텍스트에 하나의 포맷만 적용 (일반 노트와 다른 특성)
+  
+  // 🔧 FIX: 일반 텍스트와 동일한 방식으로 스타일 계산 (useMemo 제거)
+  // 복잡한 캐싱 대신 직접 계산으로 키보드 점프 문제 해결
   
   // 🔧 디버그 모드 (개발 시에만 true로 설정)
   const DEBUG_DRAG = false;
@@ -103,6 +100,7 @@ const NoteCardBlock = ({
     
     return () => {
       clearTimeout(timeoutId);
+      // ✅ 정상적인 카드 레이아웃 cleanup 재활성화 - ID 충돌 문제 해결됨
       setCardLayouts(prev => {
         const updated = { ...prev };
         delete updated[block.id];
@@ -154,10 +152,26 @@ const NoteCardBlock = ({
   const panResponder = useMemo(() => 
     PanResponder.create({
       onStartShouldSetPanResponder: (evt, gestureState) => {
+        // ⚡ 핵심 수정: TextInput 영역에서는 PanResponder 비활성화
+        const { target } = evt.nativeEvent;
+        
+        // TextInput에서 발생한 터치는 드래그로 처리하지 않음
+        if (target && target._nativeTag) {
+          // TextInput이나 편집 가능한 요소에서 시작된 터치는 무시
+          return false; // TextInput 터치는 드래그 시작하지 않음
+        }
+        
         // 초기 터치 감지만 하고, 실제 드래그는 onMoveShouldSetPanResponder에서 결정
         return true;
       },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // ⚡ TextInput 영역에서는 드래그 비활성화
+        const { target } = evt.nativeEvent;
+        
+        if (target && target._nativeTag) {
+          return false; // TextInput에서는 드래그 금지
+        }
+        
         const { dx, dy } = gestureState;
         const movement = Math.sqrt(dx * dx + dy * dy);
         const hasLayoutData = cardLayoutsRef.current[block.id] !== undefined;
@@ -497,44 +511,54 @@ const NoteCardBlock = ({
       ]}
     >
       <View style={styles.cardHeader}>
-        <MultilineFormattedInput
-          key={`card-${block.id}`} // Stable key to prevent recreation
-          value={block.content}
-          onChangeText={(text) => handleTextChange(block.id, text)}
-          onFocus={(globalIndex) => {
-            dismissMenus();
-            setFocusedIndex(globalIndex);
-            console.log(`🎯 Card line ${globalIndex} focused`);
-            console.log(`🔍 FOCUS DEBUG: block.id=${block.id}, globalIndex=${globalIndex}, blockIndex=${index}`);
-            
-            // ✅ 실제 요소 위치 측정
-            setTimeout(() => {
-              if (cardRef.current) {
-                cardRef.current.measure((x, y, width, height, pageX, pageY) => {
-                  console.log(`📍 🔍 REAL element position: x=${pageX}, y=${pageY}, h=${height}`);
-                  console.log(`📍 🔍 Line within card: ${globalIndex % 100}, estimated line pos: ${pageY + (globalIndex % 100) * 24}`);
-                });
-              }
-            }, 100);
-          }}
-          onBlur={(globalIndex) => {
-            console.log(`🎯 Card line ${globalIndex} lost focus`);
-          }}
-          placeholder="Write something"
+        <TextInput
+          ref={block.ref}
           style={[
             styles.cardTitleInput,
+            getDynamicTextStyle(index, block),
             {
-              minHeight: 40,
-              paddingVertical: 8,
+              flex: 1,
+              minHeight: 24,
+              textAlignVertical: 'top',
             }
           ]}
-          baseIndex={index * 100} // 카드별로 충분한 인덱스 간격
-          blocks={blocks}
-          setFocusedIndex={setFocusedIndex}
-          isAuthor={isAuthor && !isDragging}
-          // ✅ InputAccessoryView 제거 (플로팅 툴바 사용)
-          // inputAccessoryViewID={toolbarId}
-          {...(Platform.OS === 'android' && useGlobalKeyboard ? { showSoftInputOnFocus: false } : {})}
+          placeholder="Write something"
+          multiline={true}
+          value={block.content || ''}
+          onChangeText={(text) => {
+            handleTextChange(block.id, text);
+            // 텍스트가 비어있으면 포맷 초기화
+            resetFormatsIfTextEmpty(index, text);
+          }}
+          onPressIn={() => {
+            console.log('🎯 Card pressed - user direct interaction');
+            dismissMenus();
+          }}
+          onFocus={() => {
+            console.log('🎯 Card focused - user direct interaction');
+            dismissMenus();
+            setFocusedIndex(index);
+            setCurrentFocusedIndex(index, blocks);
+          }}
+          onKeyPress={({ nativeEvent }) => {
+            console.log('🔤 Card key pressed:', nativeEvent.key);
+            // 빈 카드에서만 블록 삭제
+            if (nativeEvent.key === 'Backspace' && (block.content || '').trim() === '') {
+              console.log('⌫ Card Backspace - deleting block');
+              handleKeyPress && handleKeyPress(block, index, nativeEvent.key);
+            }
+            // Enter 키는 카드 내부 줄바꿈으로 처리 (새 블록 생성 안함)
+          }}
+          returnKeyType="default"
+          blurOnSubmit={false}
+          autoFocus={!block.content || block.content.trim() === ''}
+          autoCorrect={false}
+          autoComplete="off"
+          spellCheck={false}
+          autoCapitalize="none" // 🔧 FIX: 자동 대문자 변환 비활성화로 키보드 움직임 방지
+          scrollEnabled={false}
+          editable={isAuthor && !isDragging}
+          placeholderTextColor={Colors.secondaryText}
         />
         {isAuthor && (
           <TouchableOpacity onPress={() => handleDeleteBlock(index)}>
@@ -551,6 +575,9 @@ const NoteCardBlock = ({
           </Text>
         </View>
       )}
+      
+      {/* Formatting guidance for focused card blocks */}
+      {/* 안내 메시지는 MultilineFormattedInput이 줄별 포맷팅을 처리하므로 더 이상 필요하지 않음 */}
     </View>
   );
 };

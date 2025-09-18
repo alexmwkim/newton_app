@@ -67,10 +67,24 @@ export const createNoteStyles = StyleSheet.create({
   titleInput: {
     fontSize: 22,
     fontWeight: 'bold',
-    paddingVertical: 12,
+    paddingVertical: 8, // 🔧 FIX: 적절한 패딩으로 클릭 영역 확보
     paddingHorizontal: 0, // 토글과 정확히 정렬 (20px)
     marginBottom: 20,
     color: Colors.primaryText,
+    // 🔧 FIX: 클릭 감지를 위한 최소 높이 설정 (자연스러운 텍스트 높이)
+    minHeight: 30, // fontSize(22) + 여유공간으로 클릭 영역 확보
+    lineHeight: 28, // 🔧 FIX: 모든 텍스트와 통일된 lineHeight로 키보드 움직임 방지
+    // 🔧 FIX: 플랫폼별 텍스트 렌더링 일관성 확보
+    ...Platform.select({
+      ios: {
+        includeFontPadding: false, // iOS에서 불필요한 폰트 패딩 제거
+        // iOS에서는 textAlignVertical 제거 - 기본 동작 사용
+      },
+      android: {
+        includeFontPadding: false, // Android에서 불필요한 폰트 패딩 제거
+        textAlignVertical: 'top',
+      }
+    }),
   },
   
   // Block-related styles
@@ -82,15 +96,16 @@ export const createNoteStyles = StyleSheet.create({
   },
   textInput: {
     // Industry-standard minimal spacing (consistent with NoteDetailStyles)
-    paddingVertical: 2,
+    paddingVertical: 0, // 🔧 FIX: 패딩 완전 제거로 블록 간 간격 통일
     paddingHorizontal: 0,
-    minHeight: 32, // Increased to accommodate H1 text (fontSize: 24 + lineHeight: 28)
-    marginBottom: 6,
+    minHeight: 28, // 🔧 FIX: lineHeight와 정확히 일치시켜 키보드 움직임 방지
+    marginBottom: 8, // 🔧 FIX: 텍스트 블록 아래 추가 간격으로 카드/이미지와 더 떨어지게
+// marginTop 제거 - 카드 marginBottom만으로 간격 조정
     backgroundColor: 'transparent',
     color: Colors.primaryText,
     width: '100%',
     // Industry-standard cursor positioning fixes
-    lineHeight: Platform.OS === 'ios' ? 20 : 22,
+    lineHeight: 28, // 🔧 FIX: 모든 텍스트와 통일된 lineHeight로 키보드 움직임 방지
     textAlignVertical: 'top', // Critical for Android cursor positioning
     ...(Platform.OS === 'android' && {
       includeFontPadding: false, // Removes extra padding that affects cursor position
@@ -102,7 +117,7 @@ export const createNoteStyles = StyleSheet.create({
     backgroundColor: Colors.noteCard,
     padding: 12,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 20, // 🔧 FIX: 카드 블록 간격 조정 (텍스트 lineHeight보다 약간 크게)
     position: 'relative',
   },
   cardHeader: {
@@ -110,45 +125,18 @@ export const createNoteStyles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingTop: 4,
-    minHeight: 40,
+    minHeight: 28, // 🔧 FIX: MultilineFormattedInput에 맞춰 28로 줄임
   },
   cardTitleInput: {
     flex: 1,
-    fontSize: 16, // Base font size, will be overridden by getDynamicTextStyle
     color: Colors.primaryText,
-    minHeight: 40,
-    paddingVertical: 8,
+    minHeight: 24, // 🔧 FIX: MultilineFormattedInput에 맞춰 24로 줄임
+    paddingVertical: 0,
     paddingHorizontal: 0,
     textAlignVertical: 'top',
-    // Dynamic height adjustment for different text styles will be handled by getDynamicTextStyle
+    // Dynamic styling handled by MultilineFormattedInput
   },
   
-  // Grid card styles
-  gridCardBlock: {
-    backgroundColor: Colors.noteCard,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    width: '48%',
-    alignSelf: 'flex-start',
-  },
-  gridCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 2,
-    minHeight: 30,
-  },
-  gridCardTitleInput: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.primaryText,
-    minHeight: 30,
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-    textAlignVertical: 'top',
-    lineHeight: 18,
-  },
   cardDragIndicator: {
     borderWidth: 2,
     borderColor: Colors.floatingButton,
@@ -194,7 +182,7 @@ export const createNoteStyles = StyleSheet.create({
     right: 0,
     backgroundColor: Colors.floatingButton,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 0, // 🔧 FIX: 패딩 완전 제거로 블록 간 간격 통일
     borderRadius: 12,
   },
   layoutModeText: {
@@ -206,7 +194,7 @@ export const createNoteStyles = StyleSheet.create({
   // Image styles
   imageBlock: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 20, // 🔧 FIX: 이미지 블록 간격을 카드와 비슷하게 조정
   },
   image: {
     width: '100%',
@@ -270,5 +258,24 @@ export const createNoteStyles = StyleSheet.create({
     backgroundColor: 'transparent',
     minWidth: 44,
     minHeight: 44,
+  },
+  
+  // Card formatting hint styles
+  cardFormattingHint: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FFF9E6', // 연한 노란색 배경
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFE4A3', // 노란색 테두리
+    borderStyle: 'dashed',
+  },
+  cardFormattingHintText: {
+    fontSize: 11,
+    color: '#B8860B', // 어두운 노란색 텍스트
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });

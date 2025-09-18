@@ -17,13 +17,6 @@ export const UnifiedToolbarContent = React.memo(() => {
     toggleDropdown
   } = useSimpleToolbar();
   
-  // 🔧 로그 비활성화 - 무한 출력 방지
-  // console.log('🔧 UnifiedToolbarContent render:', {
-  //   activeScreenHandlers: !!activeScreenHandlers,
-  //   activeDropdown,
-  //   toggleDropdown: !!toggleDropdown
-  // });
-  
   const { 
     activeFormats, 
     toggleBold, 
@@ -35,6 +28,7 @@ export const UnifiedToolbarContent = React.memo(() => {
   
   // InputAccessoryView에서는 항상 표시 (키보드와 동기화됨)
   if (!activeScreenHandlers) {
+    console.log('🚨🚨🚨 TOOLBAR NOT RENDERED: activeScreenHandlers is falsy!');
     return null;
   }
   
@@ -64,6 +58,7 @@ export const UnifiedToolbarContent = React.memo(() => {
         alwaysBounceHorizontal={true}        // ✅ 가로 바운스만 허용
         keyboardShouldPersistTaps="handled"  // ⭐ 키보드 유지의 핵심!
         keyboardDismissMode="none"           // ⭐ 키보드 dismiss 완전 방지
+        pointerEvents="auto"                 // ✅ 터치 이벤트 통과 허용
         contentContainerStyle={{ 
           flexDirection: 'row', 
           alignItems: 'center', 
@@ -142,16 +137,6 @@ export const UnifiedToolbarContent = React.memo(() => {
           style={{ marginRight: 8 }}
         />
         
-        <ToolbarButton 
-          type="icon"
-          iconName="grid"
-          onPress={() => {
-            if (activeScreenHandlers?.handleAddGrid) {
-              activeScreenHandlers.handleAddGrid(focusedIndex >= 0 ? focusedIndex : 0);
-            }
-          }}
-          style={{ marginRight: 8 }}
-        />
         
         <ToolbarButton 
           type="icon"

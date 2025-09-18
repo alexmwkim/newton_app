@@ -17,11 +17,11 @@ export const ToolbarButton = ({
   inactiveTextColor = '#333'
 }) => {
   const buttonStyle = {
-    padding: 8, // 6 → 8 증가 (더 넓은 터치 영역)
+    padding: 8,
     borderRadius: 4,
     backgroundColor: isActive ? activeColor : inactiveColor,
-    minWidth: 36, // 32 → 36 증가 (더 넓은 버튼)
-    minHeight: 36, // 32 → 36 증가
+    minWidth: 36,
+    minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center',
     ...style
@@ -32,16 +32,19 @@ export const ToolbarButton = ({
   return (
     <TouchableOpacity 
       onPress={() => {
-        console.log('🔘 ToolbarButton pressed:', { type, title, iconName });
         if (onPress) {
           onPress();
+        } else {
+          console.log('🚨 NO onPress function provided!');
         }
       }}
       style={buttonStyle}
       activeOpacity={0.7}
-      // 키보드 dismiss 방지를 위한 중요한 설정들
+      // 🔧 FIX: 터치 이벤트 최대 민감도 설정
       delayPressIn={0}
       delayPressOut={0}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // 터치 영역 확장
+      pressRetentionOffset={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       {type === 'icon' ? (
         <Icon name={iconName} size={iconSize} color={textColor} />

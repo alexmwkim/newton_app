@@ -1,8 +1,85 @@
 import React from 'react';
 import { Platform } from 'react-native';
 
-let blockId = 0;
-export const generateId = () => `block-${blockId++}`;
+// 🔧 FIX: Use timestamp + random to prevent ID collisions
+export const generateId = () => `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+// 🆕 포맷 정보를 JSON 문자열로 변환하여 콘텐츠에 저장하는 함수
+export const formatToMarkdown = (content, formats) => {
+  if (!formats || (!formats.bold && !formats.italic && !formats.heading1 && !formats.heading2 && !formats.heading3)) {
+    return content; // 포맷이 없으면 원본 반환
+  }
+  
+  let formatted = content;
+  
+  // 헤딩 처리 (우선순위: H1 > H2 > H3)
+  if (formats.heading1) {
+    formatted = `# ${formatted}`;
+  } else if (formats.heading2) {
+    formatted = `## ${formatted}`;
+  } else if (formats.heading3) {
+    formatted = `### ${formatted}`;
+  } else {
+    // 헤딩이 아닐 때만 볼드/이탤릭 적용
+    if (formats.bold && formats.italic) {
+      formatted = `***${formatted}***`; // 볼드 + 이탤릭
+    } else if (formats.bold) {
+      formatted = `**${formatted}**`; // 볼드만
+    } else if (formats.italic) {
+      formatted = `*${formatted}*`; // 이탤릭만
+    }
+  }
+  
+  return formatted;
+};
+
+// 🆕 마크다운 포맷을 파싱하여 포맷 정보와 순수 콘텐츠로 분리하는 함수
+export const parseMarkdownFormat = (formattedContent) => {
+  if (!formattedContent) {
+    return { content: '', formats: null };
+  }
+  
+  let content = formattedContent;
+  const formats = {
+    bold: false,
+    italic: false,
+    heading1: false,
+    heading2: false,
+    heading3: false
+  };
+  
+  // 헤딩 파싱 (우선순위: H1 > H2 > H3)
+  if (content.startsWith('# ')) {
+    formats.heading1 = true;
+    content = content.substring(2);
+  } else if (content.startsWith('## ')) {
+    formats.heading2 = true;
+    content = content.substring(3);
+  } else if (content.startsWith('### ')) {
+    formats.heading3 = true;
+    content = content.substring(4);
+  } else {
+    // 볼드 + 이탤릭 파싱
+    if (content.startsWith('***') && content.endsWith('***') && content.length > 6) {
+      formats.bold = true;
+      formats.italic = true;
+      content = content.substring(3, content.length - 3);
+    } else if (content.startsWith('**') && content.endsWith('**') && content.length > 4) {
+      formats.bold = true;
+      content = content.substring(2, content.length - 2);
+    } else if (content.startsWith('*') && content.endsWith('*') && content.length > 2) {
+      formats.italic = true;
+      content = content.substring(1, content.length - 1);
+    }
+  }
+  
+  // ✅ FIX: 항상 포맷 객체 반환 (새로고침 후 복원을 위해)
+  // null 반환하면 새로고침 후 포맷 상태를 알 수 없음
+  return { 
+    content, 
+    formats: formats  // 포맷이 모두 false여도 객체로 반환
+  };
+};
 
 // Clean legacy markdown placeholders from note content
 export const cleanLegacyContent = (content) => {
@@ -54,7 +131,8 @@ export const parseNoteContentToBlocks = (noteData) => {
         content: '', 
         ref: React.createRef(),
         layoutMode: 'full',
-        groupId: null
+        groupId: null,
+        savedFormats: null
       }
     ];
   }
@@ -69,12 +147,15 @@ export const parseNoteContentToBlocks = (noteData) => {
         content: '', 
         ref: React.createRef(),
         layoutMode: 'full',
-        groupId: null
+        groupId: null,
+        savedFormats: null
       }
     ];
   }
 
   console.log('🔄 Loading note content for editing:', noteData.content);
+  console.log('🔍 RAW CONTENT TYPE:', typeof noteData.content);
+  console.log('🔍 RAW CONTENT LENGTH:', noteData.content?.length);
   
   const newBlocks = [];
   const content = noteData.content;
@@ -136,21 +217,24 @@ export const parseNoteContentToBlocks = (noteData) => {
           content: '',
           ref: React.createRef(),
           layoutMode: 'full',
-          groupId: null
+          groupId: null,
+          savedFormats: null
         });
       } else {
         const lines = part.split('\n');
         console.log('📝 Found text part with lines:', lines);
         
         lines.forEach(line => {
-          // ✅ 빈 줄도 유지 - 사용자 의도대로 저장
+          // ✅ 포맷 정보 파싱하여 저장
+          const parsed = parseMarkdownFormat(line);
           newBlocks.push({
             id: generateId(),
             type: 'text',
-            content: line, // trim() 제거 - 원본 유지
+            content: parsed.content, // 순수 콘텐츠만 저장
             ref: React.createRef(),
             layoutMode: 'full',
-            groupId: null
+            groupId: null,
+            savedFormats: parsed.formats // 포맷 정보 저장
           });
         });
       }
@@ -165,7 +249,8 @@ export const parseNoteContentToBlocks = (noteData) => {
       content: '',
       ref: React.createRef(),
       layoutMode: 'full',
-      groupId: null
+      groupId: null,
+      savedFormats: null
     });
   }
   
@@ -191,10 +276,15 @@ export const convertBlocksToContent = (blocks) => {
     });
     
     if (block.type === 'text') {
-      // ✅ 빈 텍스트 블록도 저장 - 빈 줄 유지
+      // ✅ 포맷 정보를 마크다운으로 변환하여 저장
       const content = block.content || '';
-      contentParts.push(content);
-      console.log(`🔍 Added text block ${index} to parts:`, content === '' ? 'EMPTY_STRING' : content);
+      const formats = block.savedFormats || null;
+      const formattedContent = formatToMarkdown(content, formats);
+      contentParts.push(formattedContent);
+      console.log(`🔍 Added text block ${index} to parts:`, formattedContent === '' ? 'EMPTY_STRING' : formattedContent);
+      if (formats) {
+        console.log(`🎨 Block ${index} has formats:`, formats);
+      }
     } else if (block.type === 'card') {
       // Save card even if empty
       const cardContent = block.content?.trim() || '';

@@ -59,7 +59,7 @@ const ReadmeDetailScreen = ({
   const titleInputRef = useRef(null);
   const [title, setTitle] = useState('');
   const [blocks, setBlocks] = useState([
-    { id: generateId(), type: 'text', content: '', ref: React.createRef() },
+    { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null },
   ]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isRefocusFromDropdown, setIsRefocusFromDropdown] = useState(false);
@@ -88,7 +88,7 @@ const ReadmeDetailScreen = ({
   const scrollToFocusedInput = () => {}; // KeyboardAwareScrollView가 자동 처리
   
   // 핸들러들 - NoteDetailScreen과 동일한 패턴
-  const { handleAddCard, handleAddGrid, handleAddImage, handleDeleteBlock, handleKeyPress: originalHandleKeyPress, handleTextChange } = useNoteDetailHandlers(
+  const { handleAddCard, handleAddImage, handleDeleteBlock, handleKeyPress: originalHandleKeyPress, handleTextChange } = useNoteDetailHandlers(
     blocks,
     setBlocks,
     focusedIndex,
@@ -197,7 +197,7 @@ const ReadmeDetailScreen = ({
     if (isAuthor) {
       setActiveScreenHandlers({
         handleAddCard,
-        handleAddGrid,  
+  
         handleAddImage,
         blurCurrentInput,
         refocusCurrentInput
@@ -267,7 +267,7 @@ const ReadmeDetailScreen = ({
         } catch (parseError) {
           console.log('⚠️ README content parsing failed:', parseError);
           setBlocks([
-            { id: generateId(), type: 'text', content: readmeContentText, ref: React.createRef() }
+            { id: generateId(), type: 'text', content: readmeContentText, ref: React.createRef(), layoutMode: 'full', groupId: null }
           ]);
         }
       }
@@ -282,7 +282,7 @@ const ReadmeDetailScreen = ({
     if (blocks.length === 0) {
       console.log('🔧 Adding initial empty block to README');
       setBlocks([
-        { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+        { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null }
       ]);
     }
   }, [blocks.length]);
@@ -410,10 +410,10 @@ const ReadmeDetailScreen = ({
               paddingBottom: 100,
               minHeight: 800
             }]}
-            enableAutomaticScroll={!isRefocusFromDropdown}
+            enableAutomaticScroll={false} // 🔧 FIX: 키보드 글씨 움직임 완전 제거
             enableResetScrollToCoords={false}
-            extraScrollHeight={isRefocusFromDropdown ? 0 : 25}
-            extraHeight={isRefocusFromDropdown ? 0 : 15}
+            extraScrollHeight={0} // 🔧 FIX: 0으로 설정하여 키보드 움직임 방지
+            extraHeight={0} // 🔧 FIX: 0으로 설정하여 키보드 움직임 방지
             keyboardVerticalOffset={0} 
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="none"
@@ -447,7 +447,11 @@ const ReadmeDetailScreen = ({
                   }
                 }
               }}
+              onSelectionChange={({ nativeEvent }) => {
+                console.log('🎯 README Detail Title selection changed:', nativeEvent.selection);
+              }}
               multiline
+              scrollEnabled={false}
               autoCorrect={false}
               autoComplete="off"
               spellCheck={false}

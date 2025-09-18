@@ -23,7 +23,7 @@ import Colors from '../constants/Colors';
 import { useNotesStore } from '../store/NotesStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleToolbar } from '../contexts/SimpleToolbarContext';
-import { useFormatting, FormattingProvider } from '../components/toolbar/ToolbarFormatting';
+import { useFormatting } from '../components/toolbar/ToolbarFormatting';
 // UnifiedToolbar는 App.js에서 전역 렌더링
 import SocialInteractionBar from '../components/SocialInteractionBar';
 import { UnifiedHeader } from '../shared/components/layout';
@@ -89,12 +89,14 @@ const NoteDetailScreen = ({
   // 🔧 로그 비활성화 - 무한 출력 방지
   // console.log('🔧 NoteDetailScreen: Component mounting/rendering');
   const { setActiveScreenHandlers, setFocusedIndex: setGlobalFocusedIndex, hideDropdown } = useSimpleToolbar();
-  const { setCurrentFocusedIndex, setCurrentBlockRef, getDynamicTextStyle, setSetBlocks } = useFormatting();
+  // 🔧 FIX: FormattingProvider 연결 추가
+  const { setSetBlocks } = useFormatting();
   const scrollRef = useRef(null);
   const titleInputRef = useRef(null);
   const [title, setTitle] = useState('');
+  const [titleSelection, setTitleSelection] = useState({ start: 0, end: 0 });
   const [blocks, setBlocks] = useState([
-    { id: generateId(), type: 'text', content: '', ref: React.createRef() },
+    { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null },
   ]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [loadingNote, setLoadingNote] = useState(true);
@@ -210,10 +212,27 @@ const NoteDetailScreen = ({
   const { keyboardVisible, keyboardHeight: globalKeyboardHeight, keyboardHeightValue } = useSimpleToolbar();
   const keyboardHeight = globalKeyboardHeight;
   
-  // scrollToFocusedInput 함수는 KeyboardAwareScrollView가 자동 처리
-  const scrollToFocusedInput = () => {}; // 빈 함수로 대체
+  // 안전한 스크롤 함수 - content size 변화 감지
+  const scrollToFocusedInput = useCallback(() => {
+    if (scrollRef.current) {
+      console.log('📍 Triggering content re-measurement for auto-scroll');
+      // 안전한 방법: KeyboardAwareScrollView가 다시 측정하도록 유도
+      try {
+        // scrollToEnd를 아주 짧게 호출했다가 원래 위치로 복귀
+        // 이렇게 하면 KeyboardAwareScrollView가 content를 다시 측정함
+        const currentScrollY = scrollRef.current.contentOffset?.y || 0;
+        setTimeout(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTo({ y: currentScrollY, animated: true });
+          }
+        }, 10);
+      } catch (error) {
+        console.log('📍 Scroll adjustment skipped due to error:', error.message);
+      }
+    }
+  }, []);
 
-  const { handleAddCard, handleAddGrid, handleAddImage, handleDeleteBlock, handleKeyPress, handleTextChange } = useNoteDetailHandlers(
+  const { handleAddCard, handleAddImage, handleDeleteBlock, handleKeyPress, handleTextChange } = useNoteDetailHandlers(
     blocks,
     setBlocks,
     focusedIndex,
@@ -226,7 +245,8 @@ const NoteDetailScreen = ({
     isAuthor,
     noteId,
     loadingNote,
-    updateNote
+    updateNote,
+    setIsActivelyEditing
   );
 
   // 포맷팅 관리는 이제 FormattingProvider에서 처리됨
@@ -332,46 +352,33 @@ const NoteDetailScreen = ({
 
   // Register handlers with global toolbar
   useEffect(() => {
-    // 저자인 경우에만 handlers 설정
-    if (isAuthor) {
-      setActiveScreenHandlers({
-        handleAddCard,
-        handleAddGrid,
-        handleAddImage,
-        blurCurrentInput, // 키보드 blur 함수 추가
-        refocusCurrentInput // 키보드 재포커스 함수 추가
-      });
-    } else {
-      setActiveScreenHandlers(null);
-    }
+    // 🔧 TEMP FIX: 조건 제거하여 항상 handlers 설정 (테스트용)
+    setActiveScreenHandlers({
+      handleAddCard,
+      handleAddImage,
+      blurCurrentInput, // 키보드 blur 함수 추가
+      refocusCurrentInput // 키보드 재포커스 함수 추가
+    });
     
     return () => {
       setActiveScreenHandlers(null);
       hideDropdown(); // 화면 떠날 때도 드롭다운 정리
     };
-  }, [setActiveScreenHandlers, isAuthor]); // 함수들은 useCallback으로 안정화됨 - 의존성에서 제외
+  }, [setActiveScreenHandlers]); // isAuthor 의존성 제거
 
-  // Sync focusedIndex with global toolbar and formatting system
-  useEffect(() => {
-    setGlobalFocusedIndex(focusedIndex);
-    setCurrentFocusedIndex(focusedIndex);
-    
-    // 현재 포커스된 블록의 ref를 포맷팅 시스템에 전달
-    if (focusedIndex >= 0 && focusedIndex < blocks.length) {
-      const currentBlock = blocks[focusedIndex];
-      if (currentBlock && currentBlock.ref) {
-        setCurrentBlockRef(currentBlock.ref);
-        // Updated currentBlockRef
-      }
-    } else {
-      setCurrentBlockRef(null);
-    }
-  }, [focusedIndex, blocks, setGlobalFocusedIndex, setCurrentFocusedIndex, setCurrentBlockRef]);
-
-  // Register setBlocks with FormattingProvider
+  // 🔧 FIX: FormattingProvider에 setBlocks 함수 등록
   useEffect(() => {
     setSetBlocks(setBlocks);
-  }, [setSetBlocks]);
+    
+    return () => {
+      setSetBlocks(null);
+    };
+  }, [setSetBlocks, setBlocks]);
+
+  // Sync focusedIndex with global toolbar - CreateNoteScreen style
+  useEffect(() => {
+    setGlobalFocusedIndex(focusedIndex);
+  }, [focusedIndex, setGlobalFocusedIndex]);
 
   
   // Load note data - SINGLE useEffect to prevent loops
@@ -468,9 +475,13 @@ const NoteDetailScreen = ({
     };
   }, [noteId]); // ONLY noteId dependency to prevent infinite loops
   
+  // Track if user is actively editing to prevent data overwrites
+  const [isActivelyEditing, setIsActivelyEditing] = useState(false);
+  
   // Initialize content from note data - only run once when note loads
   useEffect(() => {
-    if (displayNote && !loadingNote && displayNote.id && !contentInitialized) {
+    // 🚨 FIX: 사용자가 편집 중일 때는 서버 데이터로 덮어쓰지 않음
+    if (displayNote && !loadingNote && displayNote.id && !contentInitialized && !isActivelyEditing) {
       console.log('🔄 Initializing content for note:', displayNote.id);
       console.log('🔄 DisplayNote content:', displayNote.content);
       
@@ -488,27 +499,27 @@ const NoteDetailScreen = ({
           } else {
             // Fallback if parsing fails
             setBlocks([
-              { id: generateId(), type: 'text', content: displayNote.content || '', ref: React.createRef() }
+              { id: generateId(), type: 'text', content: displayNote.content || '', ref: React.createRef(), layoutMode: 'full', groupId: null, savedFormats: null }
             ]);
           }
         } catch (parseError) {
           console.log('⚠️ Content parsing failed, using fallback:', parseError);
           setBlocks([
-            { id: generateId(), type: 'text', content: displayNote.content || '', ref: React.createRef() }
+            { id: generateId(), type: 'text', content: displayNote.content || '', ref: React.createRef(), layoutMode: 'full', groupId: null, savedFormats: null }
           ]);
         }
       } else {
         console.log('🔄 No content, creating empty text block');
         // Ensure we have at least one text block
         setBlocks([
-          { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+          { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null, savedFormats: null }
         ]);
       }
       
       setContentInitialized(true);
       console.log('✅ Content initialization completed');
     }
-  }, [displayNote?.id, loadingNote, contentInitialized]); // Keep essential dependencies
+  }, [displayNote?.id, loadingNote, contentInitialized]); // 🚨 FIX: isActivelyEditing 제거 - 무한루프 방지
 
   // Ensure there's always an empty text block at the end
 
@@ -517,8 +528,14 @@ const NoteDetailScreen = ({
     if (blocks.length === 0) {
       console.log('🔧 Adding initial empty block');
       setBlocks([
-        { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+        { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null }
       ]);
+      return;
+    }
+
+    // 🚨 FIX: 편집 중이거나 콘텐츠 초기화가 완료되지 않은 경우 마이그레이션 실행 안함
+    if (isActivelyEditing || !contentInitialized) {
+      console.log('🔄 Skipping migration - user is actively editing or content not initialized');
       return;
     }
 
@@ -571,18 +588,19 @@ const NoteDetailScreen = ({
       
       setBlocks(migratedBlocks);
       console.log('✅ Block migration completed:', migratedBlocks.length, 'blocks');
-    } else {
+    } else if (!isActivelyEditing) {
+      // 🚨 FIX: 편집 중이 아닐 때만 빈 블록 관리
       // 마이그레이션이 필요 없는 경우, 빈 블록만 관리
       const lastBlock = blocks[blocks.length - 1];
       if (lastBlock.type !== 'text' || lastBlock.content.trim() !== '') {
         console.log('🔧 Adding trailing empty text block');
         setBlocks(prev => ([
           ...prev,
-          { id: generateId(), type: 'text', content: '', ref: React.createRef() }
+          { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null }
         ]));
       }
     }
-  }, [blocks.length]); // 간단한 의존성
+  }, [blocks.length, isActivelyEditing, contentInitialized]); // 🔧 FIX: contentInitialized 추가하여 초기화 완료 후에만 실행
 
   // Header handlers
   const handleBack = useCallback(() => {
@@ -833,21 +851,11 @@ const NoteDetailScreen = ({
                 paddingBottom: 100, // ✅ 줄인 패딩 - KeyboardAwareScrollView가 자동 처리
                 minHeight: 800 // ✅ 줄인 최소 높이 - 자동 스크롤 시스템 사용
               }]}
-              // 🔧 조건부 자동 스크롤 - 드롭다운 refocus 시에만 비활성화
-              enableAutomaticScroll={!isRefocusFromDropdown} // 드롭다운 refocus 시에만 비활성화
-              // 🔍 디버깅: 현재 상태 출력 (실제 설정값과 일치)
-              {...(() => {
-                console.log('📍 KeyboardAware Config:', {
-                  isRefocusFromDropdown,
-                  enableAutomaticScroll: !isRefocusFromDropdown,
-                  extraScrollHeight: isRefocusFromDropdown ? 0 : 25,
-                  extraHeight: isRefocusFromDropdown ? 0 : 15
-                });
-                return {};
-              })()}
+              // 🔧 FIX: 키보드 글씨 움직임 완전 제거 - 모든 자동 스크롤 비활성화
+              enableAutomaticScroll={false} // 완전 비활성화
               enableResetScrollToCoords={false}
-              extraScrollHeight={isRefocusFromDropdown ? 0 : 25} // 적당한 간격 확보
-              extraHeight={isRefocusFromDropdown ? 0 : 15} // 키보드와 충분한 거리
+              extraScrollHeight={0} // 🔧 FIX: 0으로 설정하여 키보드 움직임 방지
+              extraHeight={0} // 🔧 FIX: 0으로 설정하여 키보드 움직임 방지
               keyboardVerticalOffset={0} 
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="none"
@@ -942,37 +950,83 @@ const NoteDetailScreen = ({
                 placeholder="Title"
                 value={title}
                 onChangeText={(newTitle) => {
-                  console.log('🏷️ Title changed:', newTitle.length, 'characters');
-                  setTitle(newTitle);
+                  // 🔧 FIX: multiline에서 Enter 키로 인한 줄바꿈 제거 - 타이틀은 단일 제목
+                  const cleanTitle = newTitle.replace(/\n/g, '');
+                  console.log('🏷️ Title changed:', cleanTitle.length, 'characters');
+                  setTitle(cleanTitle);
                 }}
                 // ✅ 플로팅 툴바 사용으로 inputAccessoryViewID 제거
-                onPressIn={() => {
+                onPressIn={(event) => {
                   console.log('🎯 Title input pressed');
-                  dismissMenus();
+                  
+                  // 🔧 FIX: iOS에서 클릭 위치 기반 커서 설정
+                  if (Platform.OS === 'ios' && event.nativeEvent && event.nativeEvent.locationX !== undefined) {
+                    const { locationX } = event.nativeEvent;
+                    const charWidth = 13.5; // 22px fontSize + 28px lineHeight의 대략적 문자 너비
+                    const clickedCharIndex = Math.floor(locationX / charWidth);
+                    const targetIndex = Math.max(0, Math.min(clickedCharIndex, title.length));
+                    
+                    console.log('🎯 PressIn: Setting cursor to position:', targetIndex);
+                    setTimeout(() => {
+                      setTitleSelection({ start: targetIndex, end: targetIndex });
+                    }, 50);
+                  }
+                  
+                  // 메뉴 해제는 더 늦게
+                  setTimeout(() => {
+                    dismissMenus();
+                  }, 100);
                 }}
                 onFocus={() => {
                   console.log('🎯 Title input focused - user direct interaction');
-                  dismissMenus();
-                  setFocusedIndex(-1);
-                  // 🔧 사용자 직접 포커스 시 드롭다운 플래그 초기화
-                  setIsRefocusFromDropdown(false);
+                  // 🔧 FIX: 포커스 관련 작업을 setTimeout으로 지연 - 클릭 위치 방해 방지
+                  setTimeout(() => {
+                    dismissMenus();
+                    setFocusedIndex(-1);
+                    setIsRefocusFromDropdown(false);
+                  }, 10);
                 }}
                 onContentSizeChange={({ nativeEvent }) => {
                   console.log('📏 Title content size changed:', nativeEvent.contentSize);
                   // No action needed - KeyboardAvoidingView handles positioning
                 }}
-                multiline
+                onSelectionChange={({ nativeEvent }) => {
+                  console.log('🎯 Title selection changed:', nativeEvent.selection);
+                  setTitleSelection(nativeEvent.selection);
+                }}
+                selection={titleSelection}
+                onTouchStart={(event) => {
+                  const { locationX, locationY } = event.nativeEvent;
+                  console.log('🎯 Title touch at:', { locationX, locationY });
+                  
+                  // 🔧 FIX: iOS 클릭 위치 기반 커서 위치 계산
+                  if (Platform.OS === 'ios') {
+                    // 대략적인 문자 너비 계산 (fontSize 기반)
+                    const charWidth = 13.5; // 22px fontSize + 28px lineHeight의 대략적 문자 너비
+                    const clickedCharIndex = Math.floor(locationX / charWidth);
+                    const targetIndex = Math.max(0, Math.min(clickedCharIndex, title.length));
+                    
+                    console.log('🎯 Setting cursor to position:', targetIndex);
+                    setTitleSelection({ start: targetIndex, end: targetIndex });
+                  }
+                }}
+                multiline={true}
                 scrollEnabled={false}
+                {...(Platform.OS === 'ios' && {
+                  textBreakStrategy: 'simple', // iOS 텍스트 처리 최적화
+                  dataDetectorTypes: 'none', // 불필요한 데이터 감지 비활성화
+                })}
                 autoCorrect={false}
                 autoComplete="off"
                 spellCheck={false}
+                autoCapitalize="none" // 🔧 FIX: 자동 대문자 변환 비활성화로 키보드 움직임 방지
                 editable={isAuthor}
               />
 
               {/* Content Blocks */}
               <View style={styles.blocksContainer}>
                 {blocks.map((block, index) => (
-                  <View key={`container-${block.id}`}>
+                  <View key={`container-${block.id}`} style={{marginVertical: 0, paddingVertical: 0}}>
                     {/* Drop zone indicator before each block (except first) */}
                     {index > 0 && dragMode === 'reorder' && draggingBlockId && (
                       <View 

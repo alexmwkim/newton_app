@@ -176,7 +176,7 @@ class UnifiedFollowService {
   async followUser(followerId, followingId) {
     try {
       // 🚨 CRITICAL DEBUG: 팔로우 호출 추적
-      console.log('🔥🔥🔥 FOLLOW STARTING 🔥🔥🔥', {
+      console.log('🚨 FOLLOW DEBUG:', {
         followerId,
         followingId,
         timestamp: new Date().toISOString()

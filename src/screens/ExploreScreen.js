@@ -235,7 +235,6 @@ const ExploreScreen = ({ navigation }) => {
         }
       
       case 'trending':
-        console.log('🔥 Applying Trending filter');
         return trendingAlgorithm.filterByCategory(notesWithScores, 'trending', 168); // 7일
       
       case 'following':
@@ -558,7 +557,6 @@ const ExploreScreen = ({ navigation }) => {
                             key={author.id} 
                             style={[styles.authorCard, index === 0 && styles.firstAuthorCard]}
                             onPress={() => {
-                              console.log('🔥 AUTHOR CARD PRESSED!', author.username);
                               // ENHANCED DEBUG: Log complete author object
                               console.log('🔍 FULL AUTHOR OBJECT:', JSON.stringify(author, null, 2));
                               console.log('🔍 Author keys:', Object.keys(author));

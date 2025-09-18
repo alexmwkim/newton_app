@@ -103,10 +103,19 @@ const EditReadmeScreen = ({ navigation, route }) => {
           <TextInput
             style={styles.titleInput}
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(newTitle) => {
+              // 🔧 FIX: multiline에서 Enter 키로 인한 줄바꿈 제거 - 타이틀은 단일 제목
+              const cleanTitle = newTitle.replace(/\n/g, '');
+              setTitle(cleanTitle);
+            }}
             placeholder="Enter title..."
             placeholderTextColor={Colors.secondaryText}
             autoFocus={true}
+            onSelectionChange={({ nativeEvent }) => {
+              console.log('🎯 Edit README Title selection changed:', nativeEvent.selection);
+            }}
+            multiline
+            scrollEnabled={false}
           />
         </View>
 
@@ -198,12 +207,15 @@ const styles = StyleSheet.create({
   titleInput: {
     backgroundColor: Colors.noteCard,
     borderRadius: 12,
-    padding: Layout.spacing.md,
+    padding: Layout.spacing.sm, // 🔧 FIX: 패딩 줄임 - 텍스트 위쪽 빈 공간 제거  
     fontSize: Typography.fontSize.body,
     fontFamily: Typography.fontFamily.primary,
     color: Colors.primaryText,
     borderWidth: 1,
     borderColor: Colors.border,
+    // 🔧 FIX: multiline TextInput 커서 위치 수정 - top 정렬로 변경
+    textAlignVertical: 'top',
+    // minHeight 제거 - 텍스트 위쪽 클릭 가능 영역 제거
   },
   contentInput: {
     backgroundColor: Colors.noteCard,

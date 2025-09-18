@@ -22,10 +22,19 @@ const ReadmeEditHeader = ({
       <TextInput
         style={styles.titleInput}
         value={editingTitle}
-        onChangeText={onTitleChange}
+        onChangeText={(newTitle) => {
+          // 🔧 FIX: multiline에서 Enter 키로 인한 줄바꿈 제거 - 타이틀은 단일 제목
+          const cleanTitle = newTitle.replace(/\n/g, '');
+          onTitleChange(cleanTitle);
+        }}
         placeholder="README Title"
         placeholderTextColor={Colors.text.secondary}
         maxLength={100}
+        onSelectionChange={({ nativeEvent }) => {
+          console.log('🎯 Profile README Title selection changed:', nativeEvent.selection);
+        }}
+        multiline
+        scrollEnabled={false}
       />
     </View>
     
@@ -167,8 +176,11 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    paddingVertical: Layout.spacing.small,
+    paddingVertical: 2, // 🔧 FIX: 최소 패딩으로 변경 - 텍스트 위쪽 빈 공간 제거
     paddingHorizontal: 0,
+    // 🔧 FIX: multiline TextInput 커서 위치 수정 - top 정렬로 변경
+    textAlignVertical: 'top',
+    // minHeight 제거 - 텍스트 위쪽 클릭 가능 영역 제거
   },
   editActions: {
     flexDirection: 'row',

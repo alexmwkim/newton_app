@@ -33,7 +33,7 @@ export const useNoteEditor = (initialNote = null, noteId = null) => {
   // Basic States
   const [title, setTitle] = useState(initialNote?.title || '');
   const [blocks, setBlocks] = useState([
-    { id: generateId(), type: 'text', content: '', ref: React.createRef() },
+    { id: generateId(), type: 'text', content: '', ref: React.createRef(), layoutMode: 'full', groupId: null },
   ]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [loadingNote, setLoadingNote] = useState(!!noteId);

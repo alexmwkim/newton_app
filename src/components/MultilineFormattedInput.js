@@ -13,6 +13,8 @@ const MultilineFormattedInput = ({
   onChangeText,
   onFocus,
   onBlur,
+  onKeyPress, // 외부 키 이벤트 핸들러 추가
+  multiline = true, // 멀티라인 지원
   placeholder = 'Write something',
   style = {},
   baseIndex = 0, // 블록의 기본 인덱스
@@ -20,35 +22,44 @@ const MultilineFormattedInput = ({
   setFocusedIndex,
   isAuthor = true,
   inputAccessoryViewID = null, // ✅ InputAccessoryView ID 추가
+  autoFocus = false, // 🔧 FIX: 자동 포커스 옵션 추가
   ...props
 }) => {
+  console.log('🔍 MultilineFormattedInput render - multiline:', multiline, 'value:', value.length > 0 ? `"${value.substring(0, 20)}..."` : 'empty');
+  
   const { getDynamicTextStyle, setCurrentFocusedIndex, resetFormatsIfTextEmpty } = useFormatting();
   const { keyboardVisible } = useSimpleToolbar();
   
-  // 텍스트를 줄별로 분할
-  const lines = value.split('\n');
+  // 텍스트를 줄별로 분할 - 🔧 FIX: 빈 값일 때도 최소 1줄은 보장
+  const lines = value ? value.split('\n') : [''];
   const [focusedLineIndex, setFocusedLineIndex] = useState(-1);
   const lineRefs = useRef([]); // 각 줄의 TextInput ref 저장
   
   // 줄별 텍스트 변경 처리
   const handleLineChange = useCallback((lineIndex, newText) => {
+    // 줄바꿈 허용 - TextInput의 multiline 동작을 지원
+    const cleanText = newText;
+    
     const newLines = [...lines];
-    newLines[lineIndex] = newText;
+    newLines[lineIndex] = cleanText;
     const newValue = newLines.join('\n');
     
     // ✅ 텍스트가 비어있으면 해당 줄의 포맷 초기화
     const globalIndex = baseIndex + lineIndex;
     if (resetFormatsIfTextEmpty) {
-      resetFormatsIfTextEmpty(globalIndex, newText);
+      resetFormatsIfTextEmpty(globalIndex, cleanText);
     }
     
     onChangeText?.(newValue);
   }, [lines, onChangeText, baseIndex, resetFormatsIfTextEmpty]);
   
-  // 새 줄 추가 (Enter 키)
+  // 새 줄 추가 (Enter 키) - 🔧 FIX: 빈 줄 생성하지 않고 현재 줄에서 줄바꿈
   const handleEnterPress = useCallback((lineIndex) => {
     const newLines = [...lines];
-    newLines.splice(lineIndex + 1, 0, ''); // 새 빈 줄 추가
+    // 현재 줄의 커서 위치에서 분할 (빈 줄 추가하지 않음)
+    const currentLine = newLines[lineIndex] || '';
+    newLines[lineIndex] = currentLine; // 현재 줄 유지
+    newLines.splice(lineIndex + 1, 0, ''); // 새 줄 추가는 필요시에만
     const newValue = newLines.join('\n');
     onChangeText?.(newValue);
     
@@ -110,24 +121,35 @@ const MultilineFormattedInput = ({
     onBlur?.(baseIndex + lineIndex);
   }, [baseIndex, onBlur]);
   
-  // 키 입력 처리
+  // 키 입력 처리 - 🔧 FIX: multiline prop에 관계없이 항상 동일한 로직 적용
   const handleKeyPress = useCallback((lineIndex, { nativeEvent }) => {
     const { key } = nativeEvent;
     console.log('🔤 Key pressed in line', lineIndex, ':', key);
     
+    // Enter 키 처리 - 항상 새 줄 생성
     if (key === 'Enter') {
       console.log('⏎ Enter key - creating new line after', lineIndex);
       nativeEvent.preventDefault?.(); // 기본 Enter 동작 방지
       handleEnterPress(lineIndex);
+      // 외부 onKeyPress 핸들러 호출
+      if (onKeyPress) {
+        onKeyPress(nativeEvent);
+      }
       return;
     }
     
+    // Backspace 처리 - 빈 줄에서 줄 삭제
     if (key === 'Backspace' && lines[lineIndex] === '') {
       console.log('⌫ Backspace on empty line', lineIndex, '- deleting line');
       handleLineDelete(lineIndex);
       return;
     }
-  }, [handleEnterPress, handleLineDelete, lines]);
+    
+    // 다른 모든 키는 외부 핸들러로 전달
+    if (onKeyPress) {
+      onKeyPress(nativeEvent);
+    }
+  }, [handleEnterPress, handleLineDelete, lines, onKeyPress]);
   
   return (
     <View style={style}>
@@ -136,30 +158,38 @@ const MultilineFormattedInput = ({
         const lineStyle = getDynamicTextStyle(globalIndex, null);
         const isFocused = focusedLineIndex === lineIndex;
         
+        // 🔧 FIX: autoFocus가 활성화된 경우 빈 줄도 렌더링 (새 카드 지원)
+        if (lineIndex === lines.length - 1 && line === '' && !isFocused && !autoFocus) {
+          return null;
+        }
+        
         return (
           <TextInput
             key={`line-${lineIndex}`}
             ref={(ref) => {
               lineRefs.current[lineIndex] = ref;
             }}
-            // ✅ autoFocus 제거 - TextInput 자동 스크롤 방지
+            autoFocus={autoFocus && lineIndex === 0} // 🔧 FIX: 첫 번째 줄에만 autoFocus 적용
             style={[
               {
                 fontSize: 16,
-                lineHeight: 20,
-                paddingVertical: 2,
+                lineHeight: 24, // 🔧 FIX: 카드 블록에 맞는 더 컴팩트한 lineHeight
+                paddingVertical: 0,
                 paddingHorizontal: 0,
-                minHeight: Math.max(24, lineStyle.fontSize ? lineStyle.fontSize + 8 : 24),
+                minHeight: 24, // 🔧 FIX: lineHeight와 일치하는 minHeight로 여백 최소화
+                marginBottom: 0, // 🔧 FIX: 모든 여백 제거
+                marginTop: 0,
+                backgroundColor: 'transparent',
+                color: Colors.primaryText,
+                textAlignVertical: 'top',
                 ...(Platform.OS === 'ios' && {
                   fontFamily: 'System'
                 }),
                 ...(Platform.OS === 'android' && {
-                  textAlignVertical: 'top',
                   includeFontPadding: false
                 })
               },
-              lineStyle, // 줄별 독립적인 포맷 스타일 적용
-              // 포커스 표시 제거 - 기본 TextInput 커서만 사용
+              lineStyle, // 줄별 독립적인 포맷 스타일 적용 (fontSize, fontWeight 등)
             ]}
             value={line}
             onChangeText={(text) => handleLineChange(lineIndex, text)}
@@ -172,12 +202,13 @@ const MultilineFormattedInput = ({
             }}
             placeholder={lineIndex === 0 ? placeholder : ''}
             placeholderTextColor={Colors.secondaryText}
-            multiline={false} // 각 줄은 단일 라인
-            returnKeyType="next" // Enter키를 다음 줄로 이동하는 키로 표시
+            multiline={true} // 🔧 FIX: 일반 노트와 동일하게 multiline으로 자동 줄바꿈 허용
+            returnKeyType="next" // Enter 키로 새 줄 생성
             blurOnSubmit={false}
             autoCorrect={false}
             autoComplete="off"
             spellCheck={false}
+            autoCapitalize="none" // 🔧 FIX: 자동 대문자 변환 비활성화로 키보드 움직임 방지
             editable={isAuthor}
             // ✅ InputAccessoryView 제거 (플로팅 툴바 사용)
             // inputAccessoryViewID={inputAccessoryViewID}

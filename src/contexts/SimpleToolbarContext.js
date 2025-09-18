@@ -5,9 +5,8 @@ import { DROPDOWN_TYPES } from '../constants/DropdownConfig';
 const SimpleToolbarContext = createContext();
 
 export const SimpleToolbarProvider = ({ children }) => {
-  // 🔧 로그 비활성화 - 무한 출력 방지
-  // console.log('🚨🚨🚨 CRITICAL: SimpleToolbarProvider is rendering - THIS SHOULD SHOW UP');
-  // console.log('🚨🚨🚨 If this log does not appear, Context is not being used');
+  console.log('🚨🚨🚨 CRITICAL: SimpleToolbarProvider is rendering - THIS SHOULD SHOW UP');
+  console.log('🚨🚨🚨 If this log does not appear, Context is not being used');
   const [activeScreenHandlers, setActiveScreenHandlers] = useState(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   
